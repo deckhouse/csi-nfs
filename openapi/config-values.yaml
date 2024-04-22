@@ -1,0 +1,7 @@
+type: object
+properties:
+  replicas:
+    type: integer
+    description: |
+      replicas count.
+    default: 1
