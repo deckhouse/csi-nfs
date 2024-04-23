@@ -1,0 +1,12 @@
+---
+apiVersion: storage.k8s.io/v1
+kind: CSIDriver
+metadata:
+  name: nfs.csi.k8s.io
+  {{- include "helm_lib_module_labels" (list . (dict "app" "csi-driver")) | nindent 2 }}
+spec:
+  attachRequired: false
+  volumeLifecycleModes:
+    - Persistent
+    - Ephemeral
+  fsGroupPolicy: File
