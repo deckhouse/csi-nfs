@@ -40,7 +40,7 @@
   name: tmp-dir
 {{- end }}
 
-{{- $csiControllerImage := include "helm_lib_module_image" (list . "csiNfsController") }}
+{{- $csiControllerImage := include "helm_lib_module_image" (list . "csiNfs") }}
 
 {{- $csiControllerConfig := dict }}
 {{- $_ := set $csiControllerConfig "controllerImage" $csiControllerImage }}
