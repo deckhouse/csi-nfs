@@ -32,9 +32,9 @@ spec:
               description: |
                 Defines a Kubernetes Storage class configuration.
               required:
-                - server
+                - serverOptions
               properties:
-                server:
+                serverOptions:
                   type: object
                   description: |
                     Defines a Kubernetes Storage class configuration.
@@ -50,6 +50,7 @@ spec:
                           message: Value is immutable.
                       description: |
                         NFS server host
+                      minLength: 1
                     share:
                       type: string
                       x-kubernetes-validations:
@@ -57,6 +58,7 @@ spec:
                           message: Value is immutable.
                       description: |
                         NFS server share path
+                      minLength: 1
                     nfsVersion:
                       type: string
                       x-kubernetes-validations:
@@ -68,7 +70,7 @@ spec:
                         - "3"
                         - "4.1"
                         - "4.2"
-                options:
+                mountOptions:
                   type: object
                   description: |
                     Storage class mount options
@@ -84,10 +86,12 @@ spec:
                       type: integer
                       description: |
                         NFS server timeout
+                      minimum: 1
                     retransmissions:
                       type: integer
                       description: |
                         NFS retries before fail
+                      minimum: 1
                     readOnly:
                       type: boolean
                       description: |
@@ -96,6 +100,7 @@ spec:
                   type: string
                   description: |
                     chmod rights for PVs subdirectory
+                  pattern: '^[0-7]{3,4}$'
                 reclaimPolicy:
                   type: string
                   x-kubernetes-validations:
