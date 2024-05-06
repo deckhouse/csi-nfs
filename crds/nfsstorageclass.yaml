@@ -32,9 +32,9 @@ spec:
               description: |
                 Defines a Kubernetes Storage class configuration.
               required:
-                - serverOptions
+                - connection
               properties:
-                serverOptions:
+                connection:
                   type: object
                   description: |
                     Defines a Kubernetes Storage class configuration.

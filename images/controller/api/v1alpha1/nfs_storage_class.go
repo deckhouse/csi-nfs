@@ -33,14 +33,14 @@ type NFSStorageClassList struct {
 }
 
 type NFSStorageClassSpec struct {
-	ServerOptions     *NFSStorageClassServerOptions `json:"serverOptions,omitempty"`
-	MountOptions      *NFSStorageClassMountOptions  `json:"mountOptions,omitempty"`
-	ChmodPermissions  string                        `json:"chmodPermissions,omitempty"`
-	ReclaimPolicy     string                        `json:"reclaimPolicy"`
-	VolumeBindingMode string                        `json:"volumeBindingMode"`
+	Connection        *NFSStorageClassConnection   `json:"connection,omitempty"`
+	MountOptions      *NFSStorageClassMountOptions `json:"mountOptions,omitempty"`
+	ChmodPermissions  string                       `json:"chmodPermissions,omitempty"`
+	ReclaimPolicy     string                       `json:"reclaimPolicy"`
+	VolumeBindingMode string                       `json:"volumeBindingMode"`
 }
 
-type NFSStorageClassServerOptions struct {
+type NFSStorageClassConnection struct {
 	Host       string `json:"host"`
 	Share      string `json:"share"`
 	NFSVersion string `json:"nfsVersion"`

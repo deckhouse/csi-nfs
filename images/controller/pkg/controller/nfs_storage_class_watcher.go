@@ -660,8 +660,8 @@ func deleteStorageClass(ctx context.Context, cl client.Client, sc *v1.StorageCla
 func GetSCMountOptions(nsc *v1alpha1.NFSStorageClass) []string {
 	mountOptions := []string{}
 
-	if nsc.Spec.ServerOptions.NFSVersion != "" {
-		mountOptions = append(mountOptions, "nfsvers="+nsc.Spec.ServerOptions.NFSVersion)
+	if nsc.Spec.Connection.NFSVersion != "" {
+		mountOptions = append(mountOptions, "nfsvers="+nsc.Spec.Connection.NFSVersion)
 	}
 
 	if nsc.Spec.MountOptions.MountMode != "" {
@@ -688,8 +688,8 @@ func GetSCMountOptions(nsc *v1alpha1.NFSStorageClass) []string {
 func GetSCParams(nsc *v1alpha1.NFSStorageClass) map[string]string {
 	params := make(map[string]string)
 
-	params[serverParamKey] = nsc.Spec.ServerOptions.Host
-	params[shareParamKey] = nsc.Spec.ServerOptions.Share
+	params[serverParamKey] = nsc.Spec.Connection.Host
+	params[shareParamKey] = nsc.Spec.Connection.Share
 
 	if nsc.Spec.ChmodPermissions != "" {
 		params[mountPermissionsParamKey] = nsc.Spec.ChmodPermissions
