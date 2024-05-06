@@ -6,7 +6,7 @@ moduleStatus: experimental
 
 Модуль предоставляет CSI для управления томамим на основе `NFS`.
 
-> **Внимание!** Создание `StorageClass` для CSI-драйвера nfs.csi.storage.deckhouse.io пользователем запрещено.
+> **Внимание!** Создание `StorageClass` для CSI-драйвера `nfs.csi.k8s.io` пользователем запрещено.
 
 ## Быстрый старт
 

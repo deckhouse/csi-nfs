@@ -6,7 +6,7 @@ moduleStatus: experimental
 
 This module provides CSI that manages volumes based on `NFS`. 
 
-> **Caution!** The user is not allowed to create a `StorageClass` for the nfs.csi.storage.deckhouse.io CSI driver.
+> **Caution!** The user is not allowed to create a `StorageClass` for the `nfs.csi.k8s.io` CSI driver.
 
 ## Quickstart guide
 
