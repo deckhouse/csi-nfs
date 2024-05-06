@@ -53,7 +53,7 @@ const (
 
 	NFSStorageClassProvisioner = "nfs.csi.k8s.io"
 
-	NFSStorageClassFinalizerName = "nfsstorageclass.storage.deckhouse.io"
+	NFSStorageClassFinalizerName = "storage.deckhouse.io/nfs-storage-class-controller"
 
 	AllowVolumeExpansionDefaultValue = true
 
@@ -111,7 +111,7 @@ func RunNFSStorageClassWatcherController(
 				}, nil
 			}
 
-			log.Info("[NFSStorageClassReconciler] ends Reconcile for the NFSStorageClass %q", request.Name)
+			log.Info(fmt.Sprintf("[NFSStorageClassReconciler] ends Reconcile for the NFSStorageClass %q", request.Name))
 			return reconcile.Result{}, nil
 		}),
 	})
