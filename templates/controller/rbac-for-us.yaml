@@ -52,6 +52,7 @@ rules:
       - storage.deckhouse.io
     resources:
       - nfsstorageclasses
+      - nfsstorageclasses/status
     verbs:
       - get
       - list

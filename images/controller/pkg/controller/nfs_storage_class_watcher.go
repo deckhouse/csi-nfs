@@ -890,7 +890,7 @@ func reconcileSecretDeleteFunc(ctx context.Context, cl client.Client, log logger
 	log.Debug(fmt.Sprintf("[reconcileSecretDeleteFunc] starts removing a finalizer %s from the NFSStorageClass, name: %s", NFSStorageClassFinalizerName, nsc.Name))
 	removed, err := removeFinalizerIfExists(ctx, cl, nsc, NFSStorageClassFinalizerName)
 	if err != nil {
-		log.Error(err, "[reconcileSecretDeleteFunc] unable to remove a finalizer %s from the NFSStorageClass, name: %s", NFSStorageClassFinalizerName, nsc.Name)
+		log.Error(err, fmt.Sprintf("[reconcileSecretDeleteFunc] unable to remove a finalizer %s from the NFSStorageClass, name: %s", NFSStorageClassFinalizerName, nsc.Name))
 		upErr := updateNFSStorageClassPhase(ctx, cl, nsc, FailedStatusPhase, fmt.Sprintf("Unable to remove a finalizer, err: %s", err.Error()))
 		if upErr != nil {
 			log.Error(upErr, fmt.Sprintf("[reconcileSecretDeleteFunc] unable to update the NFSStorageClass, name: %s", nsc.Name))
