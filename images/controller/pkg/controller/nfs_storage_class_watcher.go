@@ -529,66 +529,6 @@ func removeFinalizerIfExists(ctx context.Context, cl client.Client, obj metav1.O
 	return removed, nil
 }
 
-// func removeNFSSCFinalizerIfExistsForNSC(ctx context.Context, cl client.Client, nsc *v1alpha1.NFSStorageClass) (bool, error) {
-// 	removed := false
-// 	for i, f := range nsc.Finalizers {
-// 		if f == NFSStorageClassFinalizerName {
-// 			nsc.Finalizers = append(nsc.Finalizers[:i], nsc.Finalizers[i+1:]...)
-// 			removed = true
-// 			break
-// 		}
-// 	}
-
-// 	if removed {
-// 		err := cl.Update(ctx, nsc)
-// 		if err != nil {
-// 			return false, err
-// 		}
-// 	}
-
-// 	return removed, nil
-// }
-
-// func removeNFSSCFinalizerIfExistsForSC(ctx context.Context, cl client.Client, sc *v1.StorageClass) (bool, error) {
-// 	removed := false
-// 	for i, f := range sc.Finalizers {
-// 		if f == NFSStorageClassFinalizerName {
-// 			sc.Finalizers = append(sc.Finalizers[:i], sc.Finalizers[i+1:]...)
-// 			removed = true
-// 			break
-// 		}
-// 	}
-
-// 	if removed {
-// 		err := cl.Update(ctx, sc)
-// 		if err != nil {
-// 			return false, err
-// 		}
-// 	}
-
-// 	return removed, nil
-// }
-
-// func removeNFSSCFinalizerIfExistsForSecret(ctx context.Context, cl client.Client, secret *corev1.Secret) (bool, error) {
-// 	removed := false
-// 	for i, f := range secret.Finalizers {
-// 		if f == NFSStorageClassFinalizerName {
-// 			secret.Finalizers = append(secret.Finalizers[:i], secret.Finalizers[i+1:]...)
-// 			removed = true
-// 			break
-// 		}
-// 	}
-
-// 	if removed {
-// 		err := cl.Update(ctx, secret)
-// 		if err != nil {
-// 			return false, err
-// 		}
-// 	}
-
-// 	return removed, nil
-// }
-
 func GetSCDiff(oldSC, newSC *v1.StorageClass) (string, error) {
 
 	if oldSC.Provisioner != newSC.Provisioner {
