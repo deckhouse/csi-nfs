@@ -47,10 +47,10 @@ type NFSStorageClassConnection struct {
 }
 
 type NFSStorageClassMountOptions struct {
-	MountMode       string `json:"mountMode"`
-	Timeout         int    `json:"timeout"`
-	Retransmissions int    `json:"retransmissions"`
-	ReadOnly        bool   `json:"readOnly"`
+	MountMode       string `json:"mountMode,omitempty"`
+	Timeout         int    `json:"timeout,omitempty"`
+	Retransmissions int    `json:"retransmissions,omitempty"`
+	ReadOnly        bool   `json:"readOnly,omitempty"`
 }
 
 type NFSStorageClassStatus struct {
