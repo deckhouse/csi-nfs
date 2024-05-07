@@ -661,22 +661,25 @@ func GetSCMountOptions(nsc *v1alpha1.NFSStorageClass) []string {
 		mountOptions = append(mountOptions, "nfsvers="+nsc.Spec.Connection.NFSVersion)
 	}
 
-	if nsc.Spec.MountOptions.MountMode != "" {
-		mountOptions = append(mountOptions, nsc.Spec.MountOptions.MountMode)
-	}
+	if nsc.Spec.MountOptions != nil {
 
-	if nsc.Spec.MountOptions.Timeout > 0 {
-		mountOptions = append(mountOptions, "timeo="+strconv.Itoa(nsc.Spec.MountOptions.Timeout))
-	}
+		if nsc.Spec.MountOptions.MountMode != "" {
+			mountOptions = append(mountOptions, nsc.Spec.MountOptions.MountMode)
+		}
 
-	if nsc.Spec.MountOptions.Retransmissions > 0 {
-		mountOptions = append(mountOptions, "retrans="+strconv.Itoa(nsc.Spec.MountOptions.Retransmissions))
-	}
+		if nsc.Spec.MountOptions.Timeout > 0 {
+			mountOptions = append(mountOptions, "timeo="+strconv.Itoa(nsc.Spec.MountOptions.Timeout))
+		}
 
-	if nsc.Spec.MountOptions.ReadOnly {
-		mountOptions = append(mountOptions, "ro")
-	} else {
-		mountOptions = append(mountOptions, "rw")
+		if nsc.Spec.MountOptions.Retransmissions > 0 {
+			mountOptions = append(mountOptions, "retrans="+strconv.Itoa(nsc.Spec.MountOptions.Retransmissions))
+		}
+
+		if nsc.Spec.MountOptions.ReadOnly {
+			mountOptions = append(mountOptions, "ro")
+		} else {
+			mountOptions = append(mountOptions, "rw")
+		}
 	}
 
 	return mountOptions
