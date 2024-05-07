@@ -22,7 +22,7 @@ import os
 import unittest
 
 
-NAMESPACE   = "d8-sds-local-volume"
+NAMESPACE   = "d8-csi-nfs"
 MODULE_NAME = "csiNfs"
 
 def json_load(path: str):
