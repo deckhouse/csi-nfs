@@ -491,18 +491,6 @@ func reconcileStorageClassDeleteFunc(
 		}
 	}
 
-	log.Debug(fmt.Sprintf("[reconcileStorageClassDeleteFunc] starts removing a finalizer %s from the NFSStorageClass, name: %s", NFSStorageClassFinalizerName, nsc.Name))
-	removed, err := removeFinalizerIfExists(ctx, cl, nsc, NFSStorageClassFinalizerName)
-	if err != nil {
-		log.Error(err, "[reconcileStorageClassDeleteFunc] unable to remove a finalizer %s from the NFSStorageClass, name: %s", NFSStorageClassFinalizerName, nsc.Name)
-		upErr := updateNFSStorageClassPhase(ctx, cl, nsc, FailedStatusPhase, fmt.Sprintf("Unable to remove a finalizer, err: %s", err.Error()))
-		if upErr != nil {
-			log.Error(upErr, fmt.Sprintf("[reconcileStorageClassDeleteFunc] unable to update the NFSStorageClass, name: %s", nsc.Name))
-		}
-		return true, err
-	}
-	log.Debug(fmt.Sprintf("[reconcileStorageClassDeleteFunc] the NFSStorageClass %s finalizer %s was removed: %t", nsc.Name, NFSStorageClassFinalizerName, removed))
-
 	log.Debug("[reconcileStorageClassDeleteFunc] ends the reconciliation")
 	return false, nil
 }
@@ -898,5 +886,18 @@ func reconcileSecretDeleteFunc(ctx context.Context, cl client.Client, log logger
 	}
 
 	log.Info(fmt.Sprintf("[reconcileSecretDeleteFunc] ends the reconciliation for Secret %q", SecretForMountOptionsPrefix+nsc.Name))
+
+	log.Debug(fmt.Sprintf("[reconcileSecretDeleteFunc] starts removing a finalizer %s from the NFSStorageClass, name: %s", NFSStorageClassFinalizerName, nsc.Name))
+	removed, err := removeFinalizerIfExists(ctx, cl, nsc, NFSStorageClassFinalizerName)
+	if err != nil {
+		log.Error(err, "[reconcileSecretDeleteFunc] unable to remove a finalizer %s from the NFSStorageClass, name: %s", NFSStorageClassFinalizerName, nsc.Name)
+		upErr := updateNFSStorageClassPhase(ctx, cl, nsc, FailedStatusPhase, fmt.Sprintf("Unable to remove a finalizer, err: %s", err.Error()))
+		if upErr != nil {
+			log.Error(upErr, fmt.Sprintf("[reconcileSecretDeleteFunc] unable to update the NFSStorageClass, name: %s", nsc.Name))
+		}
+		return true, err
+	}
+	log.Debug(fmt.Sprintf("[reconcileSecretDeleteFunc] the NFSStorageClass %s finalizer %s was removed: %t", nsc.Name, NFSStorageClassFinalizerName, removed))
+
 	return false, nil
 }
