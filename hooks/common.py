@@ -23,7 +23,7 @@ import unittest
 
 
 NAMESPACE   = "d8-sds-local-volume"
-MODULE_NAME = "sdsLocalVolume"
+MODULE_NAME = "csiNfs"
 
 def json_load(path: str):
     with open(path, "r", encoding="utf-8") as f:
