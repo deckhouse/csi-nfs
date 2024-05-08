@@ -73,6 +73,12 @@ import:
     before: install
     includePaths:
       - '**/*'
-
+  - image: {{ $.ImageName }}-binaries-artifact
+    add: /lib64
+    to: /lib64
+    before: install
+    includePaths:
+      - 'libresolv*'
+      - 'libnss_dns*'
 docker:
   ENTRYPOINT: ["/nfsplugin"]
