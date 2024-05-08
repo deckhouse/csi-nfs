@@ -524,7 +524,7 @@ func GetSCDiff(oldSC, newSC *v1.StorageClass) (string, error) {
 		return "", err
 	}
 
-	if oldSC.ReclaimPolicy != newSC.ReclaimPolicy {
+	if *oldSC.ReclaimPolicy != *newSC.ReclaimPolicy {
 		diff := fmt.Sprintf("ReclaimPolicy: %q -> %q", *oldSC.ReclaimPolicy, *newSC.ReclaimPolicy)
 		return diff, nil
 	}
