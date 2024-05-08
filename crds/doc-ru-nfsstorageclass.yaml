@@ -8,7 +8,7 @@ spec:
           properties:
             spec:
               properties:
-                serverOptions:
+                connection:
                   description: |
                     Настройки сервера NFS
                   properties:
