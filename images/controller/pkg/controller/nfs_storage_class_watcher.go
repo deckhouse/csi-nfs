@@ -651,10 +651,12 @@ func GetSCMountOptions(nsc *v1alpha1.NFSStorageClass) []string {
 			mountOptions = append(mountOptions, "retrans="+strconv.Itoa(nsc.Spec.MountOptions.Retransmissions))
 		}
 
-		if nsc.Spec.MountOptions.ReadOnly {
-			mountOptions = append(mountOptions, "ro")
-		} else {
-			mountOptions = append(mountOptions, "rw")
+		if nsc.Spec.MountOptions.ReadOnly != nil {
+			if *nsc.Spec.MountOptions.ReadOnly {
+				mountOptions = append(mountOptions, "ro")
+			} else {
+				mountOptions = append(mountOptions, "rw")
+			}
 		}
 	}
 
