@@ -16,7 +16,7 @@ shell:
   install:
     - export GO_VERSION={{ env "GOLANG_VERSION" }}
     - export GOPROXY={{ env "GOPROXY" }}
-    - git clone --depth 1 --branch {{ env "SOURCE_REPO_TAG" }} {{ env "SOURCE_REPO" }}/kubernetes-csi/csi-driver-nfs.git /csi-driver-nfs
+    - git clone --depth 1 --branch v4.7.0 {{ env "SOURCE_REPO" }}/kubernetes-csi/csi-driver-nfs.git /csi-driver-nfs
     - cd /csi-driver-nfs/cmd/nfsplugin
     - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o /nfsplugin
     - chmod +x /nfsplugin
