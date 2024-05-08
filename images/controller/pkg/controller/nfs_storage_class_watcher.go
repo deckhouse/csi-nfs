@@ -353,37 +353,8 @@ func reconcileStorageClassCreateFunc(
 	if created {
 		log.Info(fmt.Sprintf("[reconcileStorageClassCreateFunc] successfully create storage class, name: %s", newSC.Name))
 	} else {
-		log.Info(fmt.Sprintf("[reconcileStorageClassCreateFunc] a storage class %s already exists", newSC.Name))
-		diff := ""
-		for _, oldSC := range scList.Items {
-			if oldSC.Name == newSC.Name {
-				diff, err = GetSCDiff(&oldSC, newSC)
-				break
-			}
-		}
-		if err != nil {
-			log.Error(err, fmt.Sprintf("[reconcileStorageClassCreateFunc] Error occured while identifying the difference between the existed StorageClass %s and the new one", newSC.Name))
-			upError := updateNFSStorageClassPhase(ctx, cl, nsc, FailedStatusPhase, err.Error())
-			if upError != nil {
-				log.Error(upError, fmt.Sprintf("[reconcileStorageClassCreateFunc] unable to update the NFSStorageClass %s", nsc.Name))
-			}
-			return true, err
-		}
-		if diff != "" {
-			log.Info(fmt.Sprintf("[reconcileStorageClassCreateFunc] current Storage Class %s differs from the NFSStorageClass one. The Storage Class will be recreated", newSC.Name))
-			err := recreateStorageClass(ctx, cl, newSC)
-			if err != nil {
-				log.Error(err, fmt.Sprintf("[reconcileStorageClassCreateFunc] unable to recreate a Storage Class %s", newSC.Name))
-				upError := updateNFSStorageClassPhase(ctx, cl, nsc, FailedStatusPhase, err.Error())
-				if upError != nil {
-					log.Error(upError, fmt.Sprintf("[reconcileStorageClassCreateFunc] unable to update the NFSStorageClass %s", nsc.Name))
-				}
-				return true, err
-			}
-			log.Info(fmt.Sprintf("[reconcileStorageClassCreateFunc] a Storage Class %s was successfully recreated", newSC.Name))
-		} else {
-			log.Info(fmt.Sprintf("[reconcileStorageClassCreateFunc] the Storage Class %s is up-to-date", newSC.Name))
-		}
+		log.Warning(fmt.Sprintf("[reconcileLSCCreateFunc] Storage class %s already exists. Adding event to requeue.", newSC.Name))
+		return true, nil
 	}
 
 	return false, nil
@@ -434,7 +405,7 @@ func reconcileStorageClassUpdateFunc(
 	if diff != "" {
 		log.Info(fmt.Sprintf("[reconcileStorageClassUpdateFunc] current Storage Class LVMVolumeGroups do not match NFSStorageClass ones. The Storage Class %s will be recreated with new ones", nsc.Name))
 
-		err = recreateStorageClass(ctx, cl, newSC)
+		err = recreateStorageClass(ctx, cl, oldSC, newSC)
 		if err != nil {
 			log.Error(err, fmt.Sprintf("[reconcileStorageClassUpdateFunc] unable to recreate a Storage Class %s", newSC.Name))
 			upError := updateNFSStorageClassPhase(ctx, cl, nsc, FailedStatusPhase, err.Error())
@@ -622,14 +593,19 @@ func updateNFSStorageClassPhase(ctx context.Context, cl client.Client, nsc *v1al
 	return nil
 }
 
-func recreateStorageClass(ctx context.Context, cl client.Client, sc *v1.StorageClass) error {
-	err := deleteStorageClass(ctx, cl, sc)
+func recreateStorageClass(ctx context.Context, cl client.Client, oldSC, newSC *v1.StorageClass) error {
+	// It is necessary to pass the original StorageClass to the delete operation because
+	// the deletion will not succeed if the fields in the StorageClass provided to delete
+	// differ from those currently in the cluster.
+	err := deleteStorageClass(ctx, cl, oldSC)
 	if err != nil {
+		err = fmt.Errorf("[recreateStorageClass] unable to delete a storage class %s: %s", oldSC.Name, err.Error())
 		return err
 	}
 
-	err = cl.Create(ctx, sc)
+	err = cl.Create(ctx, newSC)
 	if err != nil {
+		err = fmt.Errorf("[recreateStorageClass] unable to create a storage class %s: %s", newSC.Name, err.Error())
 		return err
 	}
 
