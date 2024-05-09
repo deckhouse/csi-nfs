@@ -23,7 +23,6 @@ import (
 	"d8-controller/pkg/controller"
 	"d8-controller/pkg/kubutils"
 	"d8-controller/pkg/logger"
-	"d8-controller/pkg/monitoring"
 	"fmt"
 	"os"
 	goruntime "runtime"
@@ -107,9 +106,7 @@ func main() {
 	}
 	log.Info("[main] successfully created kubernetes manager")
 
-	metrics := monitoring.GetMetrics("")
-
-	if _, err = controller.RunNFSStorageClassWatcherController(mgr, *cfgParams, *log, metrics); err != nil {
+	if _, err = controller.RunNFSStorageClassWatcherController(mgr, *cfgParams, *log); err != nil {
 		log.Error(err, fmt.Sprintf("[main] unable to run %s", controller.NFSStorageClassCtrlName))
 		os.Exit(1)
 	}
