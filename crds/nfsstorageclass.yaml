@@ -36,6 +36,9 @@ spec:
               properties:
                 connection:
                   type: object
+                  x-kubernetes-validations:
+                    - rule: self == oldSelf
+                      message: Value is immutable.
                   description: |
                     Defines a Kubernetes Storage class configuration.
                   required:
@@ -58,6 +61,17 @@ spec:
                           message: Value is immutable.
                       description: |
                         NFS server share path
+                      minLength: 1
+                    subDir:
+                      type: string
+                      x-kubernetes-validations:
+                        - rule: self == oldSelf
+                          message: Value is immutable.
+                      description: |
+                        Sub directory under nfs share. If sub directory does not exist, it will be created. If subDir value contains following strings, it would be converted into corresponding pv/pvc name or namespace:
+                        - ${pvc.metadata.name}
+                        - ${pvc.metadata.namespace}
+                        - ${pv.metadata.name}
                       minLength: 1
                     nfsVersion:
                       type: string

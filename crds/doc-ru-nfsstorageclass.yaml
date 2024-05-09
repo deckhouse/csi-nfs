@@ -18,6 +18,12 @@ spec:
                     share:
                       description: |
                         Путь к точке монтирования на NFS сервере
+                    subDir:
+                      description: |
+                        Поддиректория в NFS разделе. Если поддиректория не существует, она будет создана. Если значение subDir содержит следующие строки, они будут преобразованы в соответствующее имя pv/pvc или пространство имен:
+                        - ${pvc.metadata.name}
+                        - ${pvc.metadata.namespace}
+                        - ${pv.metadata.name}
                     nfsVersion:
                       description: |
                         Версия NFS сервера
