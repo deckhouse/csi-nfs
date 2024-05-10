@@ -65,7 +65,7 @@ const (
 	serverParamKey           = "server"
 	shareParamKey            = "share"
 	mountPermissionsParamKey = "mountPermissions"
-	mountOptionsSecretKey    = "mountOptions"
+	MountOptionsSecretKey    = "mountOptions"
 
 	SecretForMountOptionsPrefix = "nfs-mount-options-for-"
 	StorageClassSecretNameKey   = "csi.storage.k8s.io/provisioner-secret-name"
@@ -229,13 +229,17 @@ func RunEventReconcile(ctx context.Context, cl client.Client, log logger.Logger,
 		return shouldRequeue, err
 	}
 
-	log.Debug(fmt.Sprintf("[runEventReconcile] Finish all reconciliations for NFSStorageClass %q. Update status", nsc.Name))
-	err = updateNFSStorageClassPhase(ctx, cl, nsc, CreatedStatusPhase, "")
-	if err != nil {
-		err = fmt.Errorf("[runEventReconcile] unable to update the NFSStorageClass %s: %w", nsc.Name, err)
-		return true, err
+	log.Debug(fmt.Sprintf("[runEventReconcile] Finish all reconciliations for NFSStorageClass %q.", nsc.Name))
+
+	if reconcileTypeForSecret != DeleteReconcile {
+		err = updateNFSStorageClassPhase(ctx, cl, nsc, CreatedStatusPhase, "")
+		if err != nil {
+			err = fmt.Errorf("[runEventReconcile] unable to update the NFSStorageClass %s: %w", nsc.Name, err)
+			return true, err
+		}
+		log.Debug(fmt.Sprintf("[runEventReconcile] successfully updated the NFSStorageClass %s status", nsc.Name))
 	}
-	log.Debug(fmt.Sprintf("[runEventReconcile] successfully updated the NFSStorageClass %s status", nsc.Name))
+
 	return false, nil
 
 }

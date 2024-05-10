@@ -51,7 +51,17 @@ func ReconcileStorageClassCreateFunc(
 	log.Debug(fmt.Sprintf("[reconcileStorageClassCreateFunc] finalizer %s was added to the NFSStorageClass %s: %t", NFSStorageClassFinalizerName, nsc.Name, added))
 
 	log.Debug(fmt.Sprintf("[reconcileStorageClassCreateFunc] starts storage class configuration for the NFSStorageClass, name: %s", nsc.Name))
-	newSC := ConfigureStorageClass(nsc, controllerNamespace)
+	newSC, err := ConfigureStorageClass(nsc, controllerNamespace)
+	if err != nil {
+		err = fmt.Errorf("[reconcileStorageClassCreateFunc] unable to configure a Storage Class for the NFSStorageClass %s: %w", nsc.Name, err)
+		upError := updateNFSStorageClassPhase(ctx, cl, nsc, FailedStatusPhase, err.Error())
+		if upError != nil {
+			upError = fmt.Errorf("[reconcileStorageClassCreateFunc] unable to update the NFSStorageClass %s: %w", nsc.Name, upError)
+			err = errors.Join(err, upError)
+		}
+		return false, err
+	}
+
 	log.Debug(fmt.Sprintf("[reconcileStorageClassCreateFunc] successfully configurated storage class for the NFSStorageClass, name: %s", nsc.Name))
 	log.Trace(fmt.Sprintf("[reconcileStorageClassCreateFunc] storage class: %+v", newSC))
 
@@ -109,7 +119,17 @@ func reconcileStorageClassUpdateFunc(
 	log.Debug(fmt.Sprintf("[reconcileStorageClassUpdateFunc] successfully found a storage class for the NFSStorageClass, name: %s", nsc.Name))
 
 	log.Trace(fmt.Sprintf("[reconcileStorageClassUpdateFunc] storage class: %+v", oldSC))
-	newSC := ConfigureStorageClass(nsc, controllerNamespace)
+	newSC, err := ConfigureStorageClass(nsc, controllerNamespace)
+	if err != nil {
+		err = fmt.Errorf("[reconcileStorageClassUpdateFunc] unable to configure a Storage Class for the NFSStorageClass %s: %w", nsc.Name, err)
+		upError := updateNFSStorageClassPhase(ctx, cl, nsc, FailedStatusPhase, err.Error())
+		if upError != nil {
+			upError = fmt.Errorf("[reconcileStorageClassUpdateFunc] unable to update the NFSStorageClass %s: %w", nsc.Name, upError)
+			err = errors.Join(err, upError)
+		}
+		return false, err
+	}
+
 	diff, err := GetSCDiff(oldSC, newSC)
 	if err != nil {
 		err = fmt.Errorf("[reconcileStorageClassUpdateFunc] error occured while identifying the difference between the existed StorageClass %s and the new one: %w", newSC.Name, err)
@@ -352,7 +372,11 @@ func shouldReconcileStorageClassByUpdateFunc(log logger.Logger, scList *v1.Stora
 	for _, oldSC := range scList.Items {
 		if oldSC.Name == nsc.Name {
 			if oldSC.Provisioner == NFSStorageClassProvisioner {
-				newSC := ConfigureStorageClass(nsc, controllerNamespace)
+				newSC, err := ConfigureStorageClass(nsc, controllerNamespace)
+				if err != nil {
+					return false, err
+				}
+
 				diff, err := GetSCDiff(&oldSC, newSC)
 				if err != nil {
 					return false, err
@@ -473,7 +497,16 @@ func addFinalizerIfNotExistsForNSC(ctx context.Context, cl client.Client, nsc *v
 	return true, nil
 }
 
-func ConfigureStorageClass(nsc *v1alpha1.NFSStorageClass, controllerNamespace string) *v1.StorageClass {
+func ConfigureStorageClass(nsc *v1alpha1.NFSStorageClass, controllerNamespace string) (*v1.StorageClass, error) {
+	if nsc.Spec.ReclaimPolicy == "" {
+		err := fmt.Errorf("NFSStorageClass %q: the ReclaimPolicy field is empty", nsc.Name)
+		return nil, err
+	}
+	if nsc.Spec.VolumeBindingMode == "" {
+		err := fmt.Errorf("NFSStorageClass %q: the VolumeBindingMode field is empty", nsc.Name)
+		return nil, err
+	}
+
 	reclaimPolicy := corev1.PersistentVolumeReclaimPolicy(nsc.Spec.ReclaimPolicy)
 	volumeBindingMode := v1.VolumeBindingMode(nsc.Spec.VolumeBindingMode)
 	AllowVolumeExpansion := AllowVolumeExpansionDefaultValue
@@ -496,7 +529,7 @@ func ConfigureStorageClass(nsc *v1alpha1.NFSStorageClass, controllerNamespace st
 		AllowVolumeExpansion: &AllowVolumeExpansion,
 	}
 
-	return sc
+	return sc, nil
 }
 
 func updateNFSStorageClassPhase(ctx context.Context, cl client.Client, nsc *v1alpha1.NFSStorageClass, phase, reason string) error {
@@ -646,7 +679,7 @@ func shouldReconcileSecretByUpdateFunc(log logger.Logger, secretList *corev1.Sec
 	for _, oldSecret := range secretList.Items {
 		if oldSecret.Name == SecretForMountOptionsPrefix+nsc.Name {
 			newSecret := configureSecret(nsc, controllerNamespace)
-			if !reflect.DeepEqual(oldSecret.Data, newSecret.Data) {
+			if !reflect.DeepEqual(oldSecret.StringData, newSecret.StringData) {
 				log.Debug(fmt.Sprintf("[shouldReconcileSecretByUpdateFunc] a secret %s should be updated", oldSecret.Name))
 				if !labels.Set(oldSecret.Labels).AsSelector().Matches(secretSelector) {
 					err := fmt.Errorf("a secret %q does not have a label %s=%s", oldSecret.Name, NFSStorageClassManagedLabelKey, NFSStorageClassManagedLabelValue)
@@ -683,7 +716,7 @@ func configureSecret(nsc *v1alpha1.NFSStorageClass, controllerNamespace string) 
 			Finalizers: []string{NFSStorageClassFinalizerName},
 		},
 		StringData: map[string]string{
-			mountOptionsSecretKey: strings.Join(mountOptions, ","),
+			MountOptionsSecretKey: strings.Join(mountOptions, ","),
 		},
 	}
 
