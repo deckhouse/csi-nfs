@@ -43,26 +43,34 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		cl  = NewFakeClient()
 		log = logger.Logger{}
 
-		server                   = "192.168.1.100"
-		share                    = "/data"
-		nfsVer                   = "4.1"
-		mountMode                = "hard"
-		mountModeUpdated         = "soft"
-		readOnlyFalse            = false
-		mountOptForReadOnlyFalse = "rw"
-		readOnlyTrue             = true
-		mountOptForReadOnlyTrue  = "ro"
-		mountOptForNFSVer        = fmt.Sprintf("nfsvers=%s", nfsVer)
+		server                     = "192.168.1.100"
+		share                      = "/data"
+		nfsVer                     = "4.1"
+		mountOptForNFSVer          = fmt.Sprintf("nfsvers=%s", nfsVer)
+		mountMode                  = "hard"
+		mountModeUpdated           = "soft"
+		timeout                    = 10
+		mountOptForTimeout         = "timeo=10"
+		retransmissions            = 3
+		mountOptForRetransmissions = "retrans=3"
+		readOnlyFalse              = false
+		mountOptForReadOnlyFalse   = "rw"
+		readOnlyTrue               = true
+		mountOptForReadOnlyTrue    = "ro"
+		chmodPermissions           = "0777"
 	)
 
-	It("Create_nfs_sc", func() {
+	It("Create_nfs_sc_with_all_options", func() {
 		nfsSCtemplate := generateNFSStorageClass(NFSStorageClassConfig{
 			Name:              nameForTestResource,
 			Host:              server,
 			Share:             share,
 			NFSVersion:        nfsVer,
 			MountMode:         mountMode,
+			Timeout:           timeout,
+			Retransmissions:   retransmissions,
 			ReadOnly:          &readOnlyFalse,
+			ChmodPermissions:  chmodPermissions,
 			ReclaimPolicy:     string(corev1.PersistentVolumeReclaimDelete),
 			VolumeBindingMode: string(v1.VolumeBindingWaitForFirstConsumer),
 		})
@@ -95,13 +103,15 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		err = cl.Get(ctx, client.ObjectKey{Name: nameForTestResource}, sc)
 		Expect(err).NotTo(HaveOccurred())
 		performStandartChecksForSc(sc, server, share, nameForTestResource, controllerNamespace)
-		Expect(sc.MountOptions).To((ContainElements(mountOptForNFSVer, mountMode, mountOptForReadOnlyFalse)))
+		Expect(sc.MountOptions).To(HaveLen(5))
+		Expect(sc.MountOptions).To((ContainElements(mountOptForNFSVer, mountMode, mountOptForTimeout, mountOptForRetransmissions, mountOptForReadOnlyFalse)))
+		Expect(sc.Parameters).To(HaveKeyWithValue(controller.MountPermissionsParamKey, chmodPermissions))
 
 		secret := &corev1.Secret{}
 		err = cl.Get(ctx, client.ObjectKey{Name: controller.SecretForMountOptionsPrefix + nameForTestResource, Namespace: controllerNamespace}, secret)
 		Expect(err).NotTo(HaveOccurred())
 		performStandartChecksForSecret(secret, nameForTestResource, controllerNamespace)
-		Expect(secret.StringData).To(HaveKeyWithValue(controller.MountOptionsSecretKey, fmt.Sprintf("%s,%s,%s", mountOptForNFSVer, mountMode, mountOptForReadOnlyFalse)))
+		Expect(secret.StringData).To(HaveKeyWithValue(controller.MountOptionsSecretKey, fmt.Sprintf("%s,%s,%s,%s,%s", mountOptForNFSVer, mountMode, mountOptForTimeout, mountOptForRetransmissions, mountOptForReadOnlyFalse)))
 
 	})
 
@@ -141,13 +151,14 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		err = cl.Get(ctx, client.ObjectKey{Name: nameForTestResource}, sc)
 		Expect(err).NotTo(HaveOccurred())
 		performStandartChecksForSc(sc, server, share, nameForTestResource, controllerNamespace)
-		Expect(sc.MountOptions).To((ContainElements(mountOptForNFSVer, mountModeUpdated, mountOptForReadOnlyTrue)))
+		Expect(sc.MountOptions).To(HaveLen(5))
+		Expect(sc.MountOptions).To((ContainElements(mountOptForNFSVer, mountModeUpdated, mountOptForTimeout, mountOptForRetransmissions, mountOptForReadOnlyTrue)))
 
 		secret := &corev1.Secret{}
 		err = cl.Get(ctx, client.ObjectKey{Name: controller.SecretForMountOptionsPrefix + nameForTestResource, Namespace: controllerNamespace}, secret)
 		Expect(err).NotTo(HaveOccurred())
 		performStandartChecksForSecret(secret, nameForTestResource, controllerNamespace)
-		Expect(secret.StringData).To(HaveKeyWithValue(controller.MountOptionsSecretKey, fmt.Sprintf("%s,%s,%s", mountOptForNFSVer, mountModeUpdated, mountOptForReadOnlyTrue)))
+		Expect(secret.StringData).To(HaveKeyWithValue(controller.MountOptionsSecretKey, fmt.Sprintf("%s,%s,%s,%s,%s", mountOptForNFSVer, mountModeUpdated, mountOptForTimeout, mountOptForRetransmissions, mountOptForReadOnlyTrue)))
 
 	})
 
@@ -186,6 +197,7 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		err = cl.Get(ctx, client.ObjectKey{Name: nameForTestResource}, sc)
 		Expect(err).NotTo(HaveOccurred())
 		performStandartChecksForSc(sc, server, share, nameForTestResource, controllerNamespace)
+		Expect(sc.MountOptions).To(HaveLen(1))
 		Expect(sc.MountOptions).To((ContainElements(mountOptForNFSVer)))
 
 		secret := &corev1.Secret{}
@@ -193,6 +205,56 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		Expect(err).NotTo(HaveOccurred())
 		performStandartChecksForSecret(secret, nameForTestResource, controllerNamespace)
 		Expect(secret.StringData).To(HaveKeyWithValue(controller.MountOptionsSecretKey, mountOptForNFSVer))
+
+	})
+
+	It("Add_partial_mount_options_to_nfs_sc", func() {
+		nsc := &v1alpha1.NFSStorageClass{}
+		err := cl.Get(ctx, client.ObjectKey{Name: nameForTestResource}, nsc)
+		Expect(err).NotTo(HaveOccurred())
+
+		nsc.Spec.MountOptions = &v1alpha1.NFSStorageClassMountOptions{
+			MountMode:       mountModeUpdated,
+			Retransmissions: retransmissions,
+		}
+
+		err = cl.Update(ctx, nsc)
+		Expect(err).NotTo(HaveOccurred())
+
+		err = cl.Get(ctx, client.ObjectKey{Name: nameForTestResource}, nsc)
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(nsc).NotTo(BeNil())
+		Expect(nsc.Name).To(Equal(nameForTestResource))
+		Expect(nsc.Finalizers).To(HaveLen(1))
+		Expect(nsc.Finalizers).To(ContainElement(controller.NFSStorageClassFinalizerName))
+
+		scList := &v1.StorageClassList{}
+		err = cl.List(ctx, scList)
+		Expect(err).NotTo(HaveOccurred())
+
+		shouldRequeue, err := controller.RunEventReconcile(ctx, cl, log, scList, nsc, controllerNamespace)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(shouldRequeue).To(BeFalse())
+
+		err = cl.Get(ctx, client.ObjectKey{Name: nameForTestResource}, nsc)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(nsc.Finalizers).To(HaveLen(1))
+		Expect(nsc.Finalizers).To(ContainElement(controller.NFSStorageClassFinalizerName))
+
+		sc := &v1.StorageClass{}
+		err = cl.Get(ctx, client.ObjectKey{Name: nameForTestResource}, sc)
+		Expect(err).NotTo(HaveOccurred())
+		performStandartChecksForSc(sc, server, share, nameForTestResource, controllerNamespace)
+		Expect(sc.MountOptions).To(HaveLen(3))
+		Expect(sc.MountOptions).To((ContainElements(mountOptForNFSVer, mountModeUpdated, mountOptForRetransmissions)))
+
+		secret := &corev1.Secret{}
+		err = cl.Get(ctx, client.ObjectKey{Name: controller.SecretForMountOptionsPrefix + nameForTestResource, Namespace: controllerNamespace}, secret)
+		Expect(err).NotTo(HaveOccurred())
+		performStandartChecksForSecret(secret, nameForTestResource, controllerNamespace)
+
+		Expect(secret.StringData).To(HaveKeyWithValue(controller.MountOptionsSecretKey, fmt.Sprintf("%s,%s,%s", mountOptForNFSVer, mountModeUpdated, mountOptForRetransmissions)))
 
 	})
 
@@ -269,6 +331,8 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		err = cl.Get(ctx, client.ObjectKey{Name: nameForTestResource}, sc)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(sc.Provisioner).To(Equal("test-provisioner"))
+		Expect(sc.Finalizers).To(HaveLen(0))
+		Expect(sc.Labels).To(HaveLen(0))
 	})
 
 	It("Remove_nfs_sc_when_sc_with_another_provisioner_exists", func() {
@@ -300,6 +364,8 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		err = cl.Get(ctx, client.ObjectKey{Name: nameForTestResource}, sc)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(sc.Provisioner).To(Equal("test-provisioner"))
+		Expect(sc.Finalizers).To(HaveLen(0))
+		Expect(sc.Labels).To(HaveLen(0))
 	})
 
 })

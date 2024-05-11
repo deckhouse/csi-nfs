@@ -627,7 +627,7 @@ func GetSCParams(nsc *v1alpha1.NFSStorageClass, controllerNamespace string) map[
 	params[StorageClassSecretNSKey] = controllerNamespace
 
 	if nsc.Spec.ChmodPermissions != "" {
-		params[mountPermissionsParamKey] = nsc.Spec.ChmodPermissions
+		params[MountPermissionsParamKey] = nsc.Spec.ChmodPermissions
 	}
 
 	return params

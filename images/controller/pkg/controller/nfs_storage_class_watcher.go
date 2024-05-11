@@ -64,7 +64,7 @@ const (
 
 	serverParamKey           = "server"
 	shareParamKey            = "share"
-	mountPermissionsParamKey = "mountPermissions"
+	MountPermissionsParamKey = "mountPermissions"
 	MountOptionsSecretKey    = "mountOptions"
 
 	SecretForMountOptionsPrefix = "nfs-mount-options-for-"
