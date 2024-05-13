@@ -1,7 +1,12 @@
 type: object
 properties:
-  replicas:
-    type: integer
-    description: |
-      replicas count.
-    default: 1
+  logLevel:
+    type: string
+    enum:
+      - ERROR
+      - WARN
+      - INFO
+      - DEBUG
+      - TRACE
+    description: Module log level
+    default: DEBUG
