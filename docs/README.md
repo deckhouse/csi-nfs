@@ -8,10 +8,36 @@ This module provides CSI that manages volumes based on `NFS`. The module allows 
 
 > **Caution!** The user is not allowed to create a `StorageClass` for the `nfs.csi.k8s.io` CSI driver.
 
-Usage instructions can be found [here]((./usage.html))
-
 ## System requirements and recommendations
 
 ### Requirements
 - Stock kernels shipped with the [supported distributions](https://deckhouse.io/documentation/v1/supported_versions.html#linux).
 - Presence of a deployed and configured NFS server.
+
+## Quickstart guide
+
+Note that all commands must be run on a machine that has administrator access to the Kubernetes API.
+
+### Enabling module
+
+- Enable the `csi-nfs` module. This will result in the following actions across all cluster nodes:
+    - registration of the CSI driver;
+    - launch of service pods for the `csi-nfs` components.
+
+```shell
+kubectl apply -f - <<EOF
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: csi-nfs
+spec:
+  enabled: true
+  version: 1
+EOF
+```
+
+- Wait for the module to become `Ready`.
+
+```shell
+kubectl get mc csi-nfs -w
+```
