@@ -33,6 +33,8 @@ spec:
                 Defines a Kubernetes Storage class configuration.
               required:
                 - connection
+                - reclaimPolicy
+                - volumeBindingMode
               properties:
                 connection:
                   type: object
