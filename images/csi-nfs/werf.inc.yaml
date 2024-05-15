@@ -22,7 +22,7 @@ shell:
     - chmod +x /nfsplugin
 
 ---
-{{ $csiBinaries := "/bin/mount /bin/umount /sbin/mount.nfs /sbin/mount.nfs4" }}
+{{ $csiBinaries := "/bin/mount /bin/umount /sbin/mount.nfs /sbin/mount.nfs4 /bin/tar" }}
 ---
 image: {{ $.ImageName }}-binaries-artifact
 from: {{ $.BASE_ALT_DEV }}
