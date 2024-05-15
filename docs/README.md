@@ -44,7 +44,7 @@ kubectl get mc csi-nfs -w
 
 ### Creating a StorageClass
 
-To create a StorageClass, you need to use the [NFSStorageClass](./cr.html#nfstorageclass) resource. Here is an example command to create such a resource:
+To create a StorageClass, you need to use the [NFSStorageClass](./cr.html#nfsstorageclass) resource. Here is an example command to create such a resource:
 
 ```yaml
 kubectl apply -f - <<EOF
