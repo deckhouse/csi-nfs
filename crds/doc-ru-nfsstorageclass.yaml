@@ -7,6 +7,8 @@ spec:
             Интерфейс управления StorageСlass для CSI-драйвера nfs.csi.k8s.io. Ручное создание StorageClass для данного драйвера запрещено.
           properties:
             spec:
+              description: |
+                Определяет конфигурацию StorageClass.
               properties:
                 connection:
                   description: |

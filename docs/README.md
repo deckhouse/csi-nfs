@@ -4,7 +4,7 @@ description: "The csi-nfs module: General Concepts and Principles."
 moduleStatus: experimental
 ---
 
-This module provides CSI that manages volumes based on `NFS`. The module allows you to create a `StorageClass` in `Kubernetes` by creating [Kubernetes custom resources](./cr.html) `NFSStorageClass`.
+This module provides CSI that manages volumes based on `NFS`. The module allows you to create a `StorageClass` in `Kubernetes` by creating [Kubernetes custom resources](./cr.html#nfsstorageclass) `NFSStorageClass`.
 
 > **Caution!** The user is not allowed to create a `StorageClass` for the `nfs.csi.k8s.io` CSI driver.
 
