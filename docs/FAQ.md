@@ -44,10 +44,9 @@ spec:
 EOF
 ```
 
-In this example, a directory `/<namespace>/<PVC name>` will be created on the NFS server for each PV.
+In this example, a directory `/<namespace>/<PVC name>` will be created on the NFS server for each volume.
 
-> **Caution!** The PVC name is set by the user. Such `subDir` settings may lead to a situation where the name of a newly created PVC matches the name of a previously deleted PVC. If `reclaimPolicy` is set to `Retain`, the data from the previously allocated PVs with the same name will be available in the new volume.
-
+> **Caution!** The PVC name is set by the user. Such `subDir` settings may lead to a situation where the directory name for a newly created volume matches the directory name of a previously deleted volume. If `reclaimPolicy` is set to `Retain`, the data from the previously allocated volumes with the same PVC name will be available in the new volume.
 
 ### Example without templates
 
