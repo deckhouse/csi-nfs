@@ -41,3 +41,29 @@ EOF
 ```shell
 kubectl get mc csi-nfs -w
 ```
+
+### Creating a StorageClass
+
+To create a StorageClass, you need to use the [NFSStorageClass](./cr.html#nfstorageclass) resource. Here is an example command to create such a resource:
+
+```yaml
+kubectl apply -f - <<EOF
+apiVersion: storage.deckhouse.io/v1alpha1
+kind: NFSStorageClass
+metadata:
+  name: nfs-storage-class
+spec:
+  connection:
+    host: 10.223.187.3
+    share: /
+    nfsVersion: "4.1"
+  reclaimPolicy: Delete
+  volumeBindingMode: WaitForFirstConsumer
+EOF
+```
+
+In this example, `subDir` is not specified, so a directory `<directory from share>/<PV name>` will be created for each PV.
+
+### Checking module health
+
+You can check the module health [here](./faq.html#how-to-check-module-health)
