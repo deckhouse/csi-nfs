@@ -105,7 +105,7 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		performStandartChecksForSc(sc, server, share, nameForTestResource, controllerNamespace)
 		Expect(sc.MountOptions).To(HaveLen(5))
 		Expect(sc.MountOptions).To((ContainElements(mountOptForNFSVer, mountMode, mountOptForTimeout, mountOptForRetransmissions, mountOptForReadOnlyFalse)))
-		Expect(sc.Parameters).To(HaveLen(6))
+		Expect(sc.Parameters).To(HaveLen(5))
 		Expect(sc.Parameters).To(HaveKeyWithValue(controller.MountPermissionsParamKey, chmodPermissions))
 
 		secret := &corev1.Secret{}
@@ -154,7 +154,7 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		performStandartChecksForSc(sc, server, share, nameForTestResource, controllerNamespace)
 		Expect(sc.MountOptions).To(HaveLen(5))
 		Expect(sc.MountOptions).To((ContainElements(mountOptForNFSVer, mountModeUpdated, mountOptForTimeout, mountOptForRetransmissions, mountOptForReadOnlyTrue)))
-		Expect(sc.Parameters).To(HaveLen(6))
+		Expect(sc.Parameters).To(HaveLen(5))
 		Expect(sc.Parameters).To(HaveKeyWithValue(controller.MountPermissionsParamKey, chmodPermissions))
 
 		secret := &corev1.Secret{}
@@ -202,7 +202,7 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		performStandartChecksForSc(sc, server, share, nameForTestResource, controllerNamespace)
 		Expect(sc.MountOptions).To(HaveLen(1))
 		Expect(sc.MountOptions).To((ContainElements(mountOptForNFSVer)))
-		Expect(sc.Parameters).To(HaveLen(6))
+		Expect(sc.Parameters).To(HaveLen(5))
 		Expect(sc.Parameters).To(HaveKeyWithValue(controller.MountPermissionsParamKey, chmodPermissions))
 
 		secret := &corev1.Secret{}
@@ -253,7 +253,7 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		performStandartChecksForSc(sc, server, share, nameForTestResource, controllerNamespace)
 		Expect(sc.MountOptions).To(HaveLen(3))
 		Expect(sc.MountOptions).To((ContainElements(mountOptForNFSVer, mountModeUpdated, mountOptForRetransmissions)))
-		Expect(sc.Parameters).To(HaveLen(6))
+		Expect(sc.Parameters).To(HaveLen(5))
 		Expect(sc.Parameters).To(HaveKeyWithValue(controller.MountPermissionsParamKey, chmodPermissions))
 
 		secret := &corev1.Secret{}
