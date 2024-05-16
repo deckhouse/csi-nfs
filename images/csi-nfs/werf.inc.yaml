@@ -9,6 +9,14 @@
 ---
 image: {{ $.ImageName }}-golang-artifact
 from: {{ $.BASE_GOLANG_22_ALPINE }}
+git:
+  - add: /images/{{ $.ImageName }}
+    to: /
+    stageDependencies:
+      setup:
+        - "**/*"
+    includePaths:
+    - patches
 
 mount:
   - fromPath: ~/go-pkg-cache
