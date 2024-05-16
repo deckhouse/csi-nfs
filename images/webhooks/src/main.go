@@ -33,7 +33,6 @@ type config struct {
 	keyFile  string
 }
 
-//goland:noinspection SpellCheckingInspection
 func httpHandlerHealthz(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, "Ok.")
 }
