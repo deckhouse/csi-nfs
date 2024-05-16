@@ -45,7 +45,6 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 
 		server                     = "192.168.1.100"
 		share                      = "/data"
-		subDir                     = "${pvc.metadata.namespace}/${pvc.metadata.name}"
 		nfsVer                     = "4.1"
 		mountOptForNFSVer          = fmt.Sprintf("nfsvers=%s", nfsVer)
 		mountMode                  = "hard"
@@ -66,7 +65,6 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 			Name:              nameForTestResource,
 			Host:              server,
 			Share:             share,
-			SubDir:            subDir,
 			NFSVersion:        nfsVer,
 			MountMode:         mountMode,
 			Timeout:           timeout,
@@ -109,7 +107,6 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		Expect(sc.MountOptions).To((ContainElements(mountOptForNFSVer, mountMode, mountOptForTimeout, mountOptForRetransmissions, mountOptForReadOnlyFalse)))
 		Expect(sc.Parameters).To(HaveLen(6))
 		Expect(sc.Parameters).To(HaveKeyWithValue(controller.MountPermissionsParamKey, chmodPermissions))
-		Expect(sc.Parameters).To(HaveKeyWithValue(controller.SubDirParamKey, subDir))
 
 		secret := &corev1.Secret{}
 		err = cl.Get(ctx, client.ObjectKey{Name: controller.SecretForMountOptionsPrefix + nameForTestResource, Namespace: controllerNamespace}, secret)
@@ -159,7 +156,6 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		Expect(sc.MountOptions).To((ContainElements(mountOptForNFSVer, mountModeUpdated, mountOptForTimeout, mountOptForRetransmissions, mountOptForReadOnlyTrue)))
 		Expect(sc.Parameters).To(HaveLen(6))
 		Expect(sc.Parameters).To(HaveKeyWithValue(controller.MountPermissionsParamKey, chmodPermissions))
-		Expect(sc.Parameters).To(HaveKeyWithValue(controller.SubDirParamKey, subDir))
 
 		secret := &corev1.Secret{}
 		err = cl.Get(ctx, client.ObjectKey{Name: controller.SecretForMountOptionsPrefix + nameForTestResource, Namespace: controllerNamespace}, secret)
@@ -208,7 +204,6 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		Expect(sc.MountOptions).To((ContainElements(mountOptForNFSVer)))
 		Expect(sc.Parameters).To(HaveLen(6))
 		Expect(sc.Parameters).To(HaveKeyWithValue(controller.MountPermissionsParamKey, chmodPermissions))
-		Expect(sc.Parameters).To(HaveKeyWithValue(controller.SubDirParamKey, subDir))
 
 		secret := &corev1.Secret{}
 		err = cl.Get(ctx, client.ObjectKey{Name: controller.SecretForMountOptionsPrefix + nameForTestResource, Namespace: controllerNamespace}, secret)
@@ -260,7 +255,6 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		Expect(sc.MountOptions).To((ContainElements(mountOptForNFSVer, mountModeUpdated, mountOptForRetransmissions)))
 		Expect(sc.Parameters).To(HaveLen(6))
 		Expect(sc.Parameters).To(HaveKeyWithValue(controller.MountPermissionsParamKey, chmodPermissions))
-		Expect(sc.Parameters).To(HaveKeyWithValue(controller.SubDirParamKey, subDir))
 
 		secret := &corev1.Secret{}
 		err = cl.Get(ctx, client.ObjectKey{Name: controller.SecretForMountOptionsPrefix + nameForTestResource, Namespace: controllerNamespace}, secret)
@@ -389,7 +383,6 @@ type NFSStorageClassConfig struct {
 	Name              string
 	Host              string
 	Share             string
-	SubDir            string
 	NFSVersion        string
 	MountMode         string
 	Timeout           int
@@ -409,7 +402,6 @@ func generateNFSStorageClass(cfg NFSStorageClassConfig) *v1alpha1.NFSStorageClas
 			Connection: &v1alpha1.NFSStorageClassConnection{
 				Host:       cfg.Host,
 				Share:      cfg.Share,
-				SubDir:     cfg.SubDir,
 				NFSVersion: cfg.NFSVersion,
 			},
 			MountOptions: &v1alpha1.NFSStorageClassMountOptions{
