@@ -1,0 +1,50 @@
+From 6e283165a6a77c4c4d5034ef501336a4a93ec9c9 Mon Sep 17 00:00:00 2001
+From: Aleksandr Zimin <alexandr.zimin@flant.com>
+Date: Thu, 16 May 2024 17:48:25 +0300
+Subject: [PATCH] remove z option from tar
+
+Signed-off-by: Aleksandr Zimin <alexandr.zimin@flant.com>
+---
+ pkg/nfs/controllerserver.go | 12 +++++++++---
+ 1 file changed, 9 insertions(+), 3 deletions(-)
+
+diff --git a/pkg/nfs/controllerserver.go b/pkg/nfs/controllerserver.go
+index 7fdad5dd..18ce8b9f 100644
+--- a/pkg/nfs/controllerserver.go
++++ b/pkg/nfs/controllerserver.go
+@@ -79,7 +79,7 @@ type nfsSnapshot struct {
+ }
+ 
+ func (snap nfsSnapshot) archiveName() string {
+-	return fmt.Sprintf("%v.tar.gz", snap.src)
++	return fmt.Sprintf("%v.tar", snap.src)
+ }
+ 
+ // Ordering of elements in the CSI volume id.
+@@ -360,7 +360,10 @@ func (cs *ControllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateS
+ 	srcPath := getInternalVolumePath(cs.Driver.workingMountDir, srcVol)
+ 	dstPath := filepath.Join(snapInternalVolPath, snapshot.archiveName())
+ 	klog.V(2).Infof("archiving %v -> %v", srcPath, dstPath)
+-	out, err := exec.Command("tar", "-C", srcPath, "-czvf", dstPath, ".").CombinedOutput()
++	out, err := exec.Command("tar", "-C", srcPath, "-cvf", dstPath, ".").CombinedOutput()
++	klog.V(2).Infof("================")
++	klog.V(2).Infof("out: %s ", out)
++	klog.V(2).Infof("================")
+ 	if err != nil {
+ 		return nil, status.Errorf(codes.Internal, "failed to create archive for snapshot: %v: %v", err, string(out))
+ 	}
+@@ -515,7 +518,10 @@ func (cs *ControllerServer) copyFromSnapshot(ctx context.Context, req *csi.Creat
+ 	snapPath := filepath.Join(getInternalVolumePath(cs.Driver.workingMountDir, snapVol), snap.archiveName())
+ 	dstPath := getInternalVolumePath(cs.Driver.workingMountDir, dstVol)
+ 	klog.V(2).Infof("copy volume from snapshot %v -> %v", snapPath, dstPath)
+-	out, err := exec.Command("tar", "-xzvf", snapPath, "-C", dstPath).CombinedOutput()
++	out, err := exec.Command("tar", "-xvf", snapPath, "-C", dstPath).CombinedOutput()
++	klog.V(2).Infof("================")
++	klog.V(2).Infof("out: %s ", out)
++	klog.V(2).Infof("================")
+ 	if err != nil {
+ 		return status.Errorf(codes.Internal, "failed to copy volume for snapshot: %v: %v", err, string(out))
+ 	}
+-- 
+2.39.3 (Apple Git-146)
+
