@@ -44,7 +44,6 @@ type NFSStorageClassConnection struct {
 	Host       string `json:"host"`
 	Share      string `json:"share"`
 	NFSVersion string `json:"nfsVersion"`
-	SubDir     string `json:"subDir,omitempty"`
 }
 
 type NFSStorageClassMountOptions struct {

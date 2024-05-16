@@ -62,8 +62,8 @@ spec:
 EOF
 ```
 
-In this example, `subDir` is not specified, so a directory `<directory from share>/<PV name>` will be created for each PV.
+A directory `<directory from share>/<PV name>` will be created for each PV.
 
 ### Checking module health
 
-You can check the module health [here](./faq.html#how-to-check-module-health)
+You can verify the functionality of the module using the instructions [here](./faq.html#how-to-check-module-health)
