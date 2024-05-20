@@ -12,6 +12,7 @@ from: {{ $.BASE_GOLANG_22_ALPINE }}
 git:
   - add: /images/{{ $.ImageName }}
     to: /
+    fromCacheVersion: "2024-05-14.1"
     stageDependencies:
       setup:
         - "**/*"
