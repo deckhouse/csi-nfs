@@ -9,10 +9,10 @@
 ---
 image: {{ $.ImageName }}-golang-artifact
 from: {{ $.BASE_GOLANG_22_ALPINE }}
+fromCacheVersion: "2024-05-14.1"
 git:
   - add: /images/{{ $.ImageName }}
     to: /
-    fromCacheVersion: "2024-05-14.1"
     stageDependencies:
       setup:
         - "**/*"
