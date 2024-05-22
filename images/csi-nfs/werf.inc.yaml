@@ -18,5 +18,6 @@ shell:
     - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o nfsplugin
     - mv nfsplugin /nfsplugin
     - chmod +x /nfsplugin
+    - apt update && apt install -y nfs-common
 docker:
   ENTRYPOINT: ["/nfsplugin"]
