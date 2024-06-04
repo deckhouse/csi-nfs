@@ -1,4 +1,4 @@
-ARG BASE_ALPINE=registry.deckhouse.io/base_images/alpine:3.16.3@sha256:5548e9172c24a1b0ca9afdd2bf534e265c94b12b36b3e0c0302f5853eaf00abb
+ARG BASE_SCRATCH=registry.deckhouse.io/base_images/scratch@sha256:b054705fcc9f2205777d80a558d920c0b4209efdc3163c22b5bfcb5dda1db5fc
 ARG BASE_GOLANG_21_ALPINE_BUILDER=registry.deckhouse.io/base_images/golang:1.21.4-alpine3.18@sha256:cf84f3d6882c49ea04b6478ac514a2582c8922d7e5848b43d2918fff8329f6e6
 
 FROM $BASE_GOLANG_21_ALPINE_BUILDER as builder
@@ -11,7 +11,7 @@ COPY . .
 WORKDIR /go/src/cmd
 RUN GOOS=linux GOARCH=amd64 go build -o controller
 
-FROM --platform=linux/amd64 $BASE_ALPINE
+FROM --platform=linux/amd64 $BASE_SCRATCH
 COPY --from=builder /go/src/cmd/controller /go/src/cmd/controller
 
 ENTRYPOINT ["/go/src/cmd/controller"]

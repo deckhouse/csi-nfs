@@ -1,3 +1,5 @@
+{{- $version := "4.7.0" }}
+
 {{- $_ := set . "BASE_GOLANG_22_ALPINE" "registry.deckhouse.io/base_images/golang:1.22.1-alpine@sha256:0de6cf7cceab6ecbf0718bdfb675b08b78113c3709c5e4b99456cdb2ae8c2495" }}
 {{- $_ := set . "BASE_SCRATCH"    "registry.deckhouse.io/base_images/scratch@sha256:b054705fcc9f2205777d80a558d920c0b4209efdc3163c22b5bfcb5dda1db5fc" }}
 {{- $_ := set . "BASE_ALPINE_DEV" "registry.deckhouse.io/base_images/dev-alpine:3.16.3@sha256:c706fa83cc129079e430480369a3f062b8178cac9ec89266ebab753a574aca8e" }}
@@ -6,6 +8,15 @@
 ---
 image: {{ $.ImageName }}-golang-artifact
 from: {{ $.BASE_GOLANG_22_ALPINE }}
+fromCacheVersion: "2024-05-14.1"
+git:
+  - add: /images/{{ $.ImageName }}
+    to: /
+    stageDependencies:
+      setup:
+        - "**/*"
+    includePaths:
+    - patches
 
 mount:
   - fromPath: ~/go-pkg-cache
@@ -16,19 +27,22 @@ shell:
   install:
     - export GO_VERSION={{ env "GOLANG_VERSION" }}
     - export GOPROXY={{ env "GOPROXY" }}
-    - git clone --depth 1 --branch v4.7.0 {{ env "SOURCE_REPO" }}/kubernetes-csi/csi-driver-nfs.git /csi-driver-nfs
+    - git clone --depth 1 --branch v{{ $version }} {{ env "SOURCE_REPO" }}/kubernetes-csi/csi-driver-nfs.git /csi-driver-nfs
+    - cd /csi-driver-nfs
+    - for patchfile in /patches/*.patch ; do echo -n "Apply ${patchfile} ... "; git apply ${patchfile}; done
     - cd /csi-driver-nfs/cmd/nfsplugin
     - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o /nfsplugin
     - chmod +x /nfsplugin
 
 ---
-{{ $csiBinaries := "/bin/mount /bin/umount /sbin/mount.nfs /sbin/mount.nfs4" }}
+{{ $csiBinaries := "/bin/mount /bin/umount /sbin/mount.nfs /sbin/mount.nfs4 /sbin/umount.nfs /sbin/umount.nfs4 /bin/tar /bin/gzip /bin/cp" }}
 ---
 image: {{ $.ImageName }}-binaries-artifact
 from: {{ $.BASE_ALT_DEV }}
 
 shell:
   install:
+    - apt update && apt install nfs-common
     - /binary_replace.sh -i "{{ $csiBinaries }}" -o /relocate
 
 ---

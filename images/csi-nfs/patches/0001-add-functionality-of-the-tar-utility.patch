@@ -1,0 +1,208 @@
+From f514b56bbe619c7d85db12483182620fb6349819 Mon Sep 17 00:00:00 2001
+From: Alexandr Ohrimenko <alexandr.ohrimenko@flant.com>
+Date: Mon, 20 May 2024 12:25:31 +0300
+Subject: [PATCH] add functionality of the tar utility
+
+Signed-off-by: Alexandr Ohrimenko <alexandr.ohrimenko@flant.com>
+---
+ pkg/nfs/controllerserver.go |  10 ++-
+ pkg/nfs/func_tar.go         | 157 ++++++++++++++++++++++++++++++++++++
+ 2 files changed, 163 insertions(+), 4 deletions(-)
+ create mode 100644 pkg/nfs/func_tar.go
+
+diff --git a/pkg/nfs/controllerserver.go b/pkg/nfs/controllerserver.go
+index 7fdad5dd..726df875 100644
+--- a/pkg/nfs/controllerserver.go
++++ b/pkg/nfs/controllerserver.go
+@@ -360,9 +360,10 @@ func (cs *ControllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateS
+ 	srcPath := getInternalVolumePath(cs.Driver.workingMountDir, srcVol)
+ 	dstPath := filepath.Join(snapInternalVolPath, snapshot.archiveName())
+ 	klog.V(2).Infof("archiving %v -> %v", srcPath, dstPath)
+-	out, err := exec.Command("tar", "-C", srcPath, "-czvf", dstPath, ".").CombinedOutput()
++	//out, err := exec.Command("tar", "-C", srcPath, "-czvf", dstPath, ".").CombinedOutput()
++	err = tarPack(dstPath, srcPath, true)
+ 	if err != nil {
+-		return nil, status.Errorf(codes.Internal, "failed to create archive for snapshot: %v: %v", err, string(out))
++		return nil, status.Errorf(codes.Internal, "failed to create archive for snapshot: %v", err)
+ 	}
+ 	klog.V(2).Infof("archived %s -> %s", srcPath, dstPath)
+ 
+@@ -515,9 +516,10 @@ func (cs *ControllerServer) copyFromSnapshot(ctx context.Context, req *csi.Creat
+ 	snapPath := filepath.Join(getInternalVolumePath(cs.Driver.workingMountDir, snapVol), snap.archiveName())
+ 	dstPath := getInternalVolumePath(cs.Driver.workingMountDir, dstVol)
+ 	klog.V(2).Infof("copy volume from snapshot %v -> %v", snapPath, dstPath)
+-	out, err := exec.Command("tar", "-xzvf", snapPath, "-C", dstPath).CombinedOutput()
++	//out, err := exec.Command("tar", "-xzvf", snapPath, "-C", dstPath).CombinedOutput()
++	err = tarUnPack(snapPath, dstPath, true)
+ 	if err != nil {
+-		return status.Errorf(codes.Internal, "failed to copy volume for snapshot: %v: %v", err, string(out))
++		return status.Errorf(codes.Internal, "failed to copy volume for snapshot: %v", err)
+ 	}
+ 	klog.V(2).Infof("volume copied from snapshot %v -> %v", snapPath, dstPath)
+ 	return nil
+diff --git a/pkg/nfs/func_tar.go b/pkg/nfs/func_tar.go
+new file mode 100644
+index 00000000..0131b564
+--- /dev/null
++++ b/pkg/nfs/func_tar.go
+@@ -0,0 +1,157 @@
++package nfs
++
++import (
++	"archive/tar"
++	"compress/gzip"
++	"errors"
++	"fmt"
++	"io"
++	"os"
++	"path/filepath"
++)
++
++func tarPack(dstPathAndFileName, srcPath string, enableCompression bool) error {
++	tarFile, err := os.Create(dstPathAndFileName)
++	if err != nil {
++		return err
++	}
++	defer func() {
++		err = tarFile.Close()
++	}()
++
++	absDstPathAndFileName, err := filepath.Abs(dstPathAndFileName)
++	if err != nil {
++		return err
++	}
++
++	tarWriter := tar.NewWriter(tarFile)
++	if enableCompression {
++		gzipWriter := gzip.NewWriter(tarFile)
++		defer gzipWriter.Close()
++		tarWriter = tar.NewWriter(gzipWriter)
++	}
++	defer tarWriter.Close()
++
++	srcPath = filepath.Clean(srcPath)
++	absSrcPath, err := filepath.Abs(srcPath)
++	if err != nil {
++		return err
++	}
++	if absSrcPath == absDstPathAndFileName {
++		return errors.New(fmt.Sprintf("tar file %s cannot be the source\n", dstPathAndFileName))
++	}
++	if absSrcPath == filepath.Dir(absDstPathAndFileName) {
++		return errors.New(fmt.Sprintf("tar file %s cannot be in source directory %s\n", dstPathAndFileName, absSrcPath))
++	}
++
++	walker := func(file string, fileInfo os.FileInfo, err error) error {
++		if err != nil {
++			return err
++		}
++
++		tarHeader, err := tar.FileInfoHeader(fileInfo, fileInfo.Name())
++		if err != nil {
++			return err
++		}
++
++		relFilePath := file
++		if filepath.IsAbs(srcPath) {
++			relFilePath, err = filepath.Rel(srcPath, file)
++			if err != nil {
++				return err
++			}
++		}
++		tarHeader.Name = relFilePath
++		if err = tarWriter.WriteHeader(tarHeader); err != nil {
++			return err
++		}
++
++		if fileInfo.Mode().IsDir() {
++			return nil
++		}
++
++		srcFile, err := os.Open(file)
++		if err != nil {
++			return err
++		}
++		defer srcFile.Close()
++		_, err = io.Copy(tarWriter, srcFile)
++		if err != nil {
++			return err
++		}
++		return nil
++	}
++
++	if err = filepath.Walk(srcPath, walker); err != nil {
++		return err
++	}
++	return nil
++}
++
++func tarUnPack(sourcePathAndFileName, desPath string, enableCompression bool) error {
++	tarFile, err := os.Open(sourcePathAndFileName)
++	if err != nil {
++		return err
++	}
++	defer func() {
++		err = tarFile.Close()
++	}()
++
++	absPath, err := filepath.Abs(desPath)
++	if err != nil {
++		return err
++	}
++
++	tarReader := tar.NewReader(tarFile)
++	if enableCompression {
++		gzipReader, err := gzip.NewReader(tarFile)
++		if err != nil {
++			return err
++		}
++		defer gzipReader.Close()
++		tarReader = tar.NewReader(gzipReader)
++	}
++
++	for {
++		tarHeader, err := tarReader.Next()
++		if err == io.EOF {
++			break
++		}
++		if err != nil {
++			return err
++		}
++
++		fileInfo := tarHeader.FileInfo()
++		fileName := tarHeader.Name
++		if filepath.IsAbs(fileName) {
++			fileName, err = filepath.Rel("/", fileName)
++			if err != nil {
++				return err
++			}
++		}
++		absFileName := filepath.Join(absPath, fileName)
++
++		if fileInfo.Mode().IsDir() {
++			if err := os.MkdirAll(absFileName, 0755); err != nil {
++				return err
++			}
++			continue
++		}
++
++		file, err := os.OpenFile(absFileName, os.O_RDWR|os.O_CREATE|os.O_TRUNC, fileInfo.Mode().Perm())
++		if err != nil {
++			return err
++		}
++		n, cpErr := io.Copy(file, tarReader)
++		if closeErr := file.Close(); closeErr != nil {
++			return err
++		}
++		if cpErr != nil {
++			return cpErr
++		}
++		if n != fileInfo.Size() {
++			return fmt.Errorf("unexpected bytes written: wrote %d, want %d", n, fileInfo.Size())
++		}
++	}
++	return nil
++}
+-- 
+2.39.3 (Apple Git-146)
+
