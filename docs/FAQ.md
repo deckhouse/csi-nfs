@@ -21,7 +21,7 @@ In `csi-nfs`, snapshots are created by archiving the volume directory. The archi
 
 ### Step 1: Enabling the snapshot-controller
 
-First, you need to enable the snapshot-controller and create a VolumeSnapshotClass:
+First, you need to enable the snapshot-controller:
 
 ```shell
 kubectl apply -f -<<EOF

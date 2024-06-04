@@ -21,7 +21,7 @@ kubectl -n d8-csi-nfs get pod -owide -w
 
 ### Шаг 1: Включение snapshot-controller
 
-Для начала необходимо включить snapshot-controller и создать VolumeSnapshotClass:
+Для начала необходимо включить snapshot-controller:
 
 ```shell
 kubectl apply -f -<<EOF
