@@ -42,7 +42,6 @@ from: {{ $.BASE_ALT_DEV }}
 
 shell:
   install:
-    - apt update && apt install nfs-common
     - /binary_replace.sh -i "{{ $csiBinaries }}" -o /relocate
 
 ---
