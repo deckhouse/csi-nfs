@@ -72,7 +72,7 @@ func ReconcileStorageClassCreateFunc(
 	if created {
 		log.Info(fmt.Sprintf("[reconcileStorageClassCreateFunc] successfully create storage class, name: %s", newSC.Name))
 	} else {
-		log.Warning(fmt.Sprintf("[reconcileLSCCreateFunc] Storage class %s already exists. Adding event to requeue.", newSC.Name))
+		log.Warning(fmt.Sprintf("[reconcileStorageClassCreateFunc] Storage class %s already exists. Adding event to requeue.", newSC.Name))
 		return true, nil
 	}
 

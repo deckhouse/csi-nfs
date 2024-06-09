@@ -132,26 +132,26 @@ func RunNFSStorageClassWatcherController(
 		UpdateFunc: func(ctx context.Context, e event.UpdateEvent, q workqueue.RateLimitingInterface) {
 			log.Info(fmt.Sprintf("[UpdateFunc] get event for NFSStorageClass %q. Check if it should be reconciled", e.ObjectNew.GetName()))
 
-			oldLsc, ok := e.ObjectOld.(*v1alpha1.NFSStorageClass)
+			oldNSC, ok := e.ObjectOld.(*v1alpha1.NFSStorageClass)
 			if !ok {
 				err = errors.New("unable to cast event object to a given type")
 				log.Error(err, "[UpdateFunc] an error occurred while handling create event")
 				return
 			}
-			newLsc, ok := e.ObjectNew.(*v1alpha1.NFSStorageClass)
+			newNSC, ok := e.ObjectNew.(*v1alpha1.NFSStorageClass)
 			if !ok {
 				err = errors.New("unable to cast event object to a given type")
 				log.Error(err, "[UpdateFunc] an error occurred while handling create event")
 				return
 			}
 
-			if reflect.DeepEqual(oldLsc.Spec, newLsc.Spec) && newLsc.DeletionTimestamp == nil {
-				log.Info(fmt.Sprintf("[UpdateFunc] an update event for the NFSStorageClass %s has no Spec field updates. It will not be reconciled", newLsc.Name))
+			if reflect.DeepEqual(oldNSC.Spec, newNSC.Spec) && newNSC.DeletionTimestamp == nil {
+				log.Info(fmt.Sprintf("[UpdateFunc] an update event for the NFSStorageClass %s has no Spec field updates. It will not be reconciled", newNSC.Name))
 				return
 			}
 
-			log.Info(fmt.Sprintf("[UpdateFunc] the NFSStorageClass %q will be reconciled. Add to the queue", newLsc.Name))
-			request := reconcile.Request{NamespacedName: types.NamespacedName{Namespace: newLsc.Namespace, Name: newLsc.Name}}
+			log.Info(fmt.Sprintf("[UpdateFunc] the NFSStorageClass %q will be reconciled. Add to the queue", newNSC.Name))
+			request := reconcile.Request{NamespacedName: types.NamespacedName{Namespace: newNSC.Namespace, Name: newNSC.Name}}
 			q.Add(request)
 		},
 	})
