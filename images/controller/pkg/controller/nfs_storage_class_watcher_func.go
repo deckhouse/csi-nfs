@@ -568,7 +568,7 @@ func recreateStorageClass(ctx context.Context, cl client.Client, oldSC, newSC *v
 }
 
 func deleteStorageClass(ctx context.Context, cl client.Client, sc *v1.StorageClass) error {
-	if sc.Provisioner != NFSStorageClassProvisioner {
+	if !slices.Contains(allowedProvisioners, sc.Provisioner) {
 		return fmt.Errorf("a storage class %s does not belong to %s provisioner", sc.Name, NFSStorageClassProvisioner)
 	}
 
