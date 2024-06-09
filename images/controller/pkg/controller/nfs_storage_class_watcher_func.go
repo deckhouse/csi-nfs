@@ -485,6 +485,7 @@ func addFinalizerIfNotExists(ctx context.Context, cl client.Client, obj metav1.O
 	}
 
 	if added {
+		obj.SetFinalizers(finalizers)
 		err := cl.Update(ctx, obj.(client.Object))
 		if err != nil {
 			return false, err
