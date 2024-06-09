@@ -176,12 +176,10 @@ func reconcileStorageClassDeleteFunc(
 
 	if sc != nil {
 		log.Info(fmt.Sprintf("[reconcileStorageClassDeleteFunc] successfully found a storage class for the NFSStorageClass %s", nsc.Name))
-		log.Debug(fmt.Sprintf("[reconcileStorageClassDeleteFunc] starts identifing a provisioner for the storage class %s", sc.Name))
+		log.Debug(fmt.Sprintf("[reconcileStorageClassDeleteFunc] starts identifying a provisioner for the storage class %s", sc.Name))
 
-		if sc.Provisioner != NFSStorageClassProvisioner {
-			log.Info(fmt.Sprintf("[reconcileStorageClassDeleteFunc] the storage class %s does not belongs to %s provisioner. It will not be deleted", sc.Name, NFSStorageClassProvisioner))
-		} else {
-			log.Info(fmt.Sprintf("[reconcileStorageClassDeleteFunc] the storage class %s belongs to %s provisioner. It will be deleted", sc.Name, NFSStorageClassProvisioner))
+		if slices.Contains(allowedProvisioners, sc.Provisioner) {
+			log.Info(fmt.Sprintf("[reconcileStorageClassDeleteFunc] the storage class %s provisioner %s belongs to allowed provisioners: %v", sc.Name, sc.Provisioner, allowedProvisioners))
 
 			err := deleteStorageClass(ctx, cl, sc)
 			if err != nil {
@@ -194,6 +192,10 @@ func reconcileStorageClassDeleteFunc(
 				return true, err
 			}
 			log.Info(fmt.Sprintf("[reconcileStorageClassDeleteFunc] successfully deleted a storage class, name: %s", sc.Name))
+		}
+
+		if !slices.Contains(allowedProvisioners, sc.Provisioner) {
+			log.Info(fmt.Sprintf("[reconcileStorageClassDeleteFunc] the storage class %s provisioner %s does not belong to allowed provisioners: %v", sc.Name, sc.Provisioner, allowedProvisioners))
 		}
 	}
 
