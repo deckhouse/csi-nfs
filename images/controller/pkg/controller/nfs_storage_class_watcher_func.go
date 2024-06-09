@@ -280,10 +280,10 @@ func reconcileSecretDeleteFunc(ctx context.Context, cl client.Client, log logger
 
 	if secret != nil {
 		log.Info(fmt.Sprintf("[reconcileSecretDeleteFunc] successfully found a secret for the NFSStorageClass %s", nsc.Name))
-		log.Debug(fmt.Sprintf("[reconcileSecretDeleteFunc] starts removing a finalizer %s from the Secret, name: %s", NFSStorageClassFinalizerName, secret.Name))
-		_, err := removeFinalizerIfExists(ctx, cl, secret, NFSStorageClassFinalizerName)
+		log.Debug(fmt.Sprintf("[reconcileSecretDeleteFunc] starts removing a finalizer %s from the Secret, name: %s", NFSStorageClassControllerFinalizerName, secret.Name))
+		_, err := removeFinalizerIfExists(ctx, cl, secret, NFSStorageClassControllerFinalizerName)
 		if err != nil {
-			err = fmt.Errorf("[reconcileSecretDeleteFunc] unable to remove a finalizer %s from the Secret %s: %w", NFSStorageClassFinalizerName, secret.Name, err)
+			err = fmt.Errorf("[reconcileSecretDeleteFunc] unable to remove a finalizer %s from the Secret %s: %w", NFSStorageClassControllerFinalizerName, secret.Name, err)
 			upErr := updateNFSStorageClassPhase(ctx, cl, nsc, FailedStatusPhase, fmt.Sprintf("Unable to remove a finalizer, err: %s", err.Error()))
 			if upErr != nil {
 				upErr = fmt.Errorf("[reconcileSecretDeleteFunc] unable to update the NFSStorageClass %s: %w", nsc.Name, upErr)
@@ -306,10 +306,10 @@ func reconcileSecretDeleteFunc(ctx context.Context, cl client.Client, log logger
 
 	log.Info(fmt.Sprintf("[reconcileSecretDeleteFunc] ends the reconciliation for Secret %q", SecretForMountOptionsPrefix+nsc.Name))
 
-	log.Debug(fmt.Sprintf("[reconcileSecretDeleteFunc] starts removing a finalizer %s from the NFSStorageClass, name: %s", NFSStorageClassFinalizerName, nsc.Name))
-	removed, err := removeFinalizerIfExists(ctx, cl, nsc, NFSStorageClassFinalizerName)
+	log.Debug(fmt.Sprintf("[reconcileSecretDeleteFunc] starts removing a finalizer %s from the NFSStorageClass, name: %s", NFSStorageClassControllerFinalizerName, nsc.Name))
+	removed, err := removeFinalizerIfExists(ctx, cl, nsc, NFSStorageClassControllerFinalizerName)
 	if err != nil {
-		err = fmt.Errorf("[reconcileSecretDeleteFunc] unable to remove a finalizer %s from the NFSStorageClass %s: %w", NFSStorageClassFinalizerName, nsc.Name, err)
+		err = fmt.Errorf("[reconcileSecretDeleteFunc] unable to remove a finalizer %s from the NFSStorageClass %s: %w", NFSStorageClassControllerFinalizerName, nsc.Name, err)
 		upErr := updateNFSStorageClassPhase(ctx, cl, nsc, FailedStatusPhase, fmt.Sprintf("Unable to remove a finalizer, err: %s", err.Error()))
 		if upErr != nil {
 			upErr = fmt.Errorf("[reconcileSecretDeleteFunc] unable to update the NFSStorageClass %s: %w", nsc.Name, upErr)
@@ -317,7 +317,7 @@ func reconcileSecretDeleteFunc(ctx context.Context, cl client.Client, log logger
 		}
 		return true, err
 	}
-	log.Debug(fmt.Sprintf("[reconcileSecretDeleteFunc] the NFSStorageClass %s finalizer %s was removed: %t", nsc.Name, NFSStorageClassFinalizerName, removed))
+	log.Debug(fmt.Sprintf("[reconcileSecretDeleteFunc] the NFSStorageClass %s finalizer %s was removed: %t", nsc.Name, NFSStorageClassControllerFinalizerName, removed))
 
 	return false, nil
 }
@@ -476,16 +476,20 @@ func createStorageClassIfNotExists(ctx context.Context, cl client.Client, scList
 	return true, err
 }
 
-func addFinalizerIfNotExistsForNSC(ctx context.Context, cl client.Client, nsc *v1alpha1.NFSStorageClass) (bool, error) {
-	if !slices.Contains(nsc.Finalizers, NFSStorageClassFinalizerName) {
-		nsc.Finalizers = append(nsc.Finalizers, NFSStorageClassFinalizerName)
+func addFinalizerIfNotExists(ctx context.Context, cl client.Client, obj metav1.Object, finalizerName string) (bool, error) {
+	added := false
+	finalizers := obj.GetFinalizers()
+	if !slices.Contains(finalizers, finalizerName) {
+		finalizers = append(finalizers, finalizerName)
+		added = true
 	}
 
-	err := cl.Update(ctx, nsc)
-	if err != nil {
-		return false, err
+	if added {
+		err := cl.Update(ctx, obj.(client.Object))
+		if err != nil {
+			return false, err
+		}
 	}
-
 	return true, nil
 }
 
@@ -511,7 +515,7 @@ func ConfigureStorageClass(nsc *v1alpha1.NFSStorageClass, controllerNamespace st
 		ObjectMeta: metav1.ObjectMeta{
 			Name:       nsc.Name,
 			Namespace:  nsc.Namespace,
-			Finalizers: []string{NFSStorageClassFinalizerName},
+			Finalizers: []string{NFSStorageClassControllerFinalizerName},
 		},
 		Parameters:           GetSCParams(nsc, controllerNamespace),
 		MountOptions:         GetSCMountOptions(nsc),
@@ -564,7 +568,7 @@ func deleteStorageClass(ctx context.Context, cl client.Client, sc *v1.StorageCla
 		return fmt.Errorf("a storage class %s does not belong to %s provisioner", sc.Name, NFSStorageClassProvisioner)
 	}
 
-	_, err := removeFinalizerIfExists(ctx, cl, sc, NFSStorageClassFinalizerName)
+	_, err := removeFinalizerIfExists(ctx, cl, sc, NFSStorageClassControllerFinalizerName)
 	if err != nil {
 		return err
 	}
@@ -705,7 +709,7 @@ func configureSecret(nsc *v1alpha1.NFSStorageClass, controllerNamespace string) 
 			Labels: map[string]string{
 				NFSStorageClassManagedLabelKey: NFSStorageClassManagedLabelValue,
 			},
-			Finalizers: []string{NFSStorageClassFinalizerName},
+			Finalizers: []string{NFSStorageClassControllerFinalizerName},
 		},
 		StringData: map[string]string{
 			MountOptionsSecretKey: strings.Join(mountOptions, ","),

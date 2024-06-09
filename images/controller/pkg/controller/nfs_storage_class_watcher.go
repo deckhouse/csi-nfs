@@ -49,9 +49,9 @@ const (
 
 	NFSStorageClassProvisioner = "nfs.csi.k8s.io"
 
-	NFSStorageClassFinalizerName     = "storage.deckhouse.io/nfs-storage-class-controller"
-	NFSStorageClassManagedLabelKey   = "storage.deckhouse.io/managed-by"
-	NFSStorageClassManagedLabelValue = "nfs-storage-class-controller"
+	NFSStorageClassControllerFinalizerName = "storage.deckhouse.io/nfs-storage-class-controller"
+	NFSStorageClassManagedLabelKey         = "storage.deckhouse.io/managed-by"
+	NFSStorageClassManagedLabelValue       = "nfs-storage-class-controller"
 
 	AllowVolumeExpansionDefaultValue = true
 
@@ -164,12 +164,12 @@ func RunNFSStorageClassWatcherController(
 }
 
 func RunEventReconcile(ctx context.Context, cl client.Client, log logger.Logger, scList *v1.StorageClassList, nsc *v1alpha1.NFSStorageClass, controllerNamespace string) (shouldRequeue bool, err error) {
-	added, err := addFinalizerIfNotExistsForNSC(ctx, cl, nsc)
+	added, err := addFinalizerIfNotExists(ctx, cl, nsc, NFSStorageClassControllerFinalizerName)
 	if err != nil {
-		err = fmt.Errorf("[reconcileStorageClassCreateFunc] unable to add a finalizer %s to the NFSStorageClass %s: %w", NFSStorageClassFinalizerName, nsc.Name, err)
+		err = fmt.Errorf("[reconcileStorageClassCreateFunc] unable to add a finalizer %s to the NFSStorageClass %s: %w", NFSStorageClassControllerFinalizerName, nsc.Name, err)
 		return true, err
 	}
-	log.Debug(fmt.Sprintf("[reconcileStorageClassCreateFunc] finalizer %s was added to the NFSStorageClass %s: %t", NFSStorageClassFinalizerName, nsc.Name, added))
+	log.Debug(fmt.Sprintf("[reconcileStorageClassCreateFunc] finalizer %s was added to the NFSStorageClass %s: %t", NFSStorageClassControllerFinalizerName, nsc.Name, added))
 
 	reconcileTypeForStorageClass, err := IdentifyReconcileFuncForStorageClass(log, scList, nsc, controllerNamespace)
 	if err != nil {

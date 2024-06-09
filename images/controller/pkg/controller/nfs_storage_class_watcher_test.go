@@ -97,7 +97,7 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		err = cl.Get(ctx, client.ObjectKey{Name: nameForTestResource}, nsc)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(nsc.Finalizers).To(HaveLen(1))
-		Expect(nsc.Finalizers).To(ContainElement(controller.NFSStorageClassFinalizerName))
+		Expect(nsc.Finalizers).To(ContainElement(controller.NFSStorageClassControllerFinalizerName))
 
 		sc := &v1.StorageClass{}
 		err = cl.Get(ctx, client.ObjectKey{Name: nameForTestResource}, sc)
@@ -133,7 +133,7 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		Expect(nsc).NotTo(BeNil())
 		Expect(nsc.Name).To(Equal(nameForTestResource))
 		Expect(nsc.Finalizers).To(HaveLen(1))
-		Expect(nsc.Finalizers).To(ContainElement(controller.NFSStorageClassFinalizerName))
+		Expect(nsc.Finalizers).To(ContainElement(controller.NFSStorageClassControllerFinalizerName))
 
 		scList := &v1.StorageClassList{}
 		err = cl.List(ctx, scList)
@@ -146,7 +146,7 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		err = cl.Get(ctx, client.ObjectKey{Name: nameForTestResource}, nsc)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(nsc.Finalizers).To(HaveLen(1))
-		Expect(nsc.Finalizers).To(ContainElement(controller.NFSStorageClassFinalizerName))
+		Expect(nsc.Finalizers).To(ContainElement(controller.NFSStorageClassControllerFinalizerName))
 
 		sc := &v1.StorageClass{}
 		err = cl.Get(ctx, client.ObjectKey{Name: nameForTestResource}, sc)
@@ -181,7 +181,7 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		Expect(nsc).NotTo(BeNil())
 		Expect(nsc.Name).To(Equal(nameForTestResource))
 		Expect(nsc.Finalizers).To(HaveLen(1))
-		Expect(nsc.Finalizers).To(ContainElement(controller.NFSStorageClassFinalizerName))
+		Expect(nsc.Finalizers).To(ContainElement(controller.NFSStorageClassControllerFinalizerName))
 
 		scList := &v1.StorageClassList{}
 		err = cl.List(ctx, scList)
@@ -194,7 +194,7 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		err = cl.Get(ctx, client.ObjectKey{Name: nameForTestResource}, nsc)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(nsc.Finalizers).To(HaveLen(1))
-		Expect(nsc.Finalizers).To(ContainElement(controller.NFSStorageClassFinalizerName))
+		Expect(nsc.Finalizers).To(ContainElement(controller.NFSStorageClassControllerFinalizerName))
 
 		sc := &v1.StorageClass{}
 		err = cl.Get(ctx, client.ObjectKey{Name: nameForTestResource}, sc)
@@ -232,7 +232,7 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		Expect(nsc).NotTo(BeNil())
 		Expect(nsc.Name).To(Equal(nameForTestResource))
 		Expect(nsc.Finalizers).To(HaveLen(1))
-		Expect(nsc.Finalizers).To(ContainElement(controller.NFSStorageClassFinalizerName))
+		Expect(nsc.Finalizers).To(ContainElement(controller.NFSStorageClassControllerFinalizerName))
 
 		scList := &v1.StorageClassList{}
 		err = cl.List(ctx, scList)
@@ -245,7 +245,7 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		err = cl.Get(ctx, client.ObjectKey{Name: nameForTestResource}, nsc)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(nsc.Finalizers).To(HaveLen(1))
-		Expect(nsc.Finalizers).To(ContainElement(controller.NFSStorageClassFinalizerName))
+		Expect(nsc.Finalizers).To(ContainElement(controller.NFSStorageClassControllerFinalizerName))
 
 		sc := &v1.StorageClass{}
 		err = cl.Get(ctx, client.ObjectKey{Name: nameForTestResource}, sc)
@@ -354,7 +354,7 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		err = cl.Get(ctx, client.ObjectKey{Name: nameForTestResource}, nsc)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(nsc.Finalizers).To(HaveLen(1))
-		Expect(nsc.Finalizers).To(ContainElement(controller.NFSStorageClassFinalizerName))
+		Expect(nsc.Finalizers).To(ContainElement(controller.NFSStorageClassControllerFinalizerName))
 
 		scList := &v1.StorageClassList{}
 		err = cl.List(ctx, scList)
@@ -425,7 +425,7 @@ func performStandartChecksForSc(sc *v1.StorageClass, server, share, nameForTestR
 	Expect(sc).NotTo(BeNil())
 	Expect(sc.Name).To(Equal(nameForTestResource))
 	Expect(sc.Finalizers).To(HaveLen(1))
-	Expect(sc.Finalizers).To(ContainElement(controller.NFSStorageClassFinalizerName))
+	Expect(sc.Finalizers).To(ContainElement(controller.NFSStorageClassControllerFinalizerName))
 	Expect(sc.Provisioner).To(Equal(controller.NFSStorageClassProvisioner))
 	Expect(*sc.ReclaimPolicy).To(Equal(corev1.PersistentVolumeReclaimDelete))
 	Expect(*sc.VolumeBindingMode).To(Equal(v1.VolumeBindingWaitForFirstConsumer))
@@ -440,5 +440,5 @@ func performStandartChecksForSecret(secret *corev1.Secret, nameForTestResource, 
 	Expect(secret.Name).To(Equal(controller.SecretForMountOptionsPrefix + nameForTestResource))
 	Expect(secret.Namespace).To(Equal(controllerNamespace))
 	Expect(secret.Finalizers).To(HaveLen(1))
-	Expect(secret.Finalizers).To(ContainElement(controller.NFSStorageClassFinalizerName))
+	Expect(secret.Finalizers).To(ContainElement(controller.NFSStorageClassControllerFinalizerName))
 }
