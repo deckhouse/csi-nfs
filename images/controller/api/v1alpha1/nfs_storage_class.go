@@ -25,7 +25,6 @@ type NFSStorageClass struct {
 	Status            *NFSStorageClassStatus `json:"status,omitempty"`
 }
 
-// NFSStorageClassList contains a list of empty block device
 type NFSStorageClassList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
