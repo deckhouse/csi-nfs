@@ -73,6 +73,10 @@ const (
 	StorageClassSecretNSKey     = "csi.storage.k8s.io/provisioner-secret-namespace"
 )
 
+var (
+	allowedProvisioners = []string{NFSStorageClassProvisioner}
+)
+
 func RunNFSStorageClassWatcherController(
 	mgr manager.Manager,
 	cfg config.Options,

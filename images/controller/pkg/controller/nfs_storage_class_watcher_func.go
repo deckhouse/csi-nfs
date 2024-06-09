@@ -26,11 +26,12 @@ import (
 	"strconv"
 	"strings"
 
+	"slices"
+
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/utils/strings/slices"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -363,7 +364,7 @@ func shouldReconcileStorageClassByUpdateFunc(log logger.Logger, scList *v1.Stora
 
 	for _, oldSC := range scList.Items {
 		if oldSC.Name == nsc.Name {
-			if oldSC.Provisioner == NFSStorageClassProvisioner {
+			if slices.Contains(allowedProvisioners, oldSC.Provisioner) {
 				newSC, err := ConfigureStorageClass(nsc, controllerNamespace)
 				if err != nil {
 					return false, err
@@ -386,7 +387,7 @@ func shouldReconcileStorageClassByUpdateFunc(log logger.Logger, scList *v1.Stora
 				return false, nil
 
 			} else {
-				err := fmt.Errorf("a storage class %s does not belong to %s provisioner", oldSC.Name, NFSStorageClassProvisioner)
+				err := fmt.Errorf("a storage class %s with provisioner % s does not belong to allowed provisioners: %v", oldSC.Name, oldSC.Provisioner, allowedProvisioners)
 				return false, err
 			}
 		}
