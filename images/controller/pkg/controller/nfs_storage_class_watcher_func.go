@@ -399,8 +399,8 @@ func shouldReconcileStorageClassByUpdateFunc(log logger.Logger, scList *v1.Stora
 	return false, err
 }
 
-func shouldReconcileByDeleteFunc(nsc *v1alpha1.NFSStorageClass) bool {
-	if nsc.DeletionTimestamp != nil {
+func shouldReconcileByDeleteFunc(obj metav1.Object) bool {
+	if obj.GetDeletionTimestamp() != nil {
 		return true
 	}
 
@@ -697,6 +697,7 @@ func shouldReconcileSecretByUpdateFunc(log logger.Logger, secretList *corev1.Sec
 		}
 	}
 
+	log.Debug(fmt.Sprintf("[shouldReconcileSecretByUpdateFunc] a secret %s not found in the list: %+v. It should be created", SecretForMountOptionsPrefix+nsc.Name, secretList.Items))
 	return true, nil
 }
 
