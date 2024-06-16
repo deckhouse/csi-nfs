@@ -355,6 +355,7 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(nsc.Finalizers).To(HaveLen(1))
 		Expect(nsc.Finalizers).To(ContainElement(controller.NFSStorageClassControllerFinalizerName))
+		Expect(nsc.DeletionTimestamp).NotTo(BeNil())
 
 		scList := &v1.StorageClassList{}
 		err = cl.List(ctx, scList)
