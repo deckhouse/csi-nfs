@@ -53,6 +53,9 @@ const (
 	NFSStorageClassManagedLabelKey         = "storage.deckhouse.io/managed-by"
 	NFSStorageClassManagedLabelValue       = "nfs-storage-class-controller"
 
+	StorageClassDefaultAnnotationKey     = "storageclass.kubernetes.io/is-default-class"
+	StorageClassDefaultAnnotationValTrue = "true"
+
 	AllowVolumeExpansionDefaultValue = true
 
 	FailedStatusPhase  = "Failed"

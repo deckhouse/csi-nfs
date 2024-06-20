@@ -113,7 +113,7 @@ func reconcileStorageClassUpdateFunc(
 	log.Debug(fmt.Sprintf("[reconcileStorageClassUpdateFunc] successfully found a storage class for the NFSStorageClass, name: %s", nsc.Name))
 
 	log.Trace(fmt.Sprintf("[reconcileStorageClassUpdateFunc] storage class: %+v", oldSC))
-	newSC, err := ConfigureStorageClass(nsc, controllerNamespace)
+	newSC, err := updateStorageClass(nsc, oldSC, controllerNamespace)
 	if err != nil {
 		err = fmt.Errorf("[reconcileStorageClassUpdateFunc] unable to configure a Storage Class for the NFSStorageClass %s: %w", nsc.Name, err)
 		upError := updateNFSStorageClassPhase(ctx, cl, nsc, FailedStatusPhase, err.Error())
@@ -367,7 +367,7 @@ func shouldReconcileStorageClassByUpdateFunc(log logger.Logger, scList *v1.Stora
 	for _, oldSC := range scList.Items {
 		if oldSC.Name == nsc.Name {
 			if slices.Contains(allowedProvisioners, oldSC.Provisioner) {
-				newSC, err := ConfigureStorageClass(nsc, controllerNamespace)
+				newSC, err := updateStorageClass(nsc, &oldSC, controllerNamespace)
 				if err != nil {
 					return false, err
 				}
@@ -722,4 +722,17 @@ func configureSecret(nsc *v1alpha1.NFSStorageClass, controllerNamespace string) 
 	}
 
 	return secret
+}
+
+func updateStorageClass(nsc *v1alpha1.NFSStorageClass, oldSC *v1.StorageClass, controllerNamespace string) (*v1.StorageClass, error) {
+	newSC, err := ConfigureStorageClass(nsc, controllerNamespace)
+	if err != nil {
+		return nil, err
+	}
+
+	if oldSC.Annotations != nil {
+		newSC.Annotations = oldSC.Annotations
+	}
+
+	return newSC, nil
 }
