@@ -49,9 +49,12 @@ const (
 
 	NFSStorageClassProvisioner = "nfs.csi.k8s.io"
 
-	NFSStorageClassFinalizerName     = "storage.deckhouse.io/nfs-storage-class-controller"
-	NFSStorageClassManagedLabelKey   = "storage.deckhouse.io/managed-by"
-	NFSStorageClassManagedLabelValue = "nfs-storage-class-controller"
+	NFSStorageClassControllerFinalizerName = "storage.deckhouse.io/nfs-storage-class-controller"
+	NFSStorageClassManagedLabelKey         = "storage.deckhouse.io/managed-by"
+	NFSStorageClassManagedLabelValue       = "nfs-storage-class-controller"
+
+	StorageClassDefaultAnnotationKey     = "storageclass.kubernetes.io/is-default-class"
+	StorageClassDefaultAnnotationValTrue = "true"
 
 	AllowVolumeExpansionDefaultValue = true
 
@@ -71,6 +74,10 @@ const (
 	SecretForMountOptionsPrefix = "nfs-mount-options-for-"
 	StorageClassSecretNameKey   = "csi.storage.k8s.io/provisioner-secret-name"
 	StorageClassSecretNSKey     = "csi.storage.k8s.io/provisioner-secret-namespace"
+)
+
+var (
+	allowedProvisioners = []string{NFSStorageClassProvisioner}
 )
 
 func RunNFSStorageClassWatcherController(
@@ -132,26 +139,26 @@ func RunNFSStorageClassWatcherController(
 		UpdateFunc: func(ctx context.Context, e event.UpdateEvent, q workqueue.RateLimitingInterface) {
 			log.Info(fmt.Sprintf("[UpdateFunc] get event for NFSStorageClass %q. Check if it should be reconciled", e.ObjectNew.GetName()))
 
-			oldLsc, ok := e.ObjectOld.(*v1alpha1.NFSStorageClass)
+			oldNSC, ok := e.ObjectOld.(*v1alpha1.NFSStorageClass)
 			if !ok {
 				err = errors.New("unable to cast event object to a given type")
 				log.Error(err, "[UpdateFunc] an error occurred while handling create event")
 				return
 			}
-			newLsc, ok := e.ObjectNew.(*v1alpha1.NFSStorageClass)
+			newNSC, ok := e.ObjectNew.(*v1alpha1.NFSStorageClass)
 			if !ok {
 				err = errors.New("unable to cast event object to a given type")
 				log.Error(err, "[UpdateFunc] an error occurred while handling create event")
 				return
 			}
 
-			if reflect.DeepEqual(oldLsc.Spec, newLsc.Spec) && newLsc.DeletionTimestamp == nil {
-				log.Info(fmt.Sprintf("[UpdateFunc] an update event for the NFSStorageClass %s has no Spec field updates. It will not be reconciled", newLsc.Name))
+			if reflect.DeepEqual(oldNSC.Spec, newNSC.Spec) && newNSC.DeletionTimestamp == nil {
+				log.Info(fmt.Sprintf("[UpdateFunc] an update event for the NFSStorageClass %s has no Spec field updates. It will not be reconciled", newNSC.Name))
 				return
 			}
 
-			log.Info(fmt.Sprintf("[UpdateFunc] the NFSStorageClass %q will be reconciled. Add to the queue", newLsc.Name))
-			request := reconcile.Request{NamespacedName: types.NamespacedName{Namespace: newLsc.Namespace, Name: newLsc.Name}}
+			log.Info(fmt.Sprintf("[UpdateFunc] the NFSStorageClass %q will be reconciled. Add to the queue", newNSC.Name))
+			request := reconcile.Request{NamespacedName: types.NamespacedName{Namespace: newNSC.Namespace, Name: newNSC.Name}}
 			q.Add(request)
 		},
 	})
@@ -164,12 +171,12 @@ func RunNFSStorageClassWatcherController(
 }
 
 func RunEventReconcile(ctx context.Context, cl client.Client, log logger.Logger, scList *v1.StorageClassList, nsc *v1alpha1.NFSStorageClass, controllerNamespace string) (shouldRequeue bool, err error) {
-	added, err := addFinalizerIfNotExistsForNSC(ctx, cl, nsc)
+	added, err := addFinalizerIfNotExists(ctx, cl, nsc, NFSStorageClassControllerFinalizerName)
 	if err != nil {
-		err = fmt.Errorf("[reconcileStorageClassCreateFunc] unable to add a finalizer %s to the NFSStorageClass %s: %w", NFSStorageClassFinalizerName, nsc.Name, err)
+		err = fmt.Errorf("[reconcileStorageClassCreateFunc] unable to add a finalizer %s to the NFSStorageClass %s: %w", NFSStorageClassControllerFinalizerName, nsc.Name, err)
 		return true, err
 	}
-	log.Debug(fmt.Sprintf("[reconcileStorageClassCreateFunc] finalizer %s was added to the NFSStorageClass %s: %t", NFSStorageClassFinalizerName, nsc.Name, added))
+	log.Debug(fmt.Sprintf("[reconcileStorageClassCreateFunc] finalizer %s was added to the NFSStorageClass %s: %t", NFSStorageClassControllerFinalizerName, nsc.Name, added))
 
 	reconcileTypeForStorageClass, err := IdentifyReconcileFuncForStorageClass(log, scList, nsc, controllerNamespace)
 	if err != nil {
