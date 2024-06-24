@@ -6,7 +6,7 @@ artifact: {{ $.ImageName }}-golang-artifact
 from: {{ $.BASE_GOLANG_22_ALPINE }}
 
 git:
-  - add: /images/webhooks/src
+  - add: /images/controller/src
     to: /src
     stageDependencies:
       setup:
@@ -16,19 +16,20 @@ mount:
     to: /go/pkg
 shell:
   setup:
-    - cd /src
-    - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o webhooks
-    - mv webhooks /webhooks
-    - chmod +x /webhooks
+    - cd /src/cmd
+    - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o controller
+    - mv controller /controller
+    - chmod +x /controller
+
 ---
 image: {{ $.ImageName }}
 from: {{ $.BASE_SCRATCH }}
 
 import:
   - artifact: {{ $.ImageName }}-golang-artifact
-    add: /webhooks
-    to: /webhooks
+    add: /controller
+    to: /controller
     before: setup
 
 docker:
-  ENTRYPOINT: ["/webhooks"]
+  ENTRYPOINT: ["/controller"]
