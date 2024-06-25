@@ -72,7 +72,6 @@ spec:
                       description: |
                         NFS server version
                       enum:
-                        - "3"
                         - "4.1"
                         - "4.2"
                 mountOptions:
