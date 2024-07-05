@@ -18,11 +18,11 @@ package controller
 
 import (
 	"context"
-	v1alpha1 "d8-controller/api/v1alpha1"
 	"d8-controller/pkg/config"
 	"d8-controller/pkg/logger"
 	"errors"
 	"fmt"
+	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	"reflect"
 	"time"
 

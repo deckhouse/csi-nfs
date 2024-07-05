@@ -17,8 +17,8 @@ limitations under the License.
 package controller_test
 
 import (
-	v1alpha1 "d8-controller/api/v1alpha1"
 	"fmt"
+	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	"os"
 	"testing"
 

@@ -18,12 +18,12 @@ package main
 
 import (
 	"context"
-	"d8-controller/api/v1alpha1"
 	"d8-controller/pkg/config"
 	"d8-controller/pkg/controller"
 	"d8-controller/pkg/kubutils"
 	"d8-controller/pkg/logger"
 	"fmt"
+	"github.com/deckhouse/csi-nfs/api/v1alpha1"
 	"os"
 	goruntime "runtime"
 
