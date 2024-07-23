@@ -10,3 +10,7 @@ properties:
       - TRACE
     description: Module log level
     default: DEBUG
+  v3support:
+    type: boolean
+    default: false
+    description: NFS version v3 support

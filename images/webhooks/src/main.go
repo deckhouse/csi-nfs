@@ -23,6 +23,7 @@ import (
 	"os"
 	"webhooks/handlers"
 
+	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	"github.com/sirupsen/logrus"
 	kwhlogrus "github.com/slok/kubewebhook/v2/pkg/log/logrus"
 	storagev1 "k8s.io/api/storage/v1"
@@ -49,10 +50,9 @@ func initFlags() config {
 }
 
 const (
-	port                  = ":8443"
-	PodSchedulerMutatorID = "PodSchedulerMutation"
-	LSCValidatorId        = "LSCValidator"
-	SCValidatorId         = "SCValidator"
+	port           = ":8443"
+	NSCValidatorId = "NSCValidator"
+	SCValidatorId  = "SCValidator"
 )
 
 func main() {
@@ -68,8 +68,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	nscValidatingWebhookHandler, err := handlers.GetValidatingWebhookHandler(handlers.NSCValidate, NSCValidatorId, &cn.NFSStorageClass{}, logger)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error creating nscValidatingWebhookHandler: %s", err)
+		os.Exit(1)
+	}
+
 	mux := http.NewServeMux()
 	mux.Handle("/sc-validate", scValidatingWebhookHandler)
+	mux.Handle("/nsc-validate", nscValidatingWebhookHandler)
 	mux.HandleFunc("/healthz", httpHandlerHealthz)
 
 	logger.Infof("Listening on %s", port)
