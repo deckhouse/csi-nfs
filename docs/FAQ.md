@@ -36,29 +36,7 @@ EOF
 
 ```
 
-### Step 2: Creating the VolumeSnapshotClass
-
-Create a VolumeSnapshotClass with the necessary parameters:
-
-```shell
-kubectl apply -f -<<EOF
-apiVersion: snapshot.storage.k8s.io/v1
-kind: VolumeSnapshotClass
-metadata:
-  name: csi-nfs-snapshot-class
-driver: nfs.csi.k8s.io
-deletionPolicy: <Delete or Retain>
-EOF
-
-```
-
-The deletionPolicy parameter can be set to Delete or Retain depending on your use case:
-
-- Delete — the snapshot will be deleted along with the VolumeSnapshot.
-
-- Retain — the snapshot will be retained after the VolumeSnapshot is deleted.
-
-### Step 3: Creating a Volume Snapshot
+### Step 2: Creating a Volume Snapshot
 
 Now you can create volume snapshots. To do this, execute the following command with the necessary parameters:
 
@@ -78,7 +56,7 @@ EOF
 ```
 
 
-### Step 4: Checking the Snapshot Status
+### Step 3: Checking the Snapshot Status
 
 To check the status of the created snapshot, execute the command:
 

@@ -36,30 +36,7 @@ EOF
 
 ```
 
-### Шаг 2: Создание VolumeSnapshotClass
-
-Создайте VolumeSnapshotClass с необходимыми параметрами:
-
-```shell
-kubectl apply -f -<<EOF
-apiVersion: snapshot.storage.k8s.io/v1
-kind: VolumeSnapshotClass
-metadata:
-  name: csi-nfs-snapshot-class
-driver: nfs.csi.k8s.io
-deletionPolicy: <Delete или Retain>
-EOF
-
-```
-
-Параметр deletionPolicy может быть установлен на Delete или Retain в зависимости от вашего сценария использования:
-
-- Delete — снимок будет удален вместе с удалением VolumeSnapshot.
-
-- Retain — снимок будет сохраняться после удаления VolumeSnapshot.
-
-
-### Шаг 3: Создание снимка тома
+### Шаг 2: Создание снимка тома
 
 Теперь вы можете создавать снимки томов. Для этого выполните следующую команду, указав нужные параметры:
 
@@ -78,7 +55,7 @@ EOF
 
 ```
 
-### Шаг 4: Проверка состояния снимка 
+### Шаг 3: Проверка состояния снимка 
 
 Чтобы проверить состояние созданного снимка, выполните команду:
 
