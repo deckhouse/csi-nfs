@@ -31,7 +31,7 @@ webhooks:
     rules:
       - apiGroups: ["storage.deckhouse.io"]
         apiVersions: ["v1alpha1"]
-        operations: ["CREATE", "UPDATE"]
+        operations: ["CREATE", "UPDATE", "DELETE"]
         resources: ["nfsstorageclasses"]
         scope: "Cluster"
     clientConfig:
