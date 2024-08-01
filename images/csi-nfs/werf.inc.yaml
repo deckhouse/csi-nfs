@@ -6,9 +6,10 @@
 {{- $_ := set . "BASE_ALT_DEV"    "registry.deckhouse.io/base_images/dev-alt:p10@sha256:76e6e163fa982f03468166203488b569e6d9fc10855d6a259c662706436cdcad" }}
 
 ---
-artifact: {{ $.ImageName }}-golang-artifact
+image: {{ $.ImageName }}-golang-artifact
 from: {{ $.BASE_GOLANG_22_ALPINE }}
-fromCacheVersion: "2024-05-14.1"
+final: false
+
 git:
   - add: /images/{{ $.ImageName }}
     to: /
@@ -37,16 +38,18 @@ shell:
 ---
 {{ $csiBinaries := "/bin/mount /bin/umount /sbin/mount.nfs /sbin/mount.nfs4 /sbin/umount.nfs /sbin/umount.nfs4 /bin/tar /bin/gzip /bin/cp" }}
 ---
-artifact: {{ $.ImageName }}-binaries-artifact
+image: {{ $.ImageName }}-binaries-artifact
 from: {{ $.BASE_ALT_DEV }}
+final: false
 
 shell:
   install:
     - /binary_replace.sh -i "{{ $csiBinaries }}" -o /relocate
 
 ---
-artifact: {{ $.ImageName }}-distroless-artifact
+image: {{ $.ImageName }}-distroless-artifact
 from: {{ $.BASE_ALPINE_DEV }}
+final: false
 
 shell:
   install:
@@ -62,31 +65,32 @@ shell:
     - echo "deckhouse:!::0:::::" >> /relocate/etc/shadow
 
 ---
-artifact: {{ $.ImageName }}-distroless
+image: {{ $.ImageName }}-distroless
 from: {{ $.BASE_SCRATCH }}
+final: false
 
 import:
-  - artifact: {{ $.ImageName }}-distroless-artifact
+  - image: {{ $.ImageName }}-distroless-artifact
     add: /relocate
     to: /
     before: setup
 
 ---
 image: {{ $.ImageName }}
-fromArtifact: {{ $.ImageName }}-distroless
+fromImage: {{ $.ImageName }}-distroless
 
 import:
-  - artifact: {{ $.ImageName }}-golang-artifact
+  - image: {{ $.ImageName }}-golang-artifact
     add: /nfsplugin
     to: /nfsplugin
     before: setup
-  - artifact: {{ $.ImageName }}-binaries-artifact
+  - image: {{ $.ImageName }}-binaries-artifact
     add: /relocate
     to: /
     before: install
     includePaths:
       - '**/*'
-  - artifact: {{ $.ImageName }}-binaries-artifact
+  - image: {{ $.ImageName }}-binaries-artifact
     add: /lib64
     to: /lib64
     before: install
