@@ -1,0 +1,38 @@
+Subject: [PATCH] Fix go.mod
+---
+Index: go.mod
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/go.mod b/go.mod
+--- a/go.mod	(revision d774c858aa291b744ab83d9cf315dfea1056f1ce)
++++ b/go.mod	(revision 6a23511b5c0f26227f0fc78479ce4bd18bcedfd2)
+@@ -16,7 +16,7 @@
+ 	k8s.io/apimachinery v0.28.9
+ 	k8s.io/client-go v0.28.9
+ 	k8s.io/klog/v2 v2.120.1
+-	k8s.io/kubernetes v1.28.9
++	k8s.io/kubernetes v1.28.12
+ 	k8s.io/mount-utils v0.29.4
+ 	k8s.io/pod-security-admission v0.0.0
+ 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
+Index: go.sum
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/go.sum b/go.sum
+--- a/go.sum	(revision d774c858aa291b744ab83d9cf315dfea1056f1ce)
++++ b/go.sum	(revision 6a23511b5c0f26227f0fc78479ce4bd18bcedfd2)
+@@ -692,8 +692,8 @@
+ k8s.io/kubectl v0.28.9/go.mod h1:ip/zTUr1MM/H2M+YbPHnSKLt0x6kb85SJtRSjwEGDfs=
+ k8s.io/kubelet v0.28.9 h1:76v00fFLeniz27kXhGGUIxONdwa9LKcD2Jd5cXYAZko=
+ k8s.io/kubelet v0.28.9/go.mod h1:46P39DFjI+E59nU2OgpatyS3oWy58ClulKO6riZ/97o=
+-k8s.io/kubernetes v1.28.9 h1:I4sYGQJOuxEo4/QWoY7M8kDB7O0HcH266t6o6mR6ogg=
+-k8s.io/kubernetes v1.28.9/go.mod h1:chlmcCDBnOA/y+572cw8dO0Rci1wiA8bm5+zhPdFLCk=
++k8s.io/kubernetes v1.28.12 h1:DtWB8ZjoYiN/PXD4qDXFppf9IouVUavn6r3S+3NMUkU=
++k8s.io/kubernetes v1.28.12/go.mod h1:chlmcCDBnOA/y+572cw8dO0Rci1wiA8bm5+zhPdFLCk=
+ k8s.io/mount-utils v0.29.4 h1:tW/URea4gtXlaVW7VObr52NQhS+z3SXTg1GUaFZjRL4=
+ k8s.io/mount-utils v0.29.4/go.mod h1:SHUMR9n3b6tLgEmlyT36cL6fV6Sjwa5CJhc0guCXvb0=
+ k8s.io/pod-security-admission v0.28.9 h1:towoNqSp7aU7gF8T89zftCuQUfliyib3ds20Kz/hysg=
