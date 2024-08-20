@@ -1,0 +1,32 @@
+name: Trivy check for sub repos
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  test:
+    name: Trivy check for sub repos
+    runs-on: [self-hosted, regular]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Prepare sub repo
+        run: |
+          version=v`grep "version :=" images/csi-nfs/werf.inc.yaml | awk -F'"' '{ print $2}'`
+          git clone --depth 1 --branch $version ${{ secrets.SOURCE_REPO }}/kubernetes-csi/csi-driver-nfs.git ./csi-driver-nfs
+          cp -R ./images/csi-nfs/patches ./csi-driver-nfs
+          cd ./csi-driver-nfs
+          for patchfile in ./patches/*.patch ; do echo -n "Apply ${patchfile} ... "; git apply ${patchfile}; done
+          cd ..
+
+      - name: Run Trivy vulnerability scanner in fs mode
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          trivy-config: trivy.yaml
