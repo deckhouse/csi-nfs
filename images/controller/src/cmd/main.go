@@ -23,7 +23,7 @@ import (
 	"d8-controller/pkg/kubutils"
 	"d8-controller/pkg/logger"
 	"fmt"
-	"github.com/deckhouse/csi-nfs/api/v1alpha1"
+	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	"os"
 	goruntime "runtime"
 
@@ -41,7 +41,7 @@ import (
 
 var (
 	resourcesSchemeFuncs = []func(*apiruntime.Scheme) error{
-		v1alpha1.AddToScheme,
+		cn.AddToScheme,
 		clientgoscheme.AddToScheme,
 		extv1.AddToScheme,
 		v1.AddToScheme,

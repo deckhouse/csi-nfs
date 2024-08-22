@@ -4,13 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
-	dh "github.com/deckhouse/deckhouse/deckhouse-controller/pkg/apis/deckhouse.io/v1alpha1"
 	"github.com/slok/kubewebhook/v2/pkg/model"
 	kwhvalidating "github.com/slok/kubewebhook/v2/pkg/webhook/validating"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	mc "webhooks/api"
 )
 
 const (
@@ -50,7 +50,7 @@ func NSCValidate(ctx context.Context, arReview *model.AdmissionReview, obj metav
 
 	klog.Infof("NFSv3 NFSStorageClass exists: %t", v3presents)
 
-	nfsModuleConfig := &dh.ModuleConfig{}
+	nfsModuleConfig := &mc.ModuleConfig{}
 
 	err = cl.Get(ctx, types.NamespacedName{Name: csiNfsModuleName, Namespace: ""}, nfsModuleConfig)
 	if err != nil {

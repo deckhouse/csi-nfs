@@ -19,8 +19,8 @@ package handlers
 import (
 	"context"
 	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
-	dh "github.com/deckhouse/deckhouse/deckhouse-controller/pkg/apis/deckhouse.io/v1alpha1"
 	"github.com/go-logr/logr"
+	"github.com/slok/kubewebhook/v2/pkg/log"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/resource/v1alpha2"
 	sv1 "k8s.io/api/storage/v1"
@@ -33,8 +33,7 @@ import (
 	"os"
 	controllerruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"github.com/slok/kubewebhook/v2/pkg/log"
+	mc "webhooks/api"
 
 	kwhhttp "github.com/slok/kubewebhook/v2/pkg/http"
 	"github.com/slok/kubewebhook/v2/pkg/model"
@@ -63,7 +62,7 @@ func NewKubeClient(kubeconfigPath string) (client.Client, error) {
 	var (
 		resourcesSchemeFuncs = []func(*apiruntime.Scheme) error{
 			v1alpha2.AddToScheme,
-			dh.AddToScheme,
+			mc.AddToScheme,
 			cn.AddToScheme,
 			clientgoscheme.AddToScheme,
 			extv1.AddToScheme,
