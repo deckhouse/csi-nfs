@@ -39,7 +39,7 @@ EOF
 - Wait for the module to become `Ready`.
 
 ```shell
-kubectl get mc csi-nfs -w
+kubectl get module csi-nfs -w
 ```
 
 ### Creating a StorageClass
