@@ -66,7 +66,7 @@ spec:
       serviceAccountName: controller
       containers:
         - name: controller
-          image: {{ include "helm_lib_module_image" (list . "controller") }}
+          image: {{ include "helm_lib_module_image" (list . "nfsController") }}
           imagePullPolicy: IfNotPresent
           readinessProbe:
             httpGet:

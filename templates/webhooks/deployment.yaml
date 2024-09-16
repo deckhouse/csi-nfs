@@ -54,7 +54,7 @@ spec:
           - /webhooks
           - -tls-cert-file=/etc/webhook/certs/tls.crt
           - -tls-key-file=/etc/webhook/certs/tls.key
-        image: {{ include "helm_lib_module_image" (list . "webhooks") }}
+        image: {{ include "helm_lib_module_image" (list . "nfsWebhooks") }}
         imagePullPolicy: IfNotPresent
         volumeMounts:
           - name: webhook-certs

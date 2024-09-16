@@ -24,7 +24,7 @@ shell:
     - chmod +x /controller
 
 ---
-image: {{ $.ImageName }}
+image: nfs-{{ $.ImageName }}
 from: {{ $.Images.BASE_SCRATCH }}
 
 import:
