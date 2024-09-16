@@ -1,5 +1,5 @@
 ---
-image: {{ $.ImageName }}-golang-artifact
+image: nfs-{{ $.ImageName }}-golang-artifact
 from: {{ $.Images.BASE_GOLANG_22_BULLSEYE }}
 final: false
 
@@ -28,7 +28,7 @@ image: {{ $.ImageName }}
 from: {{ $.Images.BASE_SCRATCH }}
 
 import:
-  - image: {{ $.ImageName }}-golang-artifact
+  - image: nfs-{{ $.ImageName }}-golang-artifact
     add: /controller
     to: /controller
     before: setup
