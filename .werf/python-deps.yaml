@@ -4,7 +4,11 @@ image: python-dependencies
 from: registry.deckhouse.io/base_images/alpine:3.16.3
 fromCacheVersion: 2024-05-26
 git:
+{{- if (env "EMBEDDED_MODULE" "") }}
+  - add: /modules/999-csi-ceph
+{{- else }}
   - add: /
+{{- end }}
     to: /
     includePaths:
       - lib/python

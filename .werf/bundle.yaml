@@ -15,7 +15,11 @@ import:
   to: /lib/python/dist
   after: setup
 git:
+{{- if (env "EMBEDDED_MODULE" "") }}
+- add: /modules/999-csi-ceph
+{{- else }}
 - add: /
+{{- end }}
   to: /
   includePaths:
   - .helmignore
