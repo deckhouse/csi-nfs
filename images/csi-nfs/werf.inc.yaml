@@ -36,7 +36,7 @@ shell:
 
 ---
 image: {{ $.ImageName }}
-from: {{ $.BASE_ALPINE_DEV }}
+from: {{ $.BASE_ALT_DEV }}
 
 import:
   - image: {{ $.ImageName }}-golang-artifact
