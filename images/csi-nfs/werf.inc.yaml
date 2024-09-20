@@ -35,7 +35,7 @@ shell:
     - chmod +x /nfsplugin
 
 ---
-{{ $csiBinaries := "/bin/mount /bin/umount /sbin/mount.nfs /sbin/mount.nfs4 /sbin/umount.nfs /sbin/umount.nfs4 /bin/tar /bin/gzip /bin/cp" }}
+{{ $csiBinaries := "/bin/mount /bin/umount /sbin/mount.nfs /sbin/mount.nfs4 /sbin/umount.nfs /sbin/umount.nfs4 /bin/tar /bin/gzip /bin/cp /bin/bash" }}
 ---
 image: {{ $.ImageName }}-binaries-artifact
 from: {{ $.BASE_ALT_DEV }}
@@ -52,13 +52,13 @@ final: false
 
 shell:
   install:
-    - mkdir -p /relocate/bin /relocate/sbin /relocate/etc /relocate/etc/ssl /relocate/usr/bin /relocate/usr/sbin /relocate/usr/share
+    - mkdir -p /relocate/bin /relocate/sbin /relocate/etc /relocate/var/lib/ssl /relocate/usr/bin /relocate/usr/sbin /relocate/usr/share
     - cp -pr /tmp /relocate
     - cp -pr /etc/passwd /etc/group /etc/hostname /etc/hosts /etc/shadow /etc/protocols /etc/services /etc/nsswitch.conf /relocate/etc
     - cp -pr /usr/share/ca-certificates /relocate/usr/share
     - cp -pr /usr/share/zoneinfo /relocate/usr/share
-    - cp -pr etc/ssl/cert.pem /relocate/etc/ssl
-    - cp -pr /etc/ssl/certs /relocate/etc/ssl
+    - cp -pr /var/lib/ssl/cert.pem /relocate/var/lib/ssl
+    - cp -pr /var/lib/ssl/certs /relocate/var/lib/ssl
     - echo "deckhouse:x:64535:64535:deckhouse:/:/sbin/nologin" >> /relocate/etc/passwd
     - echo "deckhouse:x:64535:" >> /relocate/etc/group
     - echo "deckhouse:!::0:::::" >> /relocate/etc/shadow
