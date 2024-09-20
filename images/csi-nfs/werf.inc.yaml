@@ -35,7 +35,7 @@ shell:
     - chmod +x /nfsplugin
 
 ---
-{{ $csiBinaries := "/bin/mount /bin/umount /sbin/mount.nfs /sbin/mount.nfs4 /sbin/umount.nfs /sbin/umount.nfs4 /bin/tar /bin/gzip /bin/cp /bin/bash /usr/bin/strace /bin/ls" }}
+{{ $csiBinaries := "/bin/mount /bin/umount /sbin/mount.nfs /sbin/mount.nfs4 /sbin/umount.nfs /sbin/umount.nfs4 /bin/tar /bin/gzip /bin/cp /bin/bash /usr/bin/strace /bin/ls /bin/rm" }}
 ---
 image: {{ $.ImageName }}-binaries-artifact
 from: {{ $.BASE_ALT_DEV }}
