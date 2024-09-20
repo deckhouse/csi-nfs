@@ -126,5 +126,9 @@ import:
     add: /srv
     to: /srv
     before: install
+  - image: {{ $.ImageName }}-binaries-artifact
+    add: /etc
+    to: /etc
+    before: install
 docker:
   ENTRYPOINT: ["/nfsplugin"]
