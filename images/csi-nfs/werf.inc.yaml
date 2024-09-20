@@ -56,7 +56,7 @@ shell:
   install:
     - mkdir -p /relocate/bin /relocate/sbin /relocate/etc /relocate/var/lib/ssl /relocate/usr/bin /relocate/usr/sbin /relocate/usr/share
     - cp -pr /tmp /relocate
-    - cp -pr /etc/passwd /etc/group /etc/hostname /etc/hosts /etc/shadow /etc/protocols /etc/services /etc/nsswitch.conf /relocate/etc
+    - cp -pr /etc/passwd /etc/group /etc/hostname /etc/hosts /etc/shadow /etc/protocols /etc/services /etc/nsswitch.conf /etc/netconfig /relocate/etc
     - cp -pr /usr/share/ca-certificates /relocate/usr/share
     - cp -pr /usr/share/zoneinfo /relocate/usr/share
     - cp -pr /var/lib/ssl/cert.pem /relocate/var/lib/ssl
@@ -98,37 +98,5 @@ import:
     includePaths:
       - 'libresolv*'
       - 'libnss_dns*'
-  # - image: {{ $.ImageName }}-binaries-artifact
-  #   add: /var
-  #   to: /var
-  #   before: install
-  # - image: {{ $.ImageName }}-binaries-artifact
-  #   add: /usr
-  #   to: /usr
-  #   before: install
-  # - image: {{ $.ImageName }}-binaries-artifact
-  #   add: /lib
-  #   to: /lib
-  #   before: install
-  # - image: {{ $.ImageName }}-binaries-artifact
-  #   add: /libx32
-  #   to: /libx32
-  #   before: install
-  # - image: {{ $.ImageName }}-binaries-artifact
-  #   add: /sbin
-  #   to: /sbin
-  #   before: install
-  # - image: {{ $.ImageName }}-binaries-artifact
-  #   add: /selinux
-  #   to: /selinux
-  #   before: install
-  # - image: {{ $.ImageName }}-binaries-artifact
-  #   add: /srv
-  #   to: /srv
-  #   before: install
-  - image: {{ $.ImageName }}-binaries-artifact
-    add: /etc
-    to: /etc
-    before: install
 docker:
   ENTRYPOINT: ["/nfsplugin"]
