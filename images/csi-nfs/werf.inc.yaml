@@ -35,7 +35,7 @@ shell:
     - chmod +x /nfsplugin
 
 ---
-{{ $csiBinaries := "/bin/mount /bin/umount /sbin/mount.nfs /sbin/mount.nfs4 /sbin/umount.nfs /sbin/umount.nfs4 /bin/tar /bin/gzip /bin/cp /bin/bash /usr/bin/strace" }}
+{{ $csiBinaries := "/bin/mount /bin/umount /sbin/mount.nfs /sbin/mount.nfs4 /sbin/umount.nfs /sbin/umount.nfs4 /bin/tar /bin/gzip /bin/cp /bin/bash /usr/bin/strace /bin/ls" }}
 ---
 image: {{ $.ImageName }}-binaries-artifact
 from: {{ $.BASE_ALT_DEV }}
@@ -95,8 +95,36 @@ import:
     add: /lib64
     to: /lib64
     before: install
-    includePaths:
-      - 'libresolv*'
-      - 'libnss_dns*'
+    # includePaths:
+    #   - 'libresolv*'
+    #   - 'libnss_dns*'
+  - image: {{ $.ImageName }}-binaries-artifact
+    add: /var
+    to: /var
+    before: install
+  - image: {{ $.ImageName }}-binaries-artifact
+    add: /usr
+    to: /usr
+    before: install
+  - image: {{ $.ImageName }}-binaries-artifact
+    add: /lib
+    to: /lib
+    before: install
+  - image: {{ $.ImageName }}-binaries-artifact
+    add: /libx32
+    to: /libx32
+    before: install
+  - image: {{ $.ImageName }}-binaries-artifact
+    add: /sbin
+    to: /sbin
+    before: install
+  - image: {{ $.ImageName }}-binaries-artifact
+    add: /selinux
+    to: /selinux
+    before: install
+  - image: {{ $.ImageName }}-binaries-artifact
+    add: /srv
+    to: /srv
+    before: install
 docker:
   ENTRYPOINT: ["/nfsplugin"]
