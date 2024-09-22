@@ -91,7 +91,6 @@
   value: unix:///csi/csi.sock
 {{- end }}
 
-{{- if .Values.csiNfs.v3support }}
 {{- define "csi_additional_node_volume" }}
 - name: run-rpcbind-sock
   hostPath:
@@ -101,7 +100,6 @@
 {{- define "csi_additional_node_volume_mounts" }}
 - name: run-rpcbind-sock
   mountPath: /run/rpcbind.sock
-{{- end }}
 {{- end }}
 
 {{- $csiNodeConfig := dict }}
