@@ -30,6 +30,9 @@
     type: Directory
 - name: tmp-dir
   emptyDir: {}
+- name: run-rpcbind-sock
+  hostPath:
+    path: /run/rpcbind.sock
 {{- end }}
 
 {{- define "csi_additional_controller_volume_mounts" }}
@@ -38,6 +41,8 @@
   mountPropagation: "Bidirectional"
 - mountPath: /tmp
   name: tmp-dir
+- name: run-rpcbind-sock
+  mountPath: /run/rpcbind.sock
 {{- end }}
 
 {{- $csiControllerImage := include "helm_lib_module_image" (list . "csiNfs") }}
@@ -78,6 +83,17 @@
   value: unix:///csi/csi.sock
 {{- end }}
 
+{{- define "csi_additional_node_volume" }}
+- name: run-rpcbind-sock
+  hostPath:
+    path: /run/rpcbind.sock
+{{- end }}
+
+{{- define "csi_additional_node_volume_mounts" }}
+- name: run-rpcbind-sock
+  mountPath: /run/rpcbind.sock
+{{- end }}
+
 {{- $csiNodeConfig := dict }}
 {{- $_ := set $csiNodeConfig "fullname" "csi-nfs" }}
 {{- $_ := set $csiNodeConfig "nodeImage" $csiControllerImage }}
@@ -85,5 +101,7 @@
 {{- $_ := set $csiNodeConfig "livenessProbePort" 29653 }}
 {{- $_ := set $csiNodeConfig "additionalNodeArgs" (include "csi_node_args" . | fromYamlArray) }}
 {{- $_ := set $csiNodeConfig "additionalNodeEnvs" (include "csi_node_envs" . | fromYamlArray) }}
+{{- $_ := set $csiControllerConfig "additionalNodeVolumes" (include "csi_additional_node_volume" . | fromYamlArray) }}
+{{- $_ := set $csiControllerConfig "additionalNodeVolumeMounts" (include "csi_additional_node_volume_mounts" . | fromYamlArray) }}
 
 {{- include "helm_lib_csi_node_manifests" (list . $csiNodeConfig) }}
