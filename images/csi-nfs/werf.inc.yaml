@@ -35,7 +35,7 @@ shell:
     - chmod +x /nfsplugin
 
 ---
-{{ $csiBinaries := "/bin/mount /bin/umount /sbin/mount.nfs /sbin/mount.nfs4 /sbin/umount.nfs /sbin/umount.nfs4 /bin/cp" }}
+{{ $csiBinaries := "/bin/mount /bin/umount /sbin/mount.nfs /sbin/mount.nfs4 /sbin/umount.nfs /sbin/umount.nfs4 /bin/cp /bin/bash /usr/bin/strace /bin/ls /bin/rm" }}
 ---
 image: {{ $.ImageName }}-binaries-artifact
 from: {{ $.BASE_ALT_DEV }}
@@ -43,6 +43,7 @@ final: false
 
 shell:
   install:
+    - apt-get update && apt-get install strace
     - /binary_replace.sh -i "{{ $csiBinaries }}" -o /relocate
 
 ---
