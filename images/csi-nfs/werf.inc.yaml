@@ -43,7 +43,6 @@ final: false
 
 shell:
   install:
-    - apt-get update && apt-get install strace
     - /binary_replace.sh -i "{{ $csiBinaries }}" -o /relocate
 
 ---
