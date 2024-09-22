@@ -97,5 +97,6 @@ import:
     includePaths:
       - 'libresolv*'
       - 'libnss_dns*'
+      - 'libnss_files*'
 docker:
   ENTRYPOINT: ["/nfsplugin"]
