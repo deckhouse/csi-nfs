@@ -111,8 +111,8 @@
 {{- $_ := set $csiNodeConfig "additionalNodeEnvs" (include "csi_node_envs" . | fromYamlArray) }}
 
 {{- if .Values.csiNfs.v3support }}
-{{- $_ := set $csiControllerConfig "additionalNodeVolumes" (include "csi_additional_node_volume" . | fromYamlArray) }}
-{{- $_ := set $csiControllerConfig "additionalNodeVolumeMounts" (include "csi_additional_node_volume_mounts" . | fromYamlArray) }}
+{{- $_ := set $csiNodeConfig "additionalNodeVolumes" (include "csi_additional_node_volume" . | fromYamlArray) }}
+{{- $_ := set $csiNodeConfig "additionalNodeVolumeMounts" (include "csi_additional_node_volume_mounts" . | fromYamlArray) }}
 {{- end }}
 
 {{- include "helm_lib_csi_node_manifests" (list . $csiNodeConfig) }}
