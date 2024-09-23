@@ -9,13 +9,14 @@
 image: {{ $.ImageName }}-golang-artifact
 from: {{ $.BASE_GOLANG }}
 final: false
+fromCacheVersion: 20240923201359
 
 git:
   - add: /images/{{ $.ImageName }}
     to: /
     stageDependencies:
       setup:
-        - "images/csi-nfs/**/*"
+        - "**/*"
     includePaths:
     - patches
 
