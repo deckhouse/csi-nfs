@@ -1,19 +1,32 @@
-From 9c4072bca5d0bf8bf0fa5caff20d0dadd211fd5b Mon Sep 17 00:00:00 2001
+From 1899bba86778124ec86f8d284afe11261f5f0072 Mon Sep 17 00:00:00 2001
 From: Alexandr Stefurishin <alexandr.stefurishin@flant.com>
 Date: Mon, 23 Sep 2024 17:40:34 +0300
 Subject: [PATCH] fake implementation of ControllerExpandVolume
 
 Signed-off-by: Alexandr Stefurishin <alexandr.stefurishin@flant.com>
 ---
- pkg/nfs/controllerserver.go | 13 +++++++++++--
+ pkg/nfs/controllerserver.go | 19 ++++++++++++++++---
  pkg/nfs/nfs.go              |  1 +
- 2 files changed, 12 insertions(+), 2 deletions(-)
+ 2 files changed, 17 insertions(+), 3 deletions(-)
 
 diff --git a/pkg/nfs/controllerserver.go b/pkg/nfs/controllerserver.go
-index 726df875..be412fda 100644
+index 726df875..664ce571 100644
 --- a/pkg/nfs/controllerserver.go
 +++ b/pkg/nfs/controllerserver.go
-@@ -432,8 +432,17 @@ func (cs *ControllerServer) ListSnapshots(_ context.Context, _ *csi.ListSnapshot
+@@ -304,7 +304,11 @@ func (cs *ControllerServer) ListVolumes(_ context.Context, _ *csi.ListVolumesReq
+ }
+ 
+ func (cs *ControllerServer) GetCapacity(_ context.Context, _ *csi.GetCapacityRequest) (*csi.GetCapacityResponse, error) {
+-	return nil, status.Error(codes.Unimplemented, "")
++	return &csi.GetCapacityResponse{
++		AvailableCapacity: 1000000,
++		MaximumVolumeSize: nil,
++		MinimumVolumeSize: nil,
++	}, nil
+ }
+ 
+ // ControllerGetCapabilities implements the default GRPC callout.
+@@ -432,8 +436,17 @@ func (cs *ControllerServer) ListSnapshots(_ context.Context, _ *csi.ListSnapshot
  	return nil, status.Error(codes.Unimplemented, "")
  }
  
