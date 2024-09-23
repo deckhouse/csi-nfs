@@ -16,7 +16,7 @@ git:
     to: /
     stageDependencies:
       setup:
-        - "**/*"
+        - "images/csi-nfs/**/*"
     includePaths:
     - patches
 
