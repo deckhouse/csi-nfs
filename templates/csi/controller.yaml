@@ -2,7 +2,7 @@
 ### common
 ###
 {{- $csiInitContainerCommand := "- /wait-rpcbind" }}
-{{- $csiInitContainerImage := include "helm_lib_module_image" (list . "waitRPCBIND") }}
+{{- $csiInitContainerImage := include "helm_lib_module_image" (list . "waitRpcbind") }}
 
 
 ###
