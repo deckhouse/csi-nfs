@@ -19,7 +19,7 @@ index 726df875..664ce571 100644
  func (cs *ControllerServer) GetCapacity(_ context.Context, _ *csi.GetCapacityRequest) (*csi.GetCapacityResponse, error) {
 -	return nil, status.Error(codes.Unimplemented, "")
 +	return &csi.GetCapacityResponse{
-+		AvailableCapacity: 1000000,
++		AvailableCapacity: 1000_000_000_000_000, // 1000 TB
 +		MaximumVolumeSize: nil,
 +		MinimumVolumeSize: nil,
 +	}, nil
