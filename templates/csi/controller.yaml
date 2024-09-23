@@ -1,4 +1,11 @@
 ###
+### common
+###
+{{- $csiInitContainerCommand := "- /wait-rpcbind" }}
+{{- $csiInitContainerImage := include "helm_lib_module_image" (list . "waitRPCBIND") }}
+
+
+###
 ### controller
 ###
 
@@ -113,6 +120,8 @@
 {{- if .Values.csiNfs.v3support }}
 {{- $_ := set $csiNodeConfig "additionalNodeVolumes" (include "csi_additional_node_volume" . | fromYamlArray) }}
 {{- $_ := set $csiNodeConfig "additionalNodeVolumeMounts" (include "csi_additional_node_volume_mounts" . | fromYamlArray) }}
+{{- $_ := set $csiNodeConfig "initContainerCommand" $csiInitContainerCommand }}
+{{- $_ := set $csiNodeConfig "initContainerImage" $csiInitContainerImage }}
 {{- end }}
 
 {{- include "helm_lib_csi_node_manifests" (list . $csiNodeConfig) }}
