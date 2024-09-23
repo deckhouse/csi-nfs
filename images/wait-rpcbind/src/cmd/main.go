@@ -17,9 +17,6 @@ limitations under the License.
 package main
 
 import (
-	"bytes"
-	"encoding/binary"
-	"errors"
 	"log"
 	"net"
 	"os"
@@ -51,12 +48,13 @@ func main() {
 			info, err := os.Lstat("/run/rpcbind.sock")
 			if err == nil {
 				if (info.Mode() & os.ModeSocket) != 0 {
-					err := checkRpcbind("/run/rpcbind.sock")
+					conn, err := net.DialTimeout("unix", "/run/rpcbind.sock", 1*time.Second)
 					if err == nil {
+						conn.Close()
 						log.Println("Socket /run/rpcbind.sock found and confirmed as rpcbind.")
 						return
 					} else {
-						log.Printf("Socket check failed: %v", err)
+						log.Println("Unable to connect to the socket, continuing to wait...")
 					}
 				} else {
 					log.Println("/run/rpcbind.sock found but is not a socket. Continuing to wait...")
@@ -69,97 +67,4 @@ func main() {
 			time.Sleep(1 * time.Second)
 		}
 	}
-}
-
-// checkRpcbind attempts to perform an RPC NULL call to rpcbind to confirm it's running
-func checkRpcbind(socketPath string) error {
-	conn, err := net.DialTimeout("unix", socketPath, 1*time.Second)
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-
-	// Create a RPC NULL call message
-	msg, err := createRpcNullCall()
-	if err != nil {
-		return err
-	}
-
-	// Send the message
-	_, err = conn.Write(msg)
-	if err != nil {
-		return err
-	}
-
-	// Set a read deadline
-	conn.SetReadDeadline(time.Now().Add(2 * time.Second))
-
-	// Read the response
-	response := make([]byte, 1024)
-	n, err := conn.Read(response)
-	if err != nil {
-		return err
-	}
-
-	// Basic validation of response
-	if n < 24 {
-		return errors.New("response too short to be valid")
-	}
-
-	return nil
-}
-
-// createRpcNullCall constructs an RPC message for the NULL procedure call
-func createRpcNullCall() ([]byte, error) {
-	var buf bytes.Buffer
-
-	// XID (transaction ID)
-	if err := binary.Write(&buf, binary.BigEndian, uint32(0x12345678)); err != nil {
-		return nil, err
-	}
-
-	// Message type: Call (0)
-	if err := binary.Write(&buf, binary.BigEndian, uint32(0)); err != nil {
-		return nil, err
-	}
-
-	// RPC version (2)
-	if err := binary.Write(&buf, binary.BigEndian, uint32(2)); err != nil {
-		return nil, err
-	}
-
-	// Program number (100000 for portmapper)
-	if err := binary.Write(&buf, binary.BigEndian, uint32(100000)); err != nil {
-		return nil, err
-	}
-
-	// Program version (2)
-	if err := binary.Write(&buf, binary.BigEndian, uint32(2)); err != nil {
-		return nil, err
-	}
-
-	// Procedure number (0 for NULL)
-	if err := binary.Write(&buf, binary.BigEndian, uint32(0)); err != nil {
-		return nil, err
-	}
-
-	// Credentials (AUTH_NULL)
-	if err := binary.Write(&buf, binary.BigEndian, uint32(0)); err != nil {
-		return nil, err
-	}
-	// Credentials length
-	if err := binary.Write(&buf, binary.BigEndian, uint32(0)); err != nil {
-		return nil, err
-	}
-
-	// Verifier (AUTH_NULL)
-	if err := binary.Write(&buf, binary.BigEndian, uint32(0)); err != nil {
-		return nil, err
-	}
-	// Verifier length
-	if err := binary.Write(&buf, binary.BigEndian, uint32(0)); err != nil {
-		return nil, err
-	}
-
-	return buf.Bytes(), nil
 }
