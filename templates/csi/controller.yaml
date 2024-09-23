@@ -5,9 +5,7 @@
 - "/wait-rpcbind"
 {{- end }}
 
-{{- if .Values.csiNfs.v3support }}
 {{- $csiInitContainerImage := include "helm_lib_module_image" (list . "waitRpcbind") }}
-{{- end }}
 
 
 ###
