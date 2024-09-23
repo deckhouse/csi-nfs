@@ -1,0 +1,50 @@
+From 9c4072bca5d0bf8bf0fa5caff20d0dadd211fd5b Mon Sep 17 00:00:00 2001
+From: Alexandr Stefurishin <alexandr.stefurishin@flant.com>
+Date: Mon, 23 Sep 2024 17:40:34 +0300
+Subject: [PATCH] fake implementation of ControllerExpandVolume
+
+Signed-off-by: Alexandr Stefurishin <alexandr.stefurishin@flant.com>
+---
+ pkg/nfs/controllerserver.go | 13 +++++++++++--
+ pkg/nfs/nfs.go              |  1 +
+ 2 files changed, 12 insertions(+), 2 deletions(-)
+
+diff --git a/pkg/nfs/controllerserver.go b/pkg/nfs/controllerserver.go
+index 726df875..be412fda 100644
+--- a/pkg/nfs/controllerserver.go
++++ b/pkg/nfs/controllerserver.go
+@@ -432,8 +432,17 @@ func (cs *ControllerServer) ListSnapshots(_ context.Context, _ *csi.ListSnapshot
+ 	return nil, status.Error(codes.Unimplemented, "")
+ }
+ 
+-func (cs *ControllerServer) ControllerExpandVolume(_ context.Context, _ *csi.ControllerExpandVolumeRequest) (*csi.ControllerExpandVolumeResponse, error) {
+-	return nil, status.Error(codes.Unimplemented, "")
++func (cs *ControllerServer) ControllerExpandVolume(ctx context.Context, req *csi.ControllerExpandVolumeRequest) (*csi.ControllerExpandVolumeResponse, error) {
++	// fake implementation, doesn't really resize anything
++
++	klog.V(2).Infof("received expansion request for volumeID:%s, requiredBytes: %d", req.VolumeId, req.CapacityRange.RequiredBytes)
++	klog.Warning("volume expansion is not really happenning, fake implementation is used")
++
++	// TODO: check that requested capacity is not lower then the current one
++	return &csi.ControllerExpandVolumeResponse{
++		CapacityBytes:         req.CapacityRange.RequiredBytes,
++		NodeExpansionRequired: false,
++	}, nil
+ }
+ 
+ // Mount nfs server at base-dir
+diff --git a/pkg/nfs/nfs.go b/pkg/nfs/nfs.go
+index 7d69265e..0025782c 100644
+--- a/pkg/nfs/nfs.go
++++ b/pkg/nfs/nfs.go
+@@ -98,6 +98,7 @@ func NewDriver(options *DriverOptions) *Driver {
+ 		csi.ControllerServiceCapability_RPC_SINGLE_NODE_MULTI_WRITER,
+ 		csi.ControllerServiceCapability_RPC_CLONE_VOLUME,
+ 		csi.ControllerServiceCapability_RPC_CREATE_DELETE_SNAPSHOT,
++		csi.ControllerServiceCapability_RPC_EXPAND_VOLUME,
+ 	})
+ 
+ 	n.AddNodeServiceCapabilities([]csi.NodeServiceCapability_RPC_Type{
+-- 
+2.43.0
+
