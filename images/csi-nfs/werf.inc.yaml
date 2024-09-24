@@ -9,7 +9,7 @@
 image: {{ $.ImageName }}-golang-artifact
 from: {{ $.BASE_GOLANG }}
 final: false
-fromCacheVersion: 20240923201359
+fromCacheVersion: 20240924092250
 
 git:
   - add: /images/{{ $.ImageName }}
