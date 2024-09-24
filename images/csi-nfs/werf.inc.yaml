@@ -15,8 +15,8 @@ git:
   - add: /images/{{ $.ImageName }}
     to: /
     stageDependencies:
-      setup:
-        - "images/csi-nfs/**/*"
+      install:
+        - "**/*"
     includePaths:
     - patches
 
