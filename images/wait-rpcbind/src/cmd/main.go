@@ -54,7 +54,7 @@ func main() {
 						log.Println("Socket /run/rpcbind.sock found and confirmed as rpcbind.")
 						return
 					} else {
-						log.Println("Unable to connect to the socket, continuing to wait...")
+						log.Println("Unable to connect to the socket /run/rpcbind.sock, continuing to wait...")
 					}
 				} else {
 					log.Println("/run/rpcbind.sock found but is not a socket. Continuing to wait...")
@@ -62,7 +62,7 @@ func main() {
 			} else if os.IsNotExist(err) {
 				log.Println("/run/rpcbind.sock does not exist, continuing to wait...")
 			} else {
-				log.Printf("Error checking socket: %v", err)
+				log.Printf("Error checking socket /run/rpcbind.sock: %v", err)
 			}
 			time.Sleep(1 * time.Second)
 		}
