@@ -5,6 +5,11 @@
 - "/wait-rpcbind"
 {{- end }}
 
+{{- define "csi_init_container_volume_mounts" }}
+- name: run
+  mountPath: /run
+{{- end }}
+
 {{- $csiInitContainerImage := include "helm_lib_module_image" (list . "waitRpcbind") }}
 
 
@@ -78,6 +83,12 @@
 {{- $_ := set $csiControllerConfig "additionalControllerVolumes" (include "csi_additional_controller_volume" . | fromYamlArray) }}
 {{- $_ := set $csiControllerConfig "additionalControllerVolumeMounts" (include "csi_additional_controller_volume_mounts" . | fromYamlArray) }}
 
+{{- if .Values.csiNfs.v3support }}
+{{- $_ := set $csiControllerConfig "initContainerImage" $csiInitContainerImage }}
+{{- $_ := set $csiControllerConfig "initContainerCommand" (include "csi_init_container_command" . | fromYamlArray) }}
+{{- $_ := set $csiControllerConfig "initContainerVolumeMounts" (include "csi_init_container_volume_mounts" . | fromYamlArray) }}
+{{- end }}
+
 {{- include "helm_lib_csi_controller_manifests" (list . $csiControllerConfig) }}
 
 ###
@@ -102,9 +113,14 @@
 {{- end }}
 
 {{- define "csi_additional_node_volume" }}
+{{- if .Values.csiNfs.v3support }}
 - name: run-rpcbind-sock
   hostPath:
     path: /run/rpcbind.sock
+- name: run
+  hostPath:
+    path: /run
+{{- end }}
 {{- end }}
 
 {{- define "csi_additional_node_volume_mounts" }}
@@ -125,6 +141,7 @@
 {{- $_ := set $csiNodeConfig "additionalNodeVolumeMounts" (include "csi_additional_node_volume_mounts" . | fromYamlArray) }}
 {{- $_ := set $csiNodeConfig "initContainerImage" $csiInitContainerImage }}
 {{- $_ := set $csiNodeConfig "initContainerCommand" (include "csi_init_container_command" . | fromYamlArray) }}
+{{- $_ := set $csiNodeConfig "initContainerVolumeMounts" (include "csi_init_container_volume_mounts" . | fromYamlArray) }}
 {{- end }}
 
 {{- include "helm_lib_csi_node_manifests" (list . $csiNodeConfig) }}
