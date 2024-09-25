@@ -35,7 +35,7 @@ func main() {
 
 	go func() {
 		sig := <-sigs
-		log.Printf("Received signal %s, exiting.", sig)
+		log.Printf("Received signal %s, exiting.", sig.String())
 		done <- sig.String()
 	}()
 
