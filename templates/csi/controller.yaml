@@ -50,6 +50,9 @@
 - name: run-rpcbind-sock
   hostPath:
     path: /run/rpcbind.sock
+- name: run
+  hostPath:
+    path: /run
 {{- end }}
 
 {{- end }}
