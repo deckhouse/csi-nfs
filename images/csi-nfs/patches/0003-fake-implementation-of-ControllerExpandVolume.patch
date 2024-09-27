@@ -1,4 +1,4 @@
-From dd972d0dfcac76558973ce4f07243f8c50771d3f Mon Sep 17 00:00:00 2001
+From 189c10ff76dcef64cf2816317d3c197956497453 Mon Sep 17 00:00:00 2001
 From: Alexandr Stefurishin <alexandr.stefurishin@flant.com>
 Date: Tue, 24 Sep 2024 09:56:28 +0300
 Subject: [PATCH] fake-implementation-of-ControllerExpandVolume
@@ -8,8 +8,7 @@ Signed-off-by: Alexandr Stefurishin <alexandr.stefurishin@flant.com>
  pkg/nfs/controllerserver.go | 18 +++++++++++++++---
  pkg/nfs/identityserver.go   | 14 ++++++++++++++
  pkg/nfs/nfs.go              |  2 ++
- pkg/nfs/nodeserver.go       |  2 +-
- 4 files changed, 32 insertions(+), 4 deletions(-)
+ 3 files changed, 31 insertions(+), 3 deletions(-)
 
 diff --git a/pkg/nfs/controllerserver.go b/pkg/nfs/controllerserver.go
 index 726df875..494567de 100644
@@ -85,19 +84,6 @@ index 7d69265e..e91093da 100644
  	})
  
  	n.AddNodeServiceCapabilities([]csi.NodeServiceCapability_RPC_Type{
-diff --git a/pkg/nfs/nodeserver.go b/pkg/nfs/nodeserver.go
-index 76e0d675..98809030 100644
---- a/pkg/nfs/nodeserver.go
-+++ b/pkg/nfs/nodeserver.go
-@@ -292,7 +292,7 @@ func (ns *NodeServer) NodeStageVolume(_ context.Context, _ *csi.NodeStageVolumeR
- }
- 
- // NodeExpandVolume node expand volume
--func (ns *NodeServer) NodeExpandVolume(_ context.Context, _ *csi.NodeExpandVolumeRequest) (*csi.NodeExpandVolumeResponse, error) {
-+func (ns *NodeServer) NodeExpandVolume(_ context.Context, req *csi.NodeExpandVolumeRequest) (*csi.NodeExpandVolumeResponse, error) {
- 	return nil, status.Error(codes.Unimplemented, "")
- }
- 
 -- 
 2.43.0
 
