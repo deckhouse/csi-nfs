@@ -89,7 +89,6 @@
 {{- if .Values.csiNfs.v3support }}
 {{- $_ := set $csiControllerConfig "initContainerImage" $csiInitContainerImage }}
 {{- $_ := set $csiControllerConfig "initContainerCommand" (include "csi_init_container_command" . | fromYamlArray) }}
-{{- $_ := set $csiControllerConfig "initContainerVolumeMounts" (include "csi_init_container_volume_mounts" . | fromYamlArray) }}
 {{- end }}
 
 {{- include "helm_lib_csi_controller_manifests" (list . $csiControllerConfig) }}
@@ -144,7 +143,6 @@
 {{- $_ := set $csiNodeConfig "additionalNodeVolumeMounts" (include "csi_additional_node_volume_mounts" . | fromYamlArray) }}
 {{- $_ := set $csiNodeConfig "initContainerImage" $csiInitContainerImage }}
 {{- $_ := set $csiNodeConfig "initContainerCommand" (include "csi_init_container_command" . | fromYamlArray) }}
-{{- $_ := set $csiNodeConfig "initContainerVolumeMounts" (include "csi_init_container_volume_mounts" . | fromYamlArray) }}
 {{- end }}
 
 {{- include "helm_lib_csi_node_manifests" (list . $csiNodeConfig) }}
