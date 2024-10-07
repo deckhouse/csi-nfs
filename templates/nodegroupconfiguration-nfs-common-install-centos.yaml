@@ -24,7 +24,7 @@ spec:
     # See the License for the specific language governing permissions and
     # limitations under the License.
 
-    bb-yum-install "nfs-utils"
+    bb-yum-install "nfs-utils" "rpcbind"
     # This is dirty hack for statd, because it can't be enabled via systemd in newer distributive (Bashible performs a full cycle at every node reboot, so statd will be started)
     systemctl start rpc-statd.service
 {{- end }}
