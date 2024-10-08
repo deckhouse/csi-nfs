@@ -26,5 +26,6 @@ spec:
 
     apt-get install rpcbind nfs-utils
     systemctl start rpcbind
+    systemctl start rpc-statd.service
     systemctl enable rpcbind
 {{- end }}
