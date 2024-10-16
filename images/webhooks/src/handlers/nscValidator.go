@@ -83,7 +83,8 @@ func NSCValidate(ctx context.Context, arReview *model.AdmissionReview, obj metav
 			klog.Fatalf("Error patching object: %s", err.Error())
 		}
 	} else if !v3presents && v3enabled {
-		klog.Fatalf("NFS v3 in storageClass %s is not enabled, enable it first", err.Error())
+		klog.Fatalf("NFS v3 is not enabled, enable it first")
+		return &kwhvalidating.ValidatorResult{Valid: false}, err
 	}
 
 	return &kwhvalidating.ValidatorResult{Valid: true},
