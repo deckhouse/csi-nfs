@@ -62,9 +62,7 @@ func NSCValidate(ctx context.Context, arReview *model.AdmissionReview, obj metav
 	} else {
 		v3enabled = false
 	}
-	// webhook logic goes here
 
-	//
 	klog.Infof("NFSv3 support enabled: %t", v3enabled)
 
 	if v3presents && !v3enabled {
@@ -85,8 +83,7 @@ func NSCValidate(ctx context.Context, arReview *model.AdmissionReview, obj metav
 			klog.Fatalf("Error patching object: %s", err.Error())
 		}
 	} else if !v3presents && v3enabled {
-		klog.Info("NFS v3 is not enabled, enable it first")
-		return &kwhvalidating.ValidatorResult{Valid: false}, nil
+		klog.Fatalf("NFS v3 in storageClass %s is not enabled, enable it first", err.Error())
 	}
 
 	return &kwhvalidating.ValidatorResult{Valid: true},
