@@ -2,14 +2,12 @@ package handlers
 
 import (
 	"context"
-	"encoding/json"
 	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	"github.com/slok/kubewebhook/v2/pkg/model"
 	kwhvalidating "github.com/slok/kubewebhook/v2/pkg/webhook/validating"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	mc "webhooks/api"
 )
 
@@ -66,24 +64,10 @@ func NSCValidate(ctx context.Context, arReview *model.AdmissionReview, obj metav
 	klog.Infof("NFSv3 support enabled: %t", v3enabled)
 
 	if v3presents && !v3enabled {
-		klog.Info("Enabling v3 support")
-		patchBytes, err := json.Marshal(map[string]interface{}{
-			"spec": map[string]interface{}{
-				"settings": map[string]interface{}{
-					"v3support": true,
-				},
-			},
-		})
-		if err != nil {
-			klog.Fatalf("Error marshalling patch: %s", err.Error())
-		}
-
-		err = cl.Patch(context.TODO(), nfsModuleConfig, client.RawPatch(types.MergePatchType, patchBytes))
-		if err != nil {
-			klog.Fatalf("Error patching object: %s", err.Error())
-		}
+		klog.Info("NFS v3 is present in module config, disable it first")
+		return &kwhvalidating.ValidatorResult{Valid: false}, nil
 	} else if !v3presents && v3enabled {
-		klog.Info("NFS v3 is not enabled, enable it first")
+		klog.Info("NFS v3 is not enabled in module config, enable it first")
 		return &kwhvalidating.ValidatorResult{Valid: false}, nil
 	}
 
