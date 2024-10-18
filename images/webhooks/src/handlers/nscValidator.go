@@ -64,10 +64,10 @@ func NSCValidate(ctx context.Context, arReview *model.AdmissionReview, obj metav
 	klog.Infof("NFSv3 support enabled: %t", v3enabled)
 
 	if v3presents && !v3enabled {
-		klog.Info("NFS v3 is present in module config, disable it first")
+		klog.Info("NFS v3 is not enabled in module config, enable it first")
 		return &kwhvalidating.ValidatorResult{Valid: false}, nil
 	} else if !v3presents && v3enabled {
-		klog.Info("NFS v3 is not enabled in module config, enable it first")
+		klog.Info("NFS v3 is enabled in module config, but not used in NFSStorageCLass - disable it first")
 		return &kwhvalidating.ValidatorResult{Valid: false}, nil
 	}
 
