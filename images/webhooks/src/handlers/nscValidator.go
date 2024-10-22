@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	"github.com/slok/kubewebhook/v2/pkg/model"
 	kwhvalidating "github.com/slok/kubewebhook/v2/pkg/webhook/validating"
@@ -65,10 +66,10 @@ func NSCValidate(ctx context.Context, arReview *model.AdmissionReview, obj metav
 
 	if v3presents && !v3enabled {
 		klog.Info("NFS v3 is not enabled in module config, enable it first")
-		return &kwhvalidating.ValidatorResult{Valid: false}, nil
+		return &kwhvalidating.ValidatorResult{Valid: false, Message: fmt.Sprint("NFS v3 is not enabled in module config, enable it first")}, err
 	} else if !v3presents && v3enabled {
 		klog.Info("NFS v3 is enabled in module config, but not used in NFSStorageCLass - disable it first")
-		return &kwhvalidating.ValidatorResult{Valid: false}, nil
+		return &kwhvalidating.ValidatorResult{Valid: false, Message: fmt.Sprint("NFS v3 is enabled in module config, but not used in NFSStorageCLass - disable it first")}, err
 	}
 
 	return &kwhvalidating.ValidatorResult{Valid: true},
