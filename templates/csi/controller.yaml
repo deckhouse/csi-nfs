@@ -24,7 +24,7 @@
 - "--endpoint=$(CSI_ENDPOINT)"
 - "--drivername=nfs.csi.k8s.io"
 - "--mount-permissions=0"
-- "--working-mount-dir=/tmp"
+- "--working-mount-dir=../../../../../../../../../../tmp"
 - "--default-ondelete-policy=delete"
 {{- end }}
 
