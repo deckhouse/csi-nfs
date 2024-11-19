@@ -80,7 +80,7 @@
 {{- $_ := set $csiControllerConfig "provisionerTimeout" "1200s" }}
 {{- $_ := set $csiControllerConfig "snapshotterTimeout" "1200s" }}
 {{- $_ := set $csiControllerConfig "extraCreateMetadataEnabled" true }}
-{{- $_ := set $csiControllerConfig "livenessProbePort" 29652 }}
+{{- $_ := set $csiControllerConfig "livenessProbePort" 4229 }}
 {{- $_ := set $csiControllerConfig "additionalControllerArgs" (include "csi_controller_args" . | fromYamlArray) }}
 {{- $_ := set $csiControllerConfig "additionalControllerEnvs" (include "csi_controller_envs" . | fromYamlArray) }}
 {{- $_ := set $csiControllerConfig "additionalControllerVolumes" (include "csi_additional_controller_volume" . | fromYamlArray) }}
@@ -135,7 +135,7 @@
 {{- $_ := set $csiNodeConfig "fullname" "csi-nfs" }}
 {{- $_ := set $csiNodeConfig "nodeImage" $csiControllerImage }}
 {{- $_ := set $csiNodeConfig "driverFQDN" "nfs.csi.k8s.io" }}
-{{- $_ := set $csiNodeConfig "livenessProbePort" 29653 }}
+{{- $_ := set $csiNodeConfig "livenessProbePort" 4230 }}
 {{- $_ := set $csiNodeConfig "additionalNodeArgs" (include "csi_node_args" . | fromYamlArray) }}
 {{- $_ := set $csiNodeConfig "additionalNodeEnvs" (include "csi_node_envs" . | fromYamlArray) }}
 
