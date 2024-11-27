@@ -7,6 +7,7 @@ import (
 	"github.com/slok/kubewebhook/v2/pkg/model"
 	kwhvalidating "github.com/slok/kubewebhook/v2/pkg/webhook/validating"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 	mc "webhooks/api"
 )
@@ -40,11 +41,13 @@ func NSCValidate(ctx context.Context, arReview *model.AdmissionReview, obj metav
 
 	klog.Infof("NFSv3 NFSStorageClass exists: %t", v3presents)
 
-	nfsModuleConfig := &mc.ModuleConfig{ObjectMeta: metav1.ObjectMeta{Name: csiNfsModuleName}}
-	// test
-	klog.Infof("NFS module config is: %t", nfsModuleConfig)
-	klog.Infof("NFS module config spec is: %t", nfsModuleConfig.Spec)
-	//
+	nfsModuleConfig := &mc.ModuleConfig{}
+
+	err = cl.Get(ctx, types.NamespacedName{Name: csiNfsModuleName, Namespace: ""}, nfsModuleConfig)
+	if err != nil {
+		klog.Fatal(err)
+	}
+
 	if value, exists := nfsModuleConfig.Spec.Settings["v3support"]; exists && value == true {
 		v3enabled = true
 	} else {
