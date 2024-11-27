@@ -42,7 +42,7 @@ func NSCValidate(ctx context.Context, arReview *model.AdmissionReview, obj metav
 
 	nfsModuleConfig := &mc.ModuleConfig{}
 
-	if value, exists := nfsModuleConfig.Spec.Settings["v3support"]; exists && value == true {
+	if value, exists := nfsModuleConfig.Spec.Settings["v3support"]; exists && value == "true" {
 		v3enabled = true
 	} else {
 		v3enabled = false
