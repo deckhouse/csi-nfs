@@ -43,6 +43,7 @@ func NSCValidate(ctx context.Context, arReview *model.AdmissionReview, obj metav
 	nfsModuleConfig := &mc.ModuleConfig{ObjectMeta: metav1.ObjectMeta{Name: csiNfsModuleName}}
 	// test
 	klog.Infof("NFS module config is: %t", nfsModuleConfig)
+	klog.Infof("NFS module config spec is: %t", nfsModuleConfig.Spec)
 	//
 	if value, exists := nfsModuleConfig.Spec.Settings["v3support"]; exists && value == true {
 		v3enabled = true
