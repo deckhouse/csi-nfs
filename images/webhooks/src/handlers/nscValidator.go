@@ -40,7 +40,7 @@ func NSCValidate(ctx context.Context, arReview *model.AdmissionReview, obj metav
 
 	klog.Infof("NFSv3 NFSStorageClass exists: %t", v3presents)
 
-	nfsModuleConfig := &mc.ModuleConfig{}
+	nfsModuleConfig := obj.(*mc.ModuleConfig)
 	// test
 	klog.Infof("NFS module config is: %t", nfsModuleConfig)
 	//
