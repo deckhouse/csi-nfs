@@ -42,7 +42,7 @@ func NSCValidate(ctx context.Context, arReview *model.AdmissionReview, obj metav
 
 	nfsModuleConfig := &mc.ModuleConfig{}
 
-	if value, exists := nfsModuleConfig.Spec.Settings["v3support"]; exists && value == "true" {
+	if value, exists := nfsModuleConfig.Spec.Settings["v3support"]; exists && value == true {
 		v3enabled = true
 	} else {
 		v3enabled = false
@@ -53,11 +53,6 @@ func NSCValidate(ctx context.Context, arReview *model.AdmissionReview, obj metav
 	if v3presents && !v3enabled {
 		klog.Info("NFS v3 is not enabled in module config, enable it first")
 
-		if nsc.Labels == nil {
-			nsc.Labels = make(map[string]string)
-		}
-
-		klog.Info("Added label to NFS Storage Class")
 		return &kwhvalidating.ValidatorResult{Valid: false, Message: fmt.Sprint("NFS v3 is not enabled in module config, enable it first")}, err
 	} else if !v3presents && v3enabled {
 		klog.Info("NFS v3 is enabled in module config, but not used in NFSStorageCLass - disable it first")
