@@ -382,6 +382,20 @@ func shouldReconcileStorageClassByUpdateFunc(log logger.Logger, scList *v1.Stora
 					return true, nil
 				}
 
+				// TODO: вот эту штуку не могу достать силами контроллера НИКАК
+				//
+				// 	if value, exists := nfsModuleConfig.Spec.Settings["v3support"]; exists && value == true {
+				//		v3enabled = true
+				//	} else {
+				//		v3enabled = false
+				//	}
+				//
+				// TODO: принести сюда значение из спеков модуль конфига. Каким-то образом.
+				//
+				// if nsc.Spec.Connection.NFSVersion == "3" && v3enabled == false {
+				//	setLabel := addLabelToStorageClass(nsc)
+				//
+
 				if nsc.Status != nil && nsc.Status.Phase == FailedStatusPhase {
 					return true, nil
 				}
@@ -708,6 +722,7 @@ func configureSecret(nsc *v1alpha1.NFSStorageClass, controllerNamespace string) 
 			Kind:       "Secret",
 			APIVersion: "v1",
 		},
+
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      SecretForMountOptionsPrefix + nsc.Name,
 			Namespace: controllerNamespace,
@@ -722,6 +737,24 @@ func configureSecret(nsc *v1alpha1.NFSStorageClass, controllerNamespace string) 
 	}
 
 	return secret
+}
+
+func addLabelToStorageClass(nsc *v1alpha1.NFSStorageClass) map[string]string {
+	var newLabels map[string]string
+
+	if nsc.Labels == nil {
+		newLabels = make(map[string]string)
+	} else {
+		newLabels = make(map[string]string, len(nsc.Labels))
+	}
+
+	for key, value := range nsc.Labels {
+		newLabels[key] = value
+	}
+
+	newLabels[NFS3PrometheusLabel] = "true"
+
+	return newLabels
 }
 
 func updateStorageClass(nsc *v1alpha1.NFSStorageClass, oldSC *v1.StorageClass, controllerNamespace string) (*v1.StorageClass, error) {

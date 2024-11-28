@@ -74,6 +74,7 @@ const (
 	SecretForMountOptionsPrefix = "nfs-mount-options-for-"
 	StorageClassSecretNameKey   = "csi.storage.k8s.io/provisioner-secret-name"
 	StorageClassSecretNSKey     = "csi.storage.k8s.io/provisioner-secret-namespace"
+	NFS3PrometheusLabel         = "nfsv3-configured-but-not-enabled"
 )
 
 var (

@@ -1,0 +1,17 @@
+- name: kubernetes.pv.settings_check
+  rules:
+    - alert: NotSupportedNFSv3StorageClass
+      expr: count(kube_storageclass_labels{label_storage_deckhouse_io_nfsv3_configured_but_not_enabled="true"}) > 0
+      for: 5m
+      labels:
+        severity_level:  "6"
+        tier: cluster
+      annotations:
+        plk_markup_format: "markdown"
+        plk_protocol_version: "1"
+#       plk_create_group_if_not_exists__d8_drbd_device_health: "ReplicatedPVSettingsCheck,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+#       plk_grouped_by__d8_drbd_device_health: "ReplicatedPVSettingsCheck,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        summary: Unsupported NFSv3 storage class is present
+        description: |
+          There is a configured NFSv3 storage class but NFSv3 support is disabled. 
+          You can either delete this NFS storage class, or enable NFSv3 support in csi-nfs module config
