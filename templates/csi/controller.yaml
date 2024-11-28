@@ -6,10 +6,9 @@
 
 
 {{- define "csi_nfsv3_containers" }}
-#{{- if .Values.csiNfs.v3support }}
 - name: rpcbind
   image: {{ include "helm_lib_module_image" (list . "rpcbind") }}
-  imagePullPolicy: Always
+  imagePullPolicy: IfNotPresent
   command: ["/sbin/rpcbind", "-f", "-w"]
   securityContext:
     privileged: true
@@ -18,21 +17,18 @@
       mountPath: /var/run
 - name: rpcstatd
   image: {{ include "helm_lib_module_image" (list . "nfsUtils") }}
-  imagePullPolicy: Always
+  imagePullPolicy: IfNotPresent
   command: ["/usr/sbin/rpc.statd", "-F"]
   securityContext:
     privileged: true
   volumeMounts:
     - name: run-nfsv3
       mountPath: /run
-#{{- end }}
 {{- end }}
 
 {{- define "csi_nfsv3_container_volume" }}
-#{{- if .Values.csiNfs.v3support }}
 - name: run-nfsv3
   emptyDir: {}
-#{{- end }}
 {{- end }}
 
 #{{- define "csi_init_containers" }}
@@ -56,18 +52,6 @@
 #    privileged: true
 #{{- end }}
 #{{- end }}
-
-
-
-#{{- define "csi_init_container_command" }}
-#- "/wait-rpcbind"
-#{{- end }}
-#
-#{{- define "csi_init_container_volume_mounts" }}
-#- name: run
-#  mountPath: /run
-#{{- end }}
-
 
 
 ###
@@ -132,9 +116,11 @@
 
 {{- include "helm_lib_csi_controller_manifests" (list . $csiControllerConfig) }}
 
+
 ###
 ### node
 ###
+
 
 {{- define "csi_node_args" }}
 - "--v=5"
@@ -153,22 +139,6 @@
   value: unix:///csi/csi.sock
 {{- end }}
 
-#{{- define "csi_additional_node_volume" }}
-#{{- if .Values.csiNfs.v3support }}
-#- name: run-rpcbind-sock
-#  hostPath:
-#    path: /run/rpcbind.sock
-#- name: run
-#  hostPath:
-#    path: /run
-#{{- end }}
-#{{- end }}
-#
-#{{- define "csi_additional_node_volume_mounts" }}
-#- name: run-rpcbind-sock
-#  mountPath: /run/rpcbind.sock
-#{{- end }}
-
 {{- $csiNodeConfig := dict }}
 {{- $_ := set $csiNodeConfig "fullname" "csi-nfs" }}
 {{- $_ := set $csiNodeConfig "nodeImage" $csiControllerImage }}
@@ -177,10 +147,11 @@
 {{- $_ := set $csiNodeConfig "additionalNodeArgs" (include "csi_node_args" . | fromYamlArray) }}
 {{- $_ := set $csiNodeConfig "additionalNodeEnvs" (include "csi_node_envs" . | fromYamlArray) }}
 
-#{{- if .Values.csiNfs.v3support }}
-##{{- $_ := set $csiNodeConfig "additionalNodeVolumes" (include "csi_additional_node_volume" . | fromYamlArray) }}
-##{{- $_ := set $csiNodeConfig "additionalNodeVolumeMounts" (include "csi_additional_node_volume_mounts" . | fromYamlArray) }}
-#{{- end }}
+# TODO see lib-helm/tests/tests/helm_lib_csi_node_test.yaml
+{{/*- if .Values.csiNfs.v3support }}
+  {{- $_ := set $csiNodeConfig "additionalNodeVolumes" (include "csi_additional_node_volume" . | fromYamlArray) }}
+  {{- $_ := set $csiNodeConfig "additionalNodeVolumeMounts" (include "csi_additional_node_volume_mounts" . | fromYamlArray) }}
+{{- end */}}
 
 {{- if .Values.csiNfs.v3support }}
   {{- $_ := set $csiNodeConfig "nfsv3Containers" (include "csi_nfsv3_containers" . | fromYamlArray) }}
