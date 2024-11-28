@@ -1,16 +1,73 @@
 ###
 ### common
 ###
-{{- define "csi_init_container_command" }}
-- "/wait-rpcbind"
+
+{{- $csiControllerImage := include "helm_lib_module_image" (list . "csiNfs") }}
+
+
+{{- define "csi_nfsv3_containers" }}
+#{{- if .Values.csiNfs.v3support }}
+- name: rpcbind
+  image: {{ include "helm_lib_module_image" (list . "rpcbind") }}
+  imagePullPolicy: Always
+  command: ["/sbin/rpcbind", "-f", "-w"]
+  securityContext:
+    privileged: true
+  volumeMounts:
+    - name: run-nfsv3
+      mountPath: /var/run
+- name: rpcstatd
+  image: {{ include "helm_lib_module_image" (list . "nfsUtils") }}
+  imagePullPolicy: Always
+  command: ["/usr/sbin/rpc.statd", "-F"]
+  securityContext:
+    privileged: true
+  volumeMounts:
+    - name: run-nfsv3
+      mountPath: /run
+#{{- end }}
 {{- end }}
 
-{{- define "csi_init_container_volume_mounts" }}
-- name: run
-  mountPath: /run
+{{- define "csi_nfsv3_container_volume" }}
+#{{- if .Values.csiNfs.v3support }}
+- name: run-nfsv3
+  emptyDir: {}
+#{{- end }}
 {{- end }}
 
-{{- $csiInitContainerImage := include "helm_lib_module_image" (list . "waitRpcbind") }}
+#{{- define "csi_init_containers" }}
+#{{- if .Values.csiNfs.tlsParameters }}
+#- name: ktls-enabler
+#  image: {{ include "helm_lib_module_image" (list . "kmod") }}
+#  command: ["/opt/deckhouse/csi/bin/modprobe", "tls"]
+#  imagePullPolicy: IfNotPresent
+#  securityContext:
+#    privileged: true
+#  volumeMounts:
+#    - name: host-sys
+#      mountPath: /sys
+#    - name: host-lib-modules
+#      mountPath: /lib/modules
+#- name: net-hendshake-checker
+#  image: {{ include "helm_lib_module_image" (list . "tlshd") }}
+#  command: ["/go-tlshd", "-timeout_wait", "2"]
+#  imagePullPolicy: IfNotPresent
+#  securityContext:
+#    privileged: true
+#{{- end }}
+#{{- end }}
+
+
+
+#{{- define "csi_init_container_command" }}
+#- "/wait-rpcbind"
+#{{- end }}
+#
+#{{- define "csi_init_container_volume_mounts" }}
+#- name: run
+#  mountPath: /run
+#{{- end }}
+
 
 
 ###
@@ -45,16 +102,6 @@
     type: Directory
 - name: tmp-dir
   emptyDir: {}
-
-{{- if .Values.csiNfs.v3support }}
-- name: run-rpcbind-sock
-  hostPath:
-    path: /run/rpcbind.sock
-- name: run
-  hostPath:
-    path: /run
-{{- end }}
-
 {{- end }}
 
 {{- define "csi_additional_controller_volume_mounts" }}
@@ -63,15 +110,7 @@
   mountPropagation: "Bidirectional"
 - mountPath: /tmp
   name: tmp-dir
-
-{{- if .Values.csiNfs.v3support }}
-- name: run-rpcbind-sock
-  mountPath: /run/rpcbind.sock
 {{- end }}
-
-{{- end }}
-
-{{- $csiControllerImage := include "helm_lib_module_image" (list . "csiNfs") }}
 
 {{- $csiControllerConfig := dict }}
 {{- $_ := set $csiControllerConfig "controllerImage" $csiControllerImage }}
@@ -87,9 +126,8 @@
 {{- $_ := set $csiControllerConfig "additionalControllerVolumeMounts" (include "csi_additional_controller_volume_mounts" . | fromYamlArray) }}
 
 {{- if .Values.csiNfs.v3support }}
-{{- $_ := set $csiControllerConfig "initContainerImage" $csiInitContainerImage }}
-{{- $_ := set $csiControllerConfig "initContainerCommand" (include "csi_init_container_command" . | fromYamlArray) }}
-{{- $_ := set $csiControllerConfig "initContainerVolumeMounts" (include "csi_init_container_volume_mounts" . | fromYamlArray) }}
+  {{- $_ := set $csiControllerConfig "nfsv3Containers" (include "csi_nfsv3_containers" . | fromYamlArray) }}
+  {{- $_ := set $csiControllerConfig "nfsv3ContainerVolume" (include "csi_nfsv3_container_volume" . | fromYamlArray) }}
 {{- end }}
 
 {{- include "helm_lib_csi_controller_manifests" (list . $csiControllerConfig) }}
@@ -115,21 +153,21 @@
   value: unix:///csi/csi.sock
 {{- end }}
 
-{{- define "csi_additional_node_volume" }}
-{{- if .Values.csiNfs.v3support }}
-- name: run-rpcbind-sock
-  hostPath:
-    path: /run/rpcbind.sock
-- name: run
-  hostPath:
-    path: /run
-{{- end }}
-{{- end }}
-
-{{- define "csi_additional_node_volume_mounts" }}
-- name: run-rpcbind-sock
-  mountPath: /run/rpcbind.sock
-{{- end }}
+#{{- define "csi_additional_node_volume" }}
+#{{- if .Values.csiNfs.v3support }}
+#- name: run-rpcbind-sock
+#  hostPath:
+#    path: /run/rpcbind.sock
+#- name: run
+#  hostPath:
+#    path: /run
+#{{- end }}
+#{{- end }}
+#
+#{{- define "csi_additional_node_volume_mounts" }}
+#- name: run-rpcbind-sock
+#  mountPath: /run/rpcbind.sock
+#{{- end }}
 
 {{- $csiNodeConfig := dict }}
 {{- $_ := set $csiNodeConfig "fullname" "csi-nfs" }}
@@ -139,12 +177,16 @@
 {{- $_ := set $csiNodeConfig "additionalNodeArgs" (include "csi_node_args" . | fromYamlArray) }}
 {{- $_ := set $csiNodeConfig "additionalNodeEnvs" (include "csi_node_envs" . | fromYamlArray) }}
 
+#{{- if .Values.csiNfs.v3support }}
+##{{- $_ := set $csiNodeConfig "additionalNodeVolumes" (include "csi_additional_node_volume" . | fromYamlArray) }}
+##{{- $_ := set $csiNodeConfig "additionalNodeVolumeMounts" (include "csi_additional_node_volume_mounts" . | fromYamlArray) }}
+#{{- end }}
+
 {{- if .Values.csiNfs.v3support }}
-{{- $_ := set $csiNodeConfig "additionalNodeVolumes" (include "csi_additional_node_volume" . | fromYamlArray) }}
-{{- $_ := set $csiNodeConfig "additionalNodeVolumeMounts" (include "csi_additional_node_volume_mounts" . | fromYamlArray) }}
-{{- $_ := set $csiNodeConfig "initContainerImage" $csiInitContainerImage }}
-{{- $_ := set $csiNodeConfig "initContainerCommand" (include "csi_init_container_command" . | fromYamlArray) }}
-{{- $_ := set $csiNodeConfig "initContainerVolumeMounts" (include "csi_init_container_volume_mounts" . | fromYamlArray) }}
+  {{- $_ := set $csiNodeConfig "nfsv3Containers" (include "csi_nfsv3_containers" . | fromYamlArray) }}
+  {{- $_ := set $csiNodeConfig "nfsv3ContainerVolume" (include "csi_nfsv3_container_volume" . | fromYamlArray) }}
 {{- end }}
+
+#{{- $_ := set $csiNodeConfig "initContainers" (include "csi_init_containers" . | fromYamlArray) }}
 
 {{- include "helm_lib_csi_node_manifests" (list . $csiNodeConfig) }}
