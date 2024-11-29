@@ -67,3 +67,5 @@ func NSCValidate(ctx context.Context, arReview *model.AdmissionReview, obj metav
 	return &kwhvalidating.ValidatorResult{Valid: true},
 		nil
 }
+
+//
