@@ -71,6 +71,29 @@
   imagePullPolicy: IfNotPresent
   securityContext:
     privileged: true
+  volumeMounts:
+    - name: cm-tlshd-conf
+      mountPath: /etc/tlshd.conf
+      subPath: tlshd.conf
+    - name: cm-tlshd-conf
+      mountPath: /etc/ca.crt
+      subPath: ca.crt
+
+    {{- if .Values.csiNfs.tlsParameters.mtls }}
+    - name: cm-tlshd-conf
+      mountPath: /etc/client.crt
+      subPath: client.crt
+    - name: cm-tlshd-conf
+      mountPath: /etc/client.key
+      subPath: client.key
+    {{- end }}
+
+{{- end }}
+
+{{- define "csi_tlshd_container_volume" }}
+- name: cm-tlshd-conf
+  configMap:
+    name: tlshd-conf
 {{- end }}
 
 
@@ -138,6 +161,7 @@
   {{- $_ := set $csiControllerConfig "initContainers" (include "csi_init_containers" . | fromYamlArray) }}
   {{- $_ := set $csiControllerConfig "initContainersVolume" (include "csi_init_containers_volume" . | fromYamlArray) }}
   {{- $_ := set $csiControllerConfig "tlshdContainer" (include "csi_tlshd_container" . | fromYamlArray) }}
+  {{- $_ := set $csiControllerConfig "tlshdContainerVolime" (include "csi_tlshd_container_volume" . | fromYamlArray) }}
 {{- end }}
 
 {{- include "helm_lib_csi_controller_manifests" (list . $csiControllerConfig) }}
@@ -188,6 +212,7 @@
   {{- $_ := set $csiNodeConfig "initContainers" (include "csi_init_containers" . | fromYamlArray) }}
   {{- $_ := set $csiNodeConfig "initContainersVolume" (include "csi_init_containers_volume" . | fromYamlArray) }}
   {{- $_ := set $csiNodeConfig "tlshdContainer" (include "csi_tlshd_container" . | fromYamlArray) }}
+  {{- $_ := set $csiNodeConfig "tlshdContainerVolime" (include "csi_tlshd_container_volume" . | fromYamlArray) }}
 {{- end }}
 
 {{- include "helm_lib_csi_node_manifests" (list . $csiNodeConfig) }}
