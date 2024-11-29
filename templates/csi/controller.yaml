@@ -75,17 +75,21 @@
     - name: cm-tlshd-conf
       mountPath: /etc/tlshd.conf
       subPath: tlshd.conf
+      readOnly: true
     - name: cm-tlshd-conf
       mountPath: /etc/ca.crt
       subPath: ca.crt
+      readOnly: true
 
     {{- if .Values.csiNfs.tlsParameters.mtls }}
     - name: cm-tlshd-conf
       mountPath: /etc/client.crt
       subPath: client.crt
+      readOnly: true
     - name: cm-tlshd-conf
       mountPath: /etc/client.key
       subPath: client.key
+      readOnly: true
     {{- end }}
 
 {{- end }}
@@ -94,6 +98,7 @@
 - name: cm-tlshd-conf
   configMap:
     name: tlshd-conf
+    defaultMode: 384
 {{- end }}
 
 
