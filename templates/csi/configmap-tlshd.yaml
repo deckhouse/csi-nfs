@@ -48,12 +48,18 @@ data:
     #x509.truststore= <pathname>
     #x509.certificate= <pathname>
     #x509.private_key= <pathname>
+
+  {{- if .Values.csiNfs.tlsParameters.ca }}
   ca.crt: |
     {{- .Values.csiNfs.tlsParameters.ca | b64dec | nindent 4 }}
+  {{- end }}
 
-  {{- if .Values.csiNfs.tlsParameters.mtls }}
+  {{- if .Values.csiNfs.tlsParameters.mtls.clientCert }}
   client.crt: |
     {{- .Values.csiNfs.tlsParameters.mtls.clientCert | b64dec | nindent 4 }}
+  {{- end }}
+
+  {{- if .Values.csiNfs.tlsParameters.mtls.clientKey }}
   client.key: |
     {{- .Values.csiNfs.tlsParameters.mtls.clientKey | b64dec | nindent 4 }}
   {{- end }}
