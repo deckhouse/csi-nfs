@@ -3,7 +3,7 @@ module d8-controller
 go 1.22.2
 
 require (
-	github.com/deckhouse/csi-nfs/api  ndemchuk-adjust-webhook
+	github.com/deckhouse/csi-nfs/api v0.0.0-20241129063443-ecd2c9d45a03
 	github.com/go-logr/logr v1.4.1
 	github.com/onsi/ginkgo/v2 v2.15.0
 	github.com/onsi/gomega v1.31.0
