@@ -22,11 +22,12 @@ import (
 	"errors"
 	"fmt"
 	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog/v2"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
-
-	"slices"
 
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/storage/v1"
@@ -755,6 +756,20 @@ func addLabelToStorageClass(nsc *v1alpha1.NFSStorageClass) map[string]string {
 	newLabels[NFS3PrometheusLabel] = "true"
 
 	return newLabels
+}
+
+func getModuleConfigNFSSettings(ctx context.Context, cl client.Client) (v3support bool, err error) {
+
+	nfsModuleConfig := &v1alpha1.ModuleConfig{}
+
+	err = cl.Get(ctx, types.NamespacedName{Name: CsiNfsModuleName, Namespace: ""}, nfsModuleConfig)
+	if err != nil {
+		klog.Fatal(err)
+	}
+	if value, exists := nfsModuleConfig.Spec.Settings["v3support"]; exists && value == true {
+		return true, nil
+	}
+	return false, nil
 }
 
 func updateStorageClass(nsc *v1alpha1.NFSStorageClass, oldSC *v1.StorageClass, controllerNamespace string) (*v1.StorageClass, error) {

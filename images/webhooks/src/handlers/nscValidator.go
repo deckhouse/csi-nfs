@@ -13,8 +13,7 @@ import (
 )
 
 const (
-	csiNfsModuleName          = "csi-nfs"
-	nfsV3ExistNotEnabledLabel = "nfsv3-sc-exist-nfsv3-not-enabled"
+	csiNfsModuleName = "csi-nfs"
 )
 
 func NSCValidate(ctx context.Context, arReview *model.AdmissionReview, obj metav1.Object) (*kwhvalidating.ValidatorResult, error) {

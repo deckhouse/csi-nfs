@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
+	"k8s.io/klog/v2"
 	"reflect"
 	"time"
 
@@ -75,6 +76,7 @@ const (
 	StorageClassSecretNameKey   = "csi.storage.k8s.io/provisioner-secret-name"
 	StorageClassSecretNSKey     = "csi.storage.k8s.io/provisioner-secret-namespace"
 	NFS3PrometheusLabel         = "nfsv3-configured-but-not-enabled"
+	CsiNfsModuleName            = "csi-nfs"
 )
 
 var (
@@ -194,6 +196,29 @@ func RunEventReconcile(ctx context.Context, cl client.Client, log logger.Logger,
 	case UpdateReconcile:
 		log.Debug(fmt.Sprintf("[runEventReconcile] UpdateReconcile starts reconciliataion of StorageClass, name: %s", nsc.Name))
 		shouldRequeue, err = reconcileStorageClassUpdateFunc(ctx, cl, log, scList, nsc, controllerNamespace)
+
+		v3presents := false
+		v3support := false
+
+		if nsc.ObjectMeta.DeletionTimestamp == nil && nsc.Spec.Connection.NFSVersion == "3" {
+			v3presents = true
+		}
+
+		v3check, err := getModuleConfigNFSSettings(ctx, cl)
+		if err != nil {
+			err = fmt.Errorf("[reconcileStorageClassCreateFunc] unable to get ModuleConfig settings: %w", err)
+			return true, err
+		}
+
+		if v3check == true {
+			v3support = true
+		}
+
+		if v3presents && !v3support {
+			klog.Infof("NFS v3 is not enabled in module config, but NFSv3StorageClass exists: %s", nsc)
+			addLabelToStorageClass(nsc)
+		}
+
 	case DeleteReconcile:
 		log.Debug(fmt.Sprintf("[runEventReconcile] DeleteReconcile starts reconciliataion of StorageClass, name: %s", nsc.Name))
 		shouldRequeue, err = reconcileStorageClassDeleteFunc(ctx, cl, log, scList, nsc)

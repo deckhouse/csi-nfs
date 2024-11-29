@@ -26,12 +26,18 @@ const (
 	NFSStorageClassKind = "NFSStorageClass"
 	APIGroup            = "storage.deckhouse.io"
 	APIVersion          = "v1alpha1"
+	APIGroupMC          = "deckhouse.io"
 )
 
 // SchemeGroupVersion is group version used to register these objects
 var (
 	SchemeGroupVersion = schema.GroupVersion{
 		Group:   APIGroup,
+		Version: APIVersion,
+	}
+
+	SchemeGroupVersionMC = schema.GroupVersion{
+		Group:   APIGroupMC,
 		Version: APIVersion,
 	}
 	SchemeBuilder = runtime.NewSchemeBuilder(addKnownTypes)
@@ -44,6 +50,12 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&NFSStorageClass{},
 		&NFSStorageClassList{},
 	)
+
+	scheme.AddKnownTypes(SchemeGroupVersionMC,
+		&ModuleConfig{},
+		&ModuleConfigList{},
+	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
+	metav1.AddToGroupVersion(scheme, SchemeGroupVersionMC)
 	return nil
 }
