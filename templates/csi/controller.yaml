@@ -31,27 +31,47 @@
   emptyDir: {}
 {{- end }}
 
-#{{- define "csi_init_containers" }}
-#{{- if .Values.csiNfs.tlsParameters }}
-#- name: ktls-enabler
-#  image: {{ include "helm_lib_module_image" (list . "kmod") }}
-#  command: ["/opt/deckhouse/csi/bin/modprobe", "tls"]
-#  imagePullPolicy: IfNotPresent
-#  securityContext:
-#    privileged: true
-#  volumeMounts:
-#    - name: host-sys
-#      mountPath: /sys
-#    - name: host-lib-modules
-#      mountPath: /lib/modules
-#- name: net-hendshake-checker
-#  image: {{ include "helm_lib_module_image" (list . "tlshd") }}
-#  command: ["/go-tlshd", "-timeout_wait", "2"]
-#  imagePullPolicy: IfNotPresent
-#  securityContext:
-#    privileged: true
-#{{- end }}
-#{{- end }}
+
+{{- define "csi_init_containers" }}
+- name: ktls-enabler
+  image: {{ include "helm_lib_module_image" (list . "kmod") }}
+  command: ["/opt/deckhouse/csi/bin/modprobe", "tls"]
+  imagePullPolicy: IfNotPresent
+  securityContext:
+    privileged: true
+  volumeMounts:
+    - name: host-sys
+      mountPath: /sys
+    - name: host-lib-modules
+      mountPath: /lib/modules
+- name: net-hendshake-checker
+  image: {{ include "helm_lib_module_image" (list . "tlshd") }}
+  command: ["/go-tlshd", "-timeout_wait", "2"]
+  imagePullPolicy: IfNotPresent
+  securityContext:
+    privileged: true
+{{- end }}
+
+{{- define "csi_init_containers_volume" }}
+- name: host-sys
+  hostPath:
+    path: /sys
+    type: Directory
+- name: host-lib-modules
+  hostPath:
+    path: /lib/modules
+    type: Directory
+{{- end }}
+
+
+{{- define "csi_tlshd_container" }}
+- name: tlshd
+  image: {{ include "helm_lib_module_image" (list . "tlshd") }}
+  command: ["/go-tlshd"]
+  imagePullPolicy: IfNotPresent
+  securityContext:
+    privileged: true
+{{- end }}
 
 
 ###
@@ -114,6 +134,12 @@
   {{- $_ := set $csiControllerConfig "nfsv3ContainerVolume" (include "csi_nfsv3_container_volume" . | fromYamlArray) }}
 {{- end }}
 
+{{- if .Values.csiNfs.tlsParameters }}
+  {{- $_ := set $csiControllerConfig "initContainers" (include "csi_init_containers" . | fromYamlArray) }}
+  {{- $_ := set $csiControllerConfig "initContainersVolume" (include "csi_init_containers_volume" . | fromYamlArray) }}
+  {{- $_ := set $csiControllerConfig "tlshdContainer" (include "csi_tlshd_container" . | fromYamlArray) }}
+{{- end }}
+
 {{- include "helm_lib_csi_controller_manifests" (list . $csiControllerConfig) }}
 
 
@@ -158,6 +184,10 @@
   {{- $_ := set $csiNodeConfig "nfsv3ContainerVolume" (include "csi_nfsv3_container_volume" . | fromYamlArray) }}
 {{- end }}
 
-#{{- $_ := set $csiNodeConfig "initContainers" (include "csi_init_containers" . | fromYamlArray) }}
+{{- if .Values.csiNfs.tlsParameters }}
+  {{- $_ := set $csiNodeConfig "initContainers" (include "csi_init_containers" . | fromYamlArray) }}
+  {{- $_ := set $csiNodeConfig "initContainersVolume" (include "csi_init_containers_volume" . | fromYamlArray) }}
+  {{- $_ := set $csiNodeConfig "tlshdContainer" (include "csi_tlshd_container" . | fromYamlArray) }}
+{{- end }}
 
 {{- include "helm_lib_csi_node_manifests" (list . $csiNodeConfig) }}
