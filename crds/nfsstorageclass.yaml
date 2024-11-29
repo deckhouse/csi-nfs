@@ -29,6 +29,9 @@ spec:
             - spec
           properties:
             spec:
+              x-kubernetes-validations:
+                - rule: "!(self.connection.mtls == true) || (self.connection.tls == true)"
+                  message: "If mtls is true, tls must also be true."
               type: object
               description: |
                 Defines a Kubernetes Storage class configuration.
@@ -76,6 +79,20 @@ spec:
                         - "3"
                         - "4.1"
                         - "4.2"
+                    tls:
+                      type: boolean
+                      x-kubernetes-validations:
+                        - rule: self == oldSelf
+                          message: Value is immutable.
+                      description: |
+                        Whether to use tls for connection.
+                    mtls:
+                      type: boolean
+                      x-kubernetes-validations:
+                        - rule: self == oldSelf
+                          message: Value is immutable.
+                      description: |
+                        Whether to use mtls; requires tls to be enabled.
                 mountOptions:
                   type: object
                   description: |
