@@ -76,12 +76,12 @@ func main() {
 
 	// Create a base context
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	// defer cancel()
 
 	// If a timeout is specified, wrap the context with a timeout
 	if opt.TimeoutWait > 0 {
 		ctx, cancel = context.WithTimeout(ctx, time.Duration(opt.TimeoutWait)*time.Second)
-		defer cancel()
+		// defer cancel()
 		log.Printf("Timeout specified: %d seconds", opt.TimeoutWait)
 	} else {
 		log.Println("No timeout specified. Process will run indefinitely until it finishes or receives a termination signal.")
@@ -103,11 +103,13 @@ func main() {
 	case <-ctx.Done(): // Timeout or cancellation occurred
 		log.Println("Context done (timeout or cancellation), terminating the process...")
 		if err := cmd.Process.Kill(); err != nil {
+			cancel()
 			log.Fatalf("Failed to terminate the process: %v", err)
 		}
 		log.Println("Process has been terminated.")
 	case err := <-done: // Process finished on its own
 		if err != nil {
+			cancel()
 			log.Fatalf("Process exited with an error: %v", err)
 		}
 
