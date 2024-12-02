@@ -43,8 +43,8 @@ type NFSStorageClassConnection struct {
 	Host       string `json:"host"`
 	Share      string `json:"share"`
 	NFSVersion string `json:"nfsVersion"`
-	Tls        *bool  `json:"tls,omitempty"`
-	Mtls       *bool  `json:"mtls,omitempty"`
+	Tls        bool   `json:"tls"`
+	Mtls       bool   `json:"mtls"`
 }
 
 type NFSStorageClassMountOptions struct {
