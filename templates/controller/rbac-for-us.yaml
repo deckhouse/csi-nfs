@@ -33,9 +33,9 @@ rules:
       - create
       - list
   - apiGroups:
-      - deckhouse.io
+      - ""
     resources:
-      - moduleconfigs
+      - moduleconfig
     verbs:
       - get
       - list
