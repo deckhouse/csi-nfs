@@ -33,6 +33,13 @@ rules:
       - create
       - list
   - apiGroups:
+      - deckhouse.io
+    resources:
+      - moduleconfigs
+    verbs:
+      - get
+      - list
+  - apiGroups:
       - coordination.k8s.io
     resources:
       - leases
