@@ -13,6 +13,8 @@ github.com/deckhouse/csi-nfs/api v0.0.0-20240803013516-738ee1ca87bc h1:FRil0A1Oj
 github.com/deckhouse/csi-nfs/api v0.0.0-20240803013516-738ee1ca87bc/go.mod h1:/vXhdSgMvU4dP2MvOHOFZua9MvJoAPLM/hk6p7rE+Jc=
 github.com/deckhouse/csi-nfs/api v0.0.0-20241202111019-b3fc2e789a23 h1:8lXmXYeaJ9dw/EaJc8tF3gWGePtQqjLJQDn268tGL4w=
 github.com/deckhouse/csi-nfs/api v0.0.0-20241202111019-b3fc2e789a23/go.mod h1:/vXhdSgMvU4dP2MvOHOFZua9MvJoAPLM/hk6p7rE+Jc=
+github.com/deckhouse/csi-nfs/api v0.0.0-20241202113542-a57b81271da5 h1:p9Fo8h8WHFVKiFC2XYGEcgUue8W/dwWkUxMAkz5sg64=
+github.com/deckhouse/csi-nfs/api v0.0.0-20241202113542-a57b81271da5/go.mod h1:/vXhdSgMvU4dP2MvOHOFZua9MvJoAPLM/hk6p7rE+Jc=
 github.com/emicklei/go-restful/v3 v3.11.0 h1:rAQeMHw1c7zTmncogyy8VvRZwtkmkZ4FxERmMY4rD+g=
 github.com/emicklei/go-restful/v3 v3.11.0/go.mod h1:6n3XBCmQQb25CM2LCACGz8ukIrRry+4bhvbpWn3mrbc=
 github.com/evanphx/json-patch v4.12.0+incompatible h1:4onqiflcdA9EOZ4RxV643DvftH5pOlLGNtQ5lPWQu84=
