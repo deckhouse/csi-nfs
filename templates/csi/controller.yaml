@@ -166,7 +166,7 @@
   {{- $_ := set $csiControllerConfig "initContainers" (include "csi_init_containers" . | fromYamlArray) }}
   {{- $_ := set $csiControllerConfig "initContainersVolume" (include "csi_init_containers_volume" . | fromYamlArray) }}
   {{- $_ := set $csiControllerConfig "tlshdContainer" (include "csi_tlshd_container" . | fromYamlArray) }}
-  {{- $_ := set $csiControllerConfig "tlshdContainerVolime" (include "csi_tlshd_container_volume" . | fromYamlArray) }}
+  {{- $_ := set $csiControllerConfig "tlshdContainerVolume" (include "csi_tlshd_container_volume" . | fromYamlArray) }}
 {{- end }}
 
 {{- include "helm_lib_csi_controller_manifests" (list . $csiControllerConfig) }}
@@ -217,7 +217,7 @@
   {{- $_ := set $csiNodeConfig "initContainers" (include "csi_init_containers" . | fromYamlArray) }}
   {{- $_ := set $csiNodeConfig "initContainersVolume" (include "csi_init_containers_volume" . | fromYamlArray) }}
   {{- $_ := set $csiNodeConfig "tlshdContainer" (include "csi_tlshd_container" . | fromYamlArray) }}
-  {{- $_ := set $csiNodeConfig "tlshdContainerVolime" (include "csi_tlshd_container_volume" . | fromYamlArray) }}
+  {{- $_ := set $csiNodeConfig "tlshdContainerVolume" (include "csi_tlshd_container_volume" . | fromYamlArray) }}
 {{- end }}
 
 {{- include "helm_lib_csi_node_manifests" (list . $csiNodeConfig) }}
