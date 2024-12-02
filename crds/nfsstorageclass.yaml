@@ -86,6 +86,7 @@ spec:
                           message: Value is immutable.
                       description: |
                         Whether to use tls for connection.
+                      default: false
                     mtls:
                       type: boolean
                       x-kubernetes-validations:
@@ -93,6 +94,7 @@ spec:
                           message: Value is immutable.
                       description: |
                         Whether to use mtls; requires tls to be enabled.
+                      default: false
                 mountOptions:
                   type: object
                   description: |
