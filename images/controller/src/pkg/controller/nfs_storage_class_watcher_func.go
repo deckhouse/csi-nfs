@@ -383,20 +383,6 @@ func shouldReconcileStorageClassByUpdateFunc(log logger.Logger, scList *v1.Stora
 					return true, nil
 				}
 
-				// TODO: вот эту штуку не могу достать силами контроллера НИКАК
-				//
-				// 	if value, exists := nfsModuleConfig.Spec.Settings["v3support"]; exists && value == true {
-				//		v3enabled = true
-				//	} else {
-				//		v3enabled = false
-				//	}
-				//
-				// TODO: принести сюда значение из спеков модуль конфига. Каким-то образом.
-				//
-				// if nsc.Spec.Connection.NFSVersion == "3" && v3enabled == false {
-				//	setLabel := addLabelToStorageClass(nsc)
-				//
-
 				if nsc.Status != nil && nsc.Status.Phase == FailedStatusPhase {
 					return true, nil
 				}
@@ -745,8 +731,7 @@ func addLabelToStorageClass(nsc *v1alpha1.NFSStorageClass) map[string]string {
 
 	if nsc.Labels == nil {
 		newLabels = make(map[string]string)
-	} else {
-		newLabels = make(map[string]string, len(nsc.Labels))
+		nsc.Labels = newLabels
 	}
 
 	for key, value := range nsc.Labels {
@@ -754,7 +739,6 @@ func addLabelToStorageClass(nsc *v1alpha1.NFSStorageClass) map[string]string {
 	}
 
 	newLabels[NFS3PrometheusLabel] = "true"
-
 	return newLabels
 }
 
