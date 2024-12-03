@@ -3,7 +3,7 @@ properties:
   logLevel:
     description: Уровень логирования модуля.
   v3support:
-    description: Поддержка NFS версии v3. После включения этого параметра на узлы будет установлен rpc-statd. При отключении этого параметра он НЕ будет удален с узлов.
+    description: Поддержка NFS версии v3.
   tlsParameters:
     description: Настройка RPC-with-TLS (RFC 9289).
     properties:
