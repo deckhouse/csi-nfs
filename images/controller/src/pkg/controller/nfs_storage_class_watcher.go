@@ -205,8 +205,12 @@ func RunEventReconcile(ctx context.Context, cl client.Client, log logger.Logger,
 
 	if v3presents && !v3support {
 		klog.Infof("NFS v3 is not enabled in module config, but NFSv3StorageClass exists: %s", nsc)
-		nsc.ObjectMeta.SetLabels(addLabelToStorageClass(nsc))
-
+		labels := addLabelToStorageClass(nsc)
+		nsc.ObjectMeta.SetLabels(labels)
+		err = cl.Update(ctx, nsc)
+		if err != nil {
+			err = fmt.Errorf("error updating labels for nsc %s: %w", nsc, err)
+		}
 	}
 
 	shouldRequeue = false
