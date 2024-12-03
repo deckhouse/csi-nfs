@@ -162,7 +162,7 @@
   {{- $_ := set $csiControllerConfig "nfsv3ContainerVolume" (include "csi_nfsv3_container_volume" . | fromYamlArray) }}
 {{- end }}
 
-{{- if .Values.csiNfs.tlsParameters }}
+{{- if .Values.csiNfs.tlsParameters.ca }}
   {{- $_ := set $csiControllerConfig "initContainers" (include "csi_init_containers" . | fromYamlArray) }}
   {{- $_ := set $csiControllerConfig "initContainersVolume" (include "csi_init_containers_volume" . | fromYamlArray) }}
   {{- $_ := set $csiControllerConfig "tlshdContainer" (include "csi_tlshd_container" . | fromYamlArray) }}
@@ -202,18 +202,12 @@
 {{- $_ := set $csiNodeConfig "additionalNodeArgs" (include "csi_node_args" . | fromYamlArray) }}
 {{- $_ := set $csiNodeConfig "additionalNodeEnvs" (include "csi_node_envs" . | fromYamlArray) }}
 
-## TODO see lib-helm/tests/tests/helm_lib_csi_node_test.yaml
-{{/*- if .Values.csiNfs.v3support }}
-  {{- $_ := set $csiNodeConfig "additionalNodeVolumes" (include "csi_additional_node_volume" . | fromYamlArray) }}
-  {{- $_ := set $csiNodeConfig "additionalNodeVolumeMounts" (include "csi_additional_node_volume_mounts" . | fromYamlArray) }}
-{{- end */}}
-
 {{- if .Values.csiNfs.v3support }}
   {{- $_ := set $csiNodeConfig "nfsv3Containers" (include "csi_nfsv3_containers" . | fromYamlArray) }}
   {{- $_ := set $csiNodeConfig "nfsv3ContainerVolume" (include "csi_nfsv3_container_volume" . | fromYamlArray) }}
 {{- end }}
 
-{{- if .Values.csiNfs.tlsParameters }}
+{{- if .Values.csiNfs.tlsParameters.ca }}
   {{- $_ := set $csiNodeConfig "initContainers" (include "csi_init_containers" . | fromYamlArray) }}
   {{- $_ := set $csiNodeConfig "initContainersVolume" (include "csi_init_containers_volume" . | fromYamlArray) }}
   {{- $_ := set $csiNodeConfig "tlshdContainer" (include "csi_tlshd_container" . | fromYamlArray) }}
