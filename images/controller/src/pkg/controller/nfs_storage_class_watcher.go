@@ -69,8 +69,7 @@ const (
 	serverParamKey           = "server"
 	shareParamKey            = "share"
 	MountPermissionsParamKey = "mountPermissions"
-	// SubDirParamKey           = "subdir"
-	MountOptionsSecretKey = "mountOptions"
+	MountOptionsSecretKey    = "mountOptions"
 
 	SecretForMountOptionsPrefix = "nfs-mount-options-for-"
 	StorageClassSecretNameKey   = "csi.storage.k8s.io/provisioner-secret-name"
@@ -206,7 +205,7 @@ func RunEventReconcile(ctx context.Context, cl client.Client, log logger.Logger,
 
 	if v3presents && !v3support {
 		klog.Infof("NFS v3 is not enabled in module config, but NFSv3StorageClass exists: %s", nsc)
-		addLabelToStorageClass(nsc)
+		nsc.Labels = addLabelToStorageClass(nsc)
 	}
 
 	shouldRequeue = false

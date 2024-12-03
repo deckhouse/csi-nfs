@@ -21,7 +21,7 @@ import (
 	"d8-controller/pkg/logger"
 	"errors"
 	"fmt"
-	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
+	"github.com/deckhouse/csi-nfs/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 	"reflect"
@@ -732,13 +732,15 @@ func addLabelToStorageClass(nsc *v1alpha1.NFSStorageClass) map[string]string {
 	if nsc.Labels == nil {
 		newLabels = make(map[string]string)
 		nsc.Labels = newLabels
+	} else {
+		newLabels = make(map[string]string, len(nsc.Labels))
 	}
 
 	for key, value := range nsc.Labels {
 		newLabels[key] = value
 	}
-
 	newLabels[NFS3PrometheusLabel] = "true"
+
 	return newLabels
 }
 
