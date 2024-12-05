@@ -11,8 +11,8 @@ properties:
         description: Корневой сертификат в формате PEM, которым можно проверить сертификат nfs сервера, закодированный в Base64.
       mtls:
         description: Настройка режима проверки nfs сервером сертифката клиента.
-      properties:
-        clientCert:
-          description: Клиентский сертификат в формате PEM, закодированный в Base64.
-        clientKey:
-          description: Клиентский ключ в формате PEM, закодированный в Base64.
+        properties:
+          clientCert:
+            description: Клиентский сертификат в формате PEM, закодированный в Base64.
+          clientKey:
+            description: Клиентский ключ в формате PEM, закодированный в Base64.
