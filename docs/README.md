@@ -13,6 +13,18 @@ This module provides CSI that manages volumes based on `NFS`. The module allows 
 ### Requirements
 - Stock kernels shipped with the [supported distributions](https://deckhouse.io/documentation/v1/supported_versions.html#linux).
 - Presence of a deployed and configured NFS server.
+- Enabling RPC-with-TLS requires the Linux kernel to have `CONFIG_TLS` and `CONFIG_NET_HANDSHAKE` options enabled.
+
+### Recommendations
+
+- For the module pods to restart when the `tlsParameters` parameter in the module settings is changed,
+the [pod-reloader](https://deckhouse.io/products/kubernetes-platform/documentation/v1/modules/pod-reloader) module must be enabled (enabled by default).
+
+## Limitations of RPC-with-TLS
+
+- Only a single CA is supported.
+- For the `mtls` security policy, only one client certificate is supported.
+- A single `NFS` server cannot simultaneously use different security policies such as `tls`, `mtls`, and the standard (no TLS) mode.
 
 ## Quickstart guide
 

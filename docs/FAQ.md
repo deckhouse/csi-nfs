@@ -66,3 +66,11 @@ kubectl get volumesnapshot
 ```
 
 This command will display a list of all snapshots and their current status.
+
+## Why are PVs created in a StorageClass with RPC-with-TLS support not being deleted, along with their `<PV name>` directories on the NFS server?
+
+If the resource [NFSStorageClass](./cr.html#nfsstorageclass) was created with RPC-with-TLS support,
+a situation may arise where a `PV` cannot be deleted.
+This happens because the secret (e.g., after the `NFSStorageClass` was deleted) storing the mount options was removed.
+As a result, the controller cannot mount the NFS folder to delete the `<PV name>` directory inside it.
+
