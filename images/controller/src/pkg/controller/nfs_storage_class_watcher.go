@@ -22,9 +22,10 @@ import (
 	"d8-controller/pkg/logger"
 	"errors"
 	"fmt"
-	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	"reflect"
 	"time"
+
+	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/storage/v1"
@@ -134,6 +135,13 @@ func RunNFSStorageClassWatcherController(
 		CreateFunc: func(ctx context.Context, e event.CreateEvent, q workqueue.RateLimitingInterface) {
 			log.Info(fmt.Sprintf("[CreateFunc] get event for NFSStorageClass %q. Add to the queue", e.Object.GetName()))
 			request := reconcile.Request{NamespacedName: types.NamespacedName{Namespace: e.Object.GetNamespace(), Name: e.Object.GetName()}}
+
+			err := validationNFSStorageClass(e.Object, log)
+			if err != nil {
+				log.Error(err, "[CreateFunc] an error occurred while handling create event")
+				return
+			}
+
 			q.Add(request)
 		},
 		UpdateFunc: func(ctx context.Context, e event.UpdateEvent, q workqueue.RateLimitingInterface) {

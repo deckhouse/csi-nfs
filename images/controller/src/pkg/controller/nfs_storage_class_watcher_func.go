@@ -21,10 +21,11 @@ import (
 	"d8-controller/pkg/logger"
 	"errors"
 	"fmt"
-	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	"reflect"
 	"strconv"
 	"strings"
+
+	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
 
 	"slices"
 
@@ -592,6 +593,12 @@ func GetSCMountOptions(nsc *v1alpha1.NFSStorageClass) []string {
 		mountOptions = append(mountOptions, "nfsvers="+nsc.Spec.Connection.NFSVersion)
 	}
 
+	if nsc.Spec.Connection.Mtls {
+		mountOptions = append(mountOptions, "xprtsec=mtls")
+	} else if nsc.Spec.Connection.Tls {
+		mountOptions = append(mountOptions, "xprtsec=tls")
+	}
+
 	if nsc.Spec.MountOptions != nil {
 
 		if nsc.Spec.MountOptions.MountMode != "" {
@@ -735,4 +742,12 @@ func updateStorageClass(nsc *v1alpha1.NFSStorageClass, oldSC *v1.StorageClass, c
 	}
 
 	return newSC, nil
+}
+
+// validation tls and mtls
+func validationNFSStorageClass(obj *v1alpha1.NFSStorageClass, log logger.Logger) error {
+	//log.Debug(fmt.Sprintf("[krpsh] e.Object: %+v", obj))
+	log.Debug(fmt.Sprintf("[krpsh] e.Object: %v", obj.Spec.Connection.Tls))
+	//return errors.New("[krpsh] test error text")
+	return nil
 }
