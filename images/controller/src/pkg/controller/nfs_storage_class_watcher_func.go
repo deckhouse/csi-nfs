@@ -743,3 +743,11 @@ func updateStorageClass(nsc *v1alpha1.NFSStorageClass, oldSC *v1.StorageClass, c
 
 	return newSC, nil
 }
+
+// validation tls and mtls
+func validationNFSStorageClass(obj *v1alpha1.NFSStorageClass, log logger.Logger) error {
+	//log.Debug(fmt.Sprintf("[krpsh] e.Object: %+v", obj))
+	log.Debug(fmt.Sprintf("[krpsh] e.Object: %v", obj.Spec.Connection.Tls))
+	//return errors.New("[krpsh] test error text")
+	return nil
+}
