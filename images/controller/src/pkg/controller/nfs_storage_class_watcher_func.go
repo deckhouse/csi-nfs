@@ -25,6 +25,8 @@ import (
 	"strconv"
 	"strings"
 
+	mc "d8-controller/api"
+
 	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
 
 	"slices"
@@ -33,6 +35,7 @@ import (
 	v1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -744,10 +747,22 @@ func updateStorageClass(nsc *v1alpha1.NFSStorageClass, oldSC *v1.StorageClass, c
 	return newSC, nil
 }
 
-// validation tls and mtls
-func validationNFSStorageClass(obj *v1alpha1.NFSStorageClass, log logger.Logger) error {
-	//log.Debug(fmt.Sprintf("[krpsh] e.Object: %+v", obj))
-	log.Debug(fmt.Sprintf("[krpsh] e.Object: %v", obj.Spec.Connection.Tls))
-	//return errors.New("[krpsh] test error text")
+func validationNFSStorageClass(
+	ctx context.Context,
+	cl client.Client,
+	log logger.Logger,
+	nsc *v1alpha1.NFSStorageClass,
+) error {
+	log.Debug(fmt.Sprintf("[krpsh] Tls: %v; Mtls: %v; NFSVersion: %v", nsc.Spec.Connection.Tls, nsc.Spec.Connection.Mtls, nsc.Spec.Connection.NFSVersion))
+
+	nfsModuleConfig := &mc.ModuleConfig{}
+
+	err := cl.Get(ctx, types.NamespacedName{Name: csiNfsModuleName, Namespace: ""}, nfsModuleConfig)
+	if err != nil {
+		return err
+	}
+
+	log.Debug(fmt.Sprintf("[krpsh] mc: %v", nfsModuleConfig.Spec.Settings))
+
 	return nil
 }

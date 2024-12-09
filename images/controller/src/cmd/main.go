@@ -23,11 +23,14 @@ import (
 	"d8-controller/pkg/kubutils"
 	"d8-controller/pkg/logger"
 	"fmt"
-	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	"os"
 	goruntime "runtime"
 
+	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
+
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+
+	mc "d8-controller/api"
 
 	v1 "k8s.io/api/core/v1"
 	sv1 "k8s.io/api/storage/v1"
@@ -46,6 +49,7 @@ var (
 		extv1.AddToScheme,
 		v1.AddToScheme,
 		sv1.AddToScheme,
+		mc.AddToScheme,
 	}
 )
 
