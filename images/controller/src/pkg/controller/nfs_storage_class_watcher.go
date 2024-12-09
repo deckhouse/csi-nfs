@@ -75,8 +75,6 @@ const (
 	SecretForMountOptionsPrefix = "nfs-mount-options-for-"
 	StorageClassSecretNameKey   = "csi.storage.k8s.io/provisioner-secret-name"
 	StorageClassSecretNSKey     = "csi.storage.k8s.io/provisioner-secret-namespace"
-
-	csiNfsModuleName = "csi-nfs"
 )
 
 var (
@@ -104,6 +102,8 @@ func RunNFSStorageClassWatcherController(
 				log.Info(fmt.Sprintf("[NFSStorageClassReconciler] seems like the NFSStorageClass for the request %s was deleted. Reconcile retrying will stop.", request.Name))
 				return reconcile.Result{}, nil
 			}
+
+			//TODO added validateNFSStorageClass
 
 			scList := &v1.StorageClassList{}
 			err = cl.List(ctx, scList)
@@ -137,20 +137,6 @@ func RunNFSStorageClassWatcherController(
 		CreateFunc: func(ctx context.Context, e event.CreateEvent, q workqueue.RateLimitingInterface) {
 			log.Info(fmt.Sprintf("[CreateFunc] get event for NFSStorageClass %q. Add to the queue", e.Object.GetName()))
 			request := reconcile.Request{NamespacedName: types.NamespacedName{Namespace: e.Object.GetNamespace(), Name: e.Object.GetName()}}
-
-			nsc, ok := e.Object.(*v1alpha1.NFSStorageClass)
-			if !ok {
-				err = errors.New("unable to cast event object to a given type")
-				log.Error(err, "[CreateFunc] an error occurred while handling create event")
-				return
-			}
-
-			err := validationNFSStorageClass(ctx, cl, log, nsc)
-			if err != nil {
-				log.Error(err, "[CreateFunc] an error occurred while handling create event")
-				return
-			}
-
 			q.Add(request)
 		},
 		UpdateFunc: func(ctx context.Context, e event.UpdateEvent, q workqueue.RateLimitingInterface) {
@@ -172,14 +158,6 @@ func RunNFSStorageClassWatcherController(
 			if reflect.DeepEqual(oldNSC.Spec, newNSC.Spec) && newNSC.DeletionTimestamp == nil {
 				log.Info(fmt.Sprintf("[UpdateFunc] an update event for the NFSStorageClass %s has no Spec field updates. It will not be reconciled", newNSC.Name))
 				return
-			}
-
-			if newNSC.DeletionTimestamp == nil {
-				err := validationNFSStorageClass(ctx, cl, log, newNSC)
-				if err != nil {
-					log.Error(err, "[UpdateFunc] an error occurred while handling create event")
-					return
-				}
 			}
 
 			log.Info(fmt.Sprintf("[UpdateFunc] the NFSStorageClass %q will be reconciled. Add to the queue", newNSC.Name))
