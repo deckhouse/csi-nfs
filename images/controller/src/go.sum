@@ -9,12 +9,6 @@ github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ3
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
-github.com/deckhouse/csi-nfs/api v0.0.0-20240803013516-738ee1ca87bc h1:FRil0A1OjAHQl5Hkf2eVcU6/jrtLKMVfIOo5RDQf5NM=
-github.com/deckhouse/csi-nfs/api v0.0.0-20240803013516-738ee1ca87bc/go.mod h1:/vXhdSgMvU4dP2MvOHOFZua9MvJoAPLM/hk6p7rE+Jc=
-github.com/deckhouse/csi-nfs/api v0.0.0-20241202111019-b3fc2e789a23 h1:8lXmXYeaJ9dw/EaJc8tF3gWGePtQqjLJQDn268tGL4w=
-github.com/deckhouse/csi-nfs/api v0.0.0-20241202111019-b3fc2e789a23/go.mod h1:/vXhdSgMvU4dP2MvOHOFZua9MvJoAPLM/hk6p7rE+Jc=
-github.com/deckhouse/csi-nfs/api v0.0.0-20241202113542-a57b81271da5 h1:p9Fo8h8WHFVKiFC2XYGEcgUue8W/dwWkUxMAkz5sg64=
-github.com/deckhouse/csi-nfs/api v0.0.0-20241202113542-a57b81271da5/go.mod h1:/vXhdSgMvU4dP2MvOHOFZua9MvJoAPLM/hk6p7rE+Jc=
 github.com/deckhouse/csi-nfs/api v0.0.0-20241202135517-c84cb4afb179 h1:34VwgkDwEisjAqM8cceKJdjSFuQGA9MhACpbmy9bdrI=
 github.com/deckhouse/csi-nfs/api v0.0.0-20241202135517-c84cb4afb179/go.mod h1:/vXhdSgMvU4dP2MvOHOFZua9MvJoAPLM/hk6p7rE+Jc=
 github.com/emicklei/go-restful/v3 v3.11.0 h1:rAQeMHw1c7zTmncogyy8VvRZwtkmkZ4FxERmMY4rD+g=
