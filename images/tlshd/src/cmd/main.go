@@ -78,6 +78,7 @@ func main() {
 
 	cmd.Stderr = multiStderr
 	cmd.Stdout = os.Stdout
+	cmd.WaitDelay = time.Second * 2
 
 	// run
 	if err := cmd.Run(); err != nil {
