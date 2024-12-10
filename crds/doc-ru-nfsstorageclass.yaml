@@ -23,6 +23,12 @@ spec:
                     nfsVersion:
                       description: |
                         Версия NFS сервера
+                    tls:
+                      description: |
+                        Использовать ли tls для подключения.
+                    mtls:
+                      description: |
+                        Использовать ли mtls; требует, чтобы tls был включён.
                 mountOptions:
                   description: |
                     Опции монтирования

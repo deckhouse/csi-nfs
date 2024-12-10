@@ -1,0 +1,85 @@
+{{- $_ := set . "BASE_SCRATCH"    "registry.deckhouse.ru/base_images/scratch@sha256:b054705fcc9f2205777d80a558d920c0b4209efdc3163c22b5bfcb5dda1db5fc" }}
+{{- $_ := set . "BASE_ALPINE_DEV" "registry.deckhouse.ru/base_images/dev-alpine:3.16.3@sha256:c706fa83cc129079e430480369a3f062b8178cac9ec89266ebab753a574aca8e" }}
+{{- $_ := set . "BASE_ALT_DEV"    "registry.deckhouse.ru/base_images/dev-alt:p10@sha256:76e6e163fa982f03468166203488b569e6d9fc10855d6a259c662706436cdcad" }}
+
+{{ $binaries := "/nfs-utils/sbin/* /nfs-utils/usr/bin/* /nfs-utils/usr/sbin/* /lib64/libnss_files.so.2" }}
+{{ $version := "nfs-utils-2-5-4" }} # must match the nfs-utils package from BASE_ALT_DEV
+{{ $deckhouse_uid_gid := "64535"}}
+---
+image: {{ $.ImageName }}-binaries-artifact
+from: {{ $.BASE_ALT_DEV }}
+final: false
+
+shell:
+  beforeInstall:
+    - apt-get update
+    - apt-get install -y libmount-devel libnl-devel libreadline-devel libtirpc libtirpc-devel libuuid-devel libevent-devel libsqlite3x-devel libdevmapper-devel libblkid-devel libkeyutils-devel
+      ### example werf build log
+      # ...
+      # nfs-utils-binaries-artifact/install  chmod go-rwx /nfs-utils/var/lib/nfs/sm /nfs-utils/var/lib/nfs/sm.bak /nfs-utils/var/lib/nfs/state
+      # nfs-utils-binaries-artifact/install  chown deckhouse /nfs-utils/var/lib/nfs/sm /nfs-utils/var/lib/nfs/sm.bak /nfs-utils/var/lib/nfs/state
+      # nfs-utils-binaries-artifact/install  chown: invalid user: ‘deckhouse’
+      # ...
+    - groupadd -g {{ $deckhouse_uid_gid }} deckhouse
+    - useradd -g deckhouse -u {{ $deckhouse_uid_gid }} deckhouse
+  install:
+    - cd
+    - git clone git://git.linux-nfs.org/projects/steved/nfs-utils.git
+    - cd nfs-utils
+    - git checkout {{ $version }}
+    - ./autogen.sh
+    - ./configure --disable-gss --disable-mount --with-statduser=deckhouse --with-rpcgen=internal
+    - make
+    - make install DESTDIR=/nfs-utils
+  beforeSetup:
+    - cp -av /nfs-utils/usr/lib/* /usr/lib/
+    - /binary_replace.sh -i "{{ $binaries }}" -o /relocate
+  setup:
+    - rm -rf /relocate/nfs-utils
+    - cp -av /nfs-utils/sbin     /relocate
+    - mkdir -p /relocate/usr
+    - cp -av /nfs-utils/usr/bin  /relocate/usr
+    - cp -av /nfs-utils/usr/sbin /relocate/usr
+    - cp -av /nfs-utils/var      /relocate
+    - mkdir -p /relocate/etc
+    - cp -av /etc/netconfig /relocate/etc/netconfig
+
+---
+image: {{ $.ImageName }}-distroless-artifact
+from: {{ $.BASE_ALPINE_DEV }}
+final: false
+
+shell:
+  install:
+    - mkdir -p /relocate/bin /relocate/sbin /relocate/etc /relocate/etc/ssl /relocate/usr/bin /relocate/usr/sbin /relocate/usr/share
+    - cp -pr /tmp /relocate
+    - cp -pr /etc/passwd /etc/group /etc/hostname /etc/hosts /etc/shadow /etc/protocols /etc/services /etc/nsswitch.conf /relocate/etc
+    - cp -pr /usr/share/ca-certificates /relocate/usr/share
+    - cp -pr /usr/share/zoneinfo /relocate/usr/share
+    - cp -pr /etc/ssl/cert.pem /relocate/etc/ssl
+    - cp -pr /etc/ssl/certs /relocate/etc/ssl
+    - echo "deckhouse:x:{{ $deckhouse_uid_gid }}:{{ $deckhouse_uid_gid }}:deckhouse:/:/sbin/nologin" >> /relocate/etc/passwd
+    - echo "deckhouse:x:{{ $deckhouse_uid_gid }}:" >> /relocate/etc/group
+    - echo "deckhouse:!::0:::::" >> /relocate/etc/shadow
+
+---
+image: {{ $.ImageName }}-distroless
+from: {{ $.BASE_SCRATCH }}
+final: false
+
+import:
+  - image: {{ $.ImageName }}-distroless-artifact
+    add: /relocate
+    to: /
+    before: setup
+
+---
+image: {{ $.ImageName }}
+fromImage: {{ $.ImageName }}-distroless
+
+import:
+  - image: {{ $.ImageName }}-binaries-artifact
+    stage: setup
+    add: /relocate
+    to: /
+    before: setup
