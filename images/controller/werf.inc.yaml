@@ -8,12 +8,12 @@ final: false
 
 git:
   - add: /images/controller/src
-    to: /src
+    to: /csi-nfs/images/controller/src
     stageDependencies:
       setup:
         - "**/*"
   - add: /api
-    to: /src-api
+    to: /csi-nfs/api
     stageDependencies:
       setup:
         - "**/*"
@@ -22,7 +22,7 @@ mount:
     to: /go/pkg
 shell:
   setup:
-    - cd /src/cmd
+    - cd /csi-nfs/images/controller/src/cmd
     - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o controller
     - mv controller /controller
     - chmod +x /controller
