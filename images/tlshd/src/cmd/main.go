@@ -36,11 +36,21 @@ var (
 
 type Opt struct {
 	TimeoutWait uint
+	Mode        string
 }
 
 func (o *Opt) Parse() {
-	flag.UintVar(&o.TimeoutWait, "timeout_wait", 0, "timeout in seconds for process execution (0 means no timeout)")
+	flag.UintVar(&o.TimeoutWait, "timeout_wait", 2, "Timeout in seconds for process execution. Applies only to the init_containers launch mode (must be greater than 0 and less than 30).")
+	flag.StringVar(&o.Mode, "mode", "containers", "Launch mode (allowed values: containers and init_containers).")
 	flag.Parse()
+
+	if o.TimeoutWait == 0 || o.TimeoutWait > 30 {
+		log.Fatalf("%s\n", "invalid '-timeout_wait' (use -h for more info)")
+	}
+
+	if !regexp.MustCompile(`^containers$|^init_containers$`).MatchString(o.Mode) {
+		log.Fatalf("%s\n", "invalid '-mode' (use -h for more info)")
+	}
 }
 
 func terminateProcessGracefully(cmd *exec.Cmd, done chan error) {
@@ -62,10 +72,13 @@ func terminateProcessGracefully(cmd *exec.Cmd, done chan error) {
 }
 
 func main() {
+	// may throw a fatal error
 	opt.Parse()
 
+	log.Printf("Launch in %s mode", opt.Mode)
+
 	args := []string{"-s"}
-	if opt.TimeoutWait > 0 {
+	if opt.Mode == "init_containers" {
 		args = append(args, "-c", "/opt/deckhouse/csi/etc/tlshd.conf")
 	} else {
 		args = append(args, "-c", "/etc/tlshd.conf")
@@ -97,12 +110,10 @@ func main() {
 	// defer cancel()
 
 	// If a timeout is specified, wrap the context with a timeout
-	if opt.TimeoutWait > 0 {
+	if opt.Mode == "init_containers" {
 		ctx, cancel = context.WithTimeout(ctx, time.Duration(opt.TimeoutWait)*time.Second)
 		// defer cancel()
 		log.Printf("Timeout specified: %d seconds", opt.TimeoutWait)
-	} else {
-		log.Println("No timeout specified. Process will run indefinitely until it finishes or receives a termination signal.")
 	}
 
 	// Channel to handle process completion
