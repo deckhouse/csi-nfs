@@ -43,6 +43,24 @@ func (o *Opt) Parse() {
 	flag.Parse()
 }
 
+func terminateProcessGracefully(cmd *exec.Cmd, done chan error) {
+	log.Println("Sending SIGTERM to the process...")
+	if err := cmd.Process.Signal(syscall.SIGTERM); err != nil {
+		log.Printf("Failed to send SIGTERM to the process: %v", err)
+		return
+	}
+
+	// Wait for the process to terminate after SIGTERM
+	err := <-done
+	if err != nil {
+		// Such a message is considered normal when a signal is sent to terminate the process.
+		// "Process exited with an error after SIGTERM: signal: terminated"
+		log.Printf("Process exited with an error after SIGTERM: %v", err)
+	} else {
+		log.Println("Process exited successfully after SIGTERM.")
+	}
+}
+
 func main() {
 	opt.Parse()
 
@@ -101,12 +119,8 @@ func main() {
 
 	select {
 	case <-ctx.Done(): // Timeout or cancellation occurred
-		log.Println("Context done (timeout or cancellation), terminating the process...")
-		if err := cmd.Process.Kill(); err != nil {
-			cancel()
-			log.Fatalf("Failed to terminate the process: %v", err)
-		}
-		log.Println("Process has been terminated.")
+		log.Println("Context done (timeout or cancellation)")
+		terminateProcessGracefully(cmd, done)
 	case err := <-done: // Process finished on its own
 		if err != nil {
 			cancel()
@@ -120,10 +134,7 @@ func main() {
 
 		log.Println("Process exited successfully.")
 	case sig := <-signalChan: // Received termination signal
-		log.Printf("Received signal: %v, terminating the process...", sig)
-		if err := cmd.Process.Kill(); err != nil {
-			log.Fatalf("Failed to terminate the process: %v", err)
-		}
-		log.Println("Process has been terminated.")
+		log.Printf("Received signal: %v", sig)
+		terminateProcessGracefully(cmd, done)
 	}
 }
