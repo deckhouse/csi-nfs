@@ -12,6 +12,11 @@ git:
     stageDependencies:
       setup:
         - "**/*"
+  - add: /api
+    to: /src-api
+    stageDependencies:
+      setup:
+        - "**/*"
 mount:
   - fromPath: ~/go-pkg-cache
     to: /go/pkg

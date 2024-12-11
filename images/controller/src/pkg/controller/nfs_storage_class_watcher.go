@@ -103,7 +103,7 @@ func RunNFSStorageClassWatcherController(
 				return reconcile.Result{}, nil
 			}
 
-			//TODO added validateNFSStorageClass
+			// TODO added validateNFSStorageClass
 
 			scList := &v1.StorageClassList{}
 			err = cl.List(ctx, scList)
