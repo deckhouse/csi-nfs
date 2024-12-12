@@ -24,7 +24,7 @@ shell:
     - useradd -g deckhouse -u {{ $deckhouse_uid_gid }} deckhouse
   install:
     - cd
-    - git clone --depth 1 --branch {{ $version }} {{ env "SOURCE_REPO" }}/steved/nfs-utils.git nfs-utils
+    - git clone --depth 1 --branch {{ $version }} git://git.linux-nfs.org/projects/steved/nfs-utils.git nfs-utils
     - cd nfs-utils
     - ./autogen.sh
     - ./configure --disable-gss --disable-mount --with-statduser=deckhouse --with-rpcgen=internal
