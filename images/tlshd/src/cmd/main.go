@@ -19,7 +19,7 @@ package main
 import (
 	"bytes"
 	"context"
-	"flag"
+	"errors"
 	"io"
 	"log"
 	"os"
@@ -28,6 +28,8 @@ import (
 	"regexp"
 	"syscall"
 	"time"
+
+	"github.com/spf13/cobra"
 )
 
 var (
@@ -40,16 +42,33 @@ type Opt struct {
 }
 
 func (o *Opt) Parse() {
-	flag.UintVar(&o.TimeoutWait, "timeout_wait", 2, "Timeout in seconds for process execution. Applies only to the init_containers launch mode (must be greater than 0 and less than 30).")
-	flag.StringVar(&o.Mode, "mode", "containers", "Launch mode (allowed values: containers and init_containers).")
-	flag.Parse()
+	var rootCmd = &cobra.Command{
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if !regexp.MustCompile(`^containers$|^init-containers$`).MatchString(o.Mode) {
+				return errors.New("invalid 'mode'")
+			}
 
-	if o.TimeoutWait == 0 || o.TimeoutWait > 30 {
-		log.Fatalf("%s\n", "invalid '-timeout_wait' (use -h for more info)")
+			if o.TimeoutWait == 0 || o.TimeoutWait > 30 {
+				return errors.New("invalid 'timeout-wait'")
+			}
+
+			return nil
+		},
 	}
 
-	if !regexp.MustCompile(`^containers$|^init_containers$`).MatchString(o.Mode) {
-		log.Fatalf("%s\n", "invalid '-mode' (use -h for more info)")
+	// Exit after displaying the help information
+	rootCmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
+		cmd.Print(cmd.UsageString())
+		os.Exit(0)
+	})
+
+	// Add flags
+	rootCmd.Flags().StringVarP(&o.Mode, "mode", "m", "containers", "Launch mode (allowed values: 'containers' and 'init-containers').")
+	rootCmd.Flags().UintVarP(&o.TimeoutWait, "timeout-wait", "t", 2, "Timeout in seconds for process execution. Applies only to the 'init-containers' launch mode (must be in the range of 1 to 30)")
+
+	if err := rootCmd.Execute(); err != nil {
+		// we expect err to be logged already
+		os.Exit(1)
 	}
 }
 
@@ -72,18 +91,27 @@ func terminateProcessGracefully(cmd *exec.Cmd, done chan error) {
 }
 
 func main() {
-	// may throw a fatal error
 	opt.Parse()
 
 	log.Printf("Launch in %s mode", opt.Mode)
 
+	path := "/opt/deckhouse/csi/bin/tlshd"
 	args := []string{"-s"}
-	if opt.Mode == "init_containers" {
+	if opt.Mode == "init-containers" {
 		args = append(args, "-c", "/opt/deckhouse/csi/etc/tlshd.conf")
 	} else {
 		args = append(args, "-c", "/etc/tlshd.conf")
+
+		// Environment variables for the new process
+		env := os.Environ()
+
+		// Perform the execve system call to replace the current process
+		err := syscall.Exec(path, append([]string{path}, args...), env)
+		if err != nil {
+			log.Fatalf("Error executing exec for %s: %v", path, err)
+		}
 	}
-	cmd := exec.Command("/opt/deckhouse/csi/bin/tlshd", args...)
+	cmd := exec.Command(path, args...)
 
 	var stderrBuf bytes.Buffer
 	// MultiWriter to write to both os.Stderr and the buffer
@@ -110,7 +138,7 @@ func main() {
 	// defer cancel()
 
 	// If a timeout is specified, wrap the context with a timeout
-	if opt.Mode == "init_containers" {
+	if opt.Mode == "init-containers" {
 		ctx, cancel = context.WithTimeout(ctx, time.Duration(opt.TimeoutWait)*time.Second)
 		// defer cancel()
 		log.Printf("Timeout specified: %d seconds", opt.TimeoutWait)

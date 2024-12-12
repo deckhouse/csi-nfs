@@ -47,7 +47,7 @@
       mountPath: /lib/modules
 - name: net-hendshake-checker
   image: {{ include "helm_lib_module_image" (list . "tlshd") }}
-  command: ["/go-tlshd", "-mode", "init_containers"]
+  command: ["/go-tlshd", "--mode", "init-containers"]
   imagePullPolicy: IfNotPresent
   securityContext:
     privileged: true
@@ -69,7 +69,7 @@
 {{- define "csi_tlshd_container" }}
 - name: tlshd
   image: {{ include "helm_lib_module_image" (list . "tlshd") }}
-  command: ["/go-tlshd", "-mode", "containers"]
+  command: ["/go-tlshd", "--mode", "containers"]
   imagePullPolicy: IfNotPresent
   securityContext:
     privileged: true
