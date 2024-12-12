@@ -18,7 +18,7 @@ shell:
     - useradd -g deckhouse -u {{ $deckhouse_uid_gid }} deckhouse
   install:
     - cd
-    - git clone --depth 1 --branch {{ $version }} {{ env "SOURCE_REPO" }}/steved/rpcbind.git rpcbind
+    - git clone --depth 1 --branch {{ $version }} git://git.linux-nfs.org/projects/steved/rpcbind.git rpcbind
     - cd rpcbind
     - ./autogen.sh
     - ./configure --sbindir=/sbin --enable-warmstarts --with-statedir=/var/run/rpcbind --with-rpcuser=deckhouse --disable-libwrap --with-systemdsystemunitdir=no --enable-debug
