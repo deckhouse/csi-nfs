@@ -14,10 +14,8 @@ shell:
     - apt-get update
     - apt-get install -y libzstd-devel liblzma-devel
   install:
-    - cd /
-    - git clone https://github.com/kmod-project/kmod.git
+    - git clone --depth 1 --branch v{{ $version }} {{ env "SOURCE_REPO" }}/kmod-project/kmod.git /kmod
     - cd /kmod
-    - git checkout v{{ $version }}
     - ./autogen.sh
     - ./configure CFLAGS='-g -O2' --with-zstd --with-xz --with-zlib --with-openssl --disable-manpages --disable-test-modules
     - make

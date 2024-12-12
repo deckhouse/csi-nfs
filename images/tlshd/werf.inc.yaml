@@ -15,10 +15,8 @@ shell:
     - apt-get update
     - apt-get install -y libgnutls-devel libkeyutils-devel glib2-devel libnl-devel
   install:
-    - cd /
-    - git clone https://github.com/oracle/ktls-utils.git
+    - git clone --depth 1 --branch {{ $version }} {{ env "SOURCE_REPO" }}/oracle/ktls-utils.git /ktls-utils
     - cd /ktls-utils
-    - git checkout {{ $version }}
     - ./autogen.sh
     - ./configure
     - make
