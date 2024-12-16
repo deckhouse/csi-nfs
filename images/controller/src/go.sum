@@ -9,8 +9,8 @@ github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ3
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
-github.com/deckhouse/csi-nfs/api v0.0.0-20240803013516-738ee1ca87bc h1:FRil0A1OjAHQl5Hkf2eVcU6/jrtLKMVfIOo5RDQf5NM=
-github.com/deckhouse/csi-nfs/api v0.0.0-20240803013516-738ee1ca87bc/go.mod h1:/vXhdSgMvU4dP2MvOHOFZua9MvJoAPLM/hk6p7rE+Jc=
+github.com/deckhouse/csi-nfs/api v0.0.0-20241129063443-ecd2c9d45a03 h1:K2QkWZTnn4LUKgxpS9DSGVXXPYuVuL2pq+825GUWAIQ=
+github.com/deckhouse/csi-nfs/api v0.0.0-20241129063443-ecd2c9d45a03/go.mod h1:/vXhdSgMvU4dP2MvOHOFZua9MvJoAPLM/hk6p7rE+Jc=
 github.com/emicklei/go-restful/v3 v3.11.0 h1:rAQeMHw1c7zTmncogyy8VvRZwtkmkZ4FxERmMY4rD+g=
 github.com/emicklei/go-restful/v3 v3.11.0/go.mod h1:6n3XBCmQQb25CM2LCACGz8ukIrRry+4bhvbpWn3mrbc=
 github.com/evanphx/json-patch v4.12.0+incompatible h1:4onqiflcdA9EOZ4RxV643DvftH5pOlLGNtQ5lPWQu84=
