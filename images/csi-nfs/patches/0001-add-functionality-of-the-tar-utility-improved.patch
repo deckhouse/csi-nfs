@@ -1,12 +1,12 @@
 diff --git a/go.mod b/go.mod
-index 9c84c6ac..b1458639 100644
+index 9c84c6ac..69f569b7 100644
 --- a/go.mod
 +++ b/go.mod
 @@ -1,6 +1,8 @@
  module github.com/kubernetes-csi/csi-driver-nfs
  
 -go 1.21
-+go 1.22.0
++go 1.23.0
 +
 +toolchain go1.23.1
  
@@ -67,10 +67,10 @@ index 7fdad5dd..fcede86a 100644
  	return nil
 diff --git a/pkg/nfs/tar.go b/pkg/nfs/tar.go
 new file mode 100644
-index 00000000..fd6690b9
+index 00000000..ef4171d7
 --- /dev/null
 +++ b/pkg/nfs/tar.go
-@@ -0,0 +1,240 @@
+@@ -0,0 +1,246 @@
 +/*
 +Copyright 2024 The Kubernetes Authors.
 +
@@ -274,9 +274,15 @@ index 00000000..fd6690b9
 +			continue
 +		}
 +
-+		err = tarUnpackFile(filePath, tarReader, fileInfo)
-+		if err != nil {
-+			return fmt.Errorf("unpacking archive %s: %w", filePath, err)
++		if fileInfo.Mode()&fs.ModeSymlink != 0 {
++			if err := os.Symlink(tarHeader.Linkname, filePath); err != nil {
++				return fmt.Errorf("creating symlink %s: %w", filePath, err)
++			}
++			continue
++		}
++
++		if err = tarUnpackFile(filePath, tarReader, fileInfo); err != nil {
++			return fmt.Errorf("unpacking file %s: %w", filePath, err)
 +		}
 +	}
 +	return nil
@@ -313,10 +319,10 @@ index 00000000..fd6690b9
 +}
 diff --git a/pkg/nfs/tar_test.go b/pkg/nfs/tar_test.go
 new file mode 100644
-index 00000000..7817e87d
+index 00000000..74114f7d
 --- /dev/null
 +++ b/pkg/nfs/tar_test.go
-@@ -0,0 +1,280 @@
+@@ -0,0 +1,349 @@
 +/*
 +Copyright 2024 The Kubernetes Authors.
 +
@@ -349,6 +355,7 @@ index 00000000..7817e87d
 +	"slices"
 +	"strings"
 +	"testing"
++	"time"
 +
 +	"golang.org/x/mod/sumdb/dirhash"
 +)
@@ -595,6 +602,74 @@ index 00000000..7817e87d
 +		t.Errorf("expected error '%s', got success", expectedErr)
 +	} else if !strings.Contains(err.Error(), expectedErr) {
 +		t.Errorf("expected error '%s', got: %v", expectedErr, err)
++	}
++}
++
++func TestSymlinks(t *testing.T) {
++	inputDir := t.TempDir()
++
++	testContent := []byte(time.Now().String())
++
++	testFileName := "d.txt"
++	testFilePath := filepath.Join(inputDir, testFileName)
++
++	if err := os.WriteFile(testFilePath, testContent, 0644); err != nil {
++		t.Fatalf("writing to %s: %v", testFilePath, err)
++	}
++
++	absSymlinkName := "abs_symlink_to_" + testFileName
++	absSymlinkPath := filepath.Join(inputDir, absSymlinkName)
++	if err := os.Symlink(testFilePath, absSymlinkPath); err != nil {
++		t.Fatalf("creating absolute symlink %s: %v", absSymlinkPath, err)
++	}
++
++	relSymlinkName := "rel_symlink_to_" + testFileName
++	relSymlinkPath := filepath.Join(inputDir, relSymlinkName)
++	relSymlinkTgt := "./" + testFileName
++	if err := os.Symlink(relSymlinkTgt, relSymlinkPath); err != nil {
++		t.Fatalf("creating relative symlink %s: %v", relSymlinkPath, err)
++	}
++
++	outputDir := t.TempDir()
++
++	archivePath := filepath.Join(outputDir, "output.tar.gz")
++	if err := TarPack(inputDir, archivePath, true); err != nil {
++		t.Fatalf("packing %s to %s: %v", inputDir, archivePath, err)
++	}
++
++	unpackedPath := filepath.Join(outputDir, "output")
++	if err := TarUnpack(archivePath, unpackedPath, true); err != nil {
++		t.Fatalf("unpacking %s to %s: %v", archivePath, unpackedPath, err)
++	}
++
++	// check absolute symlink
++	outputAbsSymlinkPath := filepath.Join(unpackedPath, absSymlinkName)
++	outputAbsSymlinkTgt, err := os.Readlink(outputAbsSymlinkPath)
++	if err != nil {
++		t.Fatalf("reading absolute link %s: %v", outputAbsSymlinkPath, err)
++	}
++	if outputAbsSymlinkTgt != testFilePath {
++		t.Errorf("expected absolute symlink to point to %s, got %s", testFilePath, outputAbsSymlinkTgt)
++	}
++	if data, err := os.ReadFile(outputAbsSymlinkPath); err != nil {
++		t.Fatalf("reading file %s: %v", outputAbsSymlinkPath, err)
++	} else if !bytes.Equal(testContent, data) {
++		t.Errorf("expected file %s to be: %X, got %X", outputAbsSymlinkPath, testContent, data)
++	}
++
++	// check relative symlink
++	outputRelSymlinkPath := filepath.Join(unpackedPath, relSymlinkName)
++	outputRelSymlinkTgt, err := os.Readlink(outputRelSymlinkPath)
++	if err != nil {
++		t.Fatalf("reading relative link %s: %v", outputRelSymlinkPath, err)
++	}
++	if outputRelSymlinkTgt != relSymlinkTgt {
++		t.Errorf("expected relative symlink to point to %s, got %s", relSymlinkTgt, outputRelSymlinkTgt)
++	}
++	if data, err := os.ReadFile(outputRelSymlinkPath); err != nil {
++		t.Fatalf("reading file %s: %v", outputRelSymlinkPath, err)
++	} else if !bytes.Equal(testContent, data) {
++		t.Errorf("expected file %s to be: %X, got %X", outputRelSymlinkPath, testContent, data)
 +	}
 +}
 diff --git a/vendor/golang.org/x/mod/LICENSE b/vendor/golang.org/x/mod/LICENSE
