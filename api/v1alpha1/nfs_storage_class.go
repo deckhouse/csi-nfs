@@ -16,8 +16,12 @@ limitations under the License.
 
 package v1alpha1
 
-import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type NFSStorageClass struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -25,12 +29,15 @@ type NFSStorageClass struct {
 	Status            *NFSStorageClassStatus `json:"status,omitempty"`
 }
 
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type NFSStorageClassList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
 	Items           []NFSStorageClass `json:"items"`
 }
 
+// +k8s:deepcopy-gen=true
 type NFSStorageClassSpec struct {
 	Connection        *NFSStorageClassConnection   `json:"connection,omitempty"`
 	MountOptions      *NFSStorageClassMountOptions `json:"mountOptions,omitempty"`
@@ -39,12 +46,14 @@ type NFSStorageClassSpec struct {
 	VolumeBindingMode string                       `json:"volumeBindingMode"`
 }
 
+// +k8s:deepcopy-gen=true
 type NFSStorageClassConnection struct {
 	Host       string `json:"host"`
 	Share      string `json:"share"`
 	NFSVersion string `json:"nfsVersion"`
 }
 
+// +k8s:deepcopy-gen=true
 type NFSStorageClassMountOptions struct {
 	MountMode       string `json:"mountMode,omitempty"`
 	Timeout         int    `json:"timeout,omitempty"`
@@ -52,6 +61,7 @@ type NFSStorageClassMountOptions struct {
 	ReadOnly        *bool  `json:"readOnly,omitempty"`
 }
 
+// +k8s:deepcopy-gen=true
 type NFSStorageClassStatus struct {
 	Phase  string `json:"phase,omitempty"`
 	Reason string `json:"reason,omitempty"`
