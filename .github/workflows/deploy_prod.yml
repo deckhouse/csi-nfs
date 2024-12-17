@@ -37,6 +37,9 @@ on:
       se:
         type: boolean
         description: SE
+      se-plus:
+        type: boolean
+        description: SE
 
       tag:
         description: "Tag of the module, example v1.21.1"
