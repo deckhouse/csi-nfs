@@ -75,6 +75,8 @@ const (
 	SecretForMountOptionsPrefix = "nfs-mount-options-for-"
 	StorageClassSecretNameKey   = "csi.storage.k8s.io/provisioner-secret-name"
 	StorageClassSecretNSKey     = "csi.storage.k8s.io/provisioner-secret-namespace"
+
+	csiNfsModuleName = "csi-nfs"
 )
 
 var (
@@ -103,7 +105,10 @@ func RunNFSStorageClassWatcherController(
 				return reconcile.Result{}, nil
 			}
 
-			// TODO added validateNFSStorageClass
+			if err := validateNFSStorageClass(ctx, cl, log, nsc); err != nil {
+				log.Error(err, fmt.Sprintf("[NFSStorageClassReconciler] invalid NFSStorageClass (name: %s)", nsc.Name))
+				return reconcile.Result{}, err
+			}
 
 			scList := &v1.StorageClassList{}
 			err = cl.List(ctx, scList)

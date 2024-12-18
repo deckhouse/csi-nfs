@@ -33,6 +33,7 @@ import (
 	v1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -742,4 +743,57 @@ func updateStorageClass(nsc *v1alpha1.NFSStorageClass, oldSC *v1.StorageClass, c
 	}
 
 	return newSC, nil
+}
+
+func validateNFSStorageClass(ctx context.Context, cl client.Client, log logger.Logger, nsc *v1alpha1.NFSStorageClass) error {
+	// deleting NFSStorageClass
+	if nsc.DeletionTimestamp != nil {
+		return nil
+	}
+
+	nfsModuleConfig := &v1alpha1.ModuleConfig{}
+
+	err := cl.Get(ctx, types.NamespacedName{Name: csiNfsModuleName, Namespace: ""}, nfsModuleConfig)
+	if err != nil {
+		return err
+	}
+
+	log.Debug(fmt.Sprintf("[krpsh] mc: %v; type: %T", nfsModuleConfig.Spec.Settings, nfsModuleConfig.Spec.Settings))
+
+	if nsc.Spec.Connection.NFSVersion == "3" {
+		if value, ok := nfsModuleConfig.Spec.Settings["v3support"]; ok && value == false {
+			return errors.New("nfsVersion is set to 3, but the v3support parameter is disabled in the ModuleConfig settings of csi-nfs.")
+		}
+	}
+
+	if nsc.Spec.Connection.Tls || nsc.Spec.Connection.Mtls {
+		var tlsParameters map[string]interface{}
+
+		if value, ok := nfsModuleConfig.Spec.Settings["tlsParameters"]; !ok {
+			return errors.New("tls or mtls is enabled, but the tlsParameters parameter is missing in the ModuleConfig settings of csi-nfs.")
+		} else {
+			tlsParameters = value.(map[string]interface{})
+		}
+		if value, ok := tlsParameters["ca"]; !ok || len(value.(string)) == 0 {
+			return errors.New("tls or mtls is enabled, but the tlsParameters.ca parameter is either missing or has a zero length in the ModuleConfig settings of csi-nfs.")
+		}
+
+		if nsc.Spec.Connection.Mtls {
+			var mtls map[string]interface{}
+
+			if value, ok := tlsParameters["mtls"]; !ok {
+				return errors.New("mtls is enabled, but the tlsParameters.mtls parameter is missing in the ModuleConfig settings of csi-nfs.")
+			} else {
+				mtls = value.(map[string]interface{})
+			}
+			if value, ok := mtls["clientCert"]; !ok || len(value.(string)) == 0 {
+				return errors.New("mtls is enabled, but the tlsParameters.mtls.clientCert parameter is either missing or has a zero length in the ModuleConfig settings of csi-nfs.")
+			}
+			if value, ok := mtls["clientKey"]; !ok || len(value.(string)) == 0 {
+				return errors.New("mtls is enabled, but the tlsParameters.mtls.clientKey parameter is either missing or has a zero length in the ModuleConfig settings of csi-nfs.")
+			}
+		}
+	}
+
+	return nil
 }
