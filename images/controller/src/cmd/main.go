@@ -23,9 +23,10 @@ import (
 	"d8-controller/pkg/kubutils"
 	"d8-controller/pkg/logger"
 	"fmt"
-	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	"os"
 	goruntime "runtime"
+
+	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
 
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 

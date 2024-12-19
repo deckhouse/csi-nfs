@@ -21,10 +21,11 @@ import (
 	"d8-controller/pkg/logger"
 	"errors"
 	"fmt"
-	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	"reflect"
 	"strconv"
 	"strings"
+
+	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
 
 	"slices"
 
@@ -590,6 +591,12 @@ func GetSCMountOptions(nsc *v1alpha1.NFSStorageClass) []string {
 
 	if nsc.Spec.Connection.NFSVersion != "" {
 		mountOptions = append(mountOptions, "nfsvers="+nsc.Spec.Connection.NFSVersion)
+	}
+
+	if nsc.Spec.Connection.Mtls {
+		mountOptions = append(mountOptions, "xprtsec=mtls")
+	} else if nsc.Spec.Connection.Tls {
+		mountOptions = append(mountOptions, "xprtsec=tls")
 	}
 
 	if nsc.Spec.MountOptions != nil {

@@ -3,7 +3,7 @@ module d8-controller
 go 1.22.2
 
 require (
-	github.com/deckhouse/csi-nfs/api v0.0.0-20240803013516-738ee1ca87bc
+	github.com/deckhouse/csi-nfs/api v0.0.0-20241202135517-c84cb4afb179
 	github.com/go-logr/logr v1.4.1
 	github.com/onsi/ginkgo/v2 v2.15.0
 	github.com/onsi/gomega v1.31.0
@@ -70,3 +70,5 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
+
+replace github.com/deckhouse/csi-nfs/api => ../../../api

@@ -22,9 +22,10 @@ import (
 	"d8-controller/pkg/logger"
 	"errors"
 	"fmt"
-	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	"reflect"
 	"time"
+
+	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/storage/v1"
@@ -101,6 +102,8 @@ func RunNFSStorageClassWatcherController(
 				log.Info(fmt.Sprintf("[NFSStorageClassReconciler] seems like the NFSStorageClass for the request %s was deleted. Reconcile retrying will stop.", request.Name))
 				return reconcile.Result{}, nil
 			}
+
+			// TODO added validateNFSStorageClass
 
 			scList := &v1.StorageClassList{}
 			err = cl.List(ctx, scList)
