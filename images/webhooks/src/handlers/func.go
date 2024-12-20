@@ -18,9 +18,12 @@ package handlers
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net/http"
 	"os"
 
+	"github.com/deckhouse/csi-nfs/api/v1alpha1"
 	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	"github.com/go-logr/logr"
 	"github.com/slok/kubewebhook/v2/pkg/log"
@@ -125,4 +128,64 @@ func GetValidatingWebhookHandler(validationFunc func(ctx context.Context, _ *mod
 
 	return mutationWebhookHandler, err
 
+}
+
+// see images/controller/src/pkg/controller/nfs_storage_class_watcher_func.go
+func validateNFSStorageClass(nfsModuleConfig *v1alpha1.ModuleConfig, nsc *v1alpha1.NFSStorageClass) error {
+	var logPostfix string = "Such a combination of parameters is not allowed"
+
+	if nsc.Spec.Connection.NFSVersion == "3" {
+		if value, ok := nfsModuleConfig.Spec.Settings["v3support"]; ok && value == false {
+			return errors.New(fmt.Sprintf(
+				"ModuleConfig: %s (the v3support parameter is disabled); NFSStorageClass: %s (nfsVersion is set to 3); %s",
+				nfsModuleConfig.Name, nsc.Name, logPostfix,
+			))
+		}
+	}
+
+	if nsc.Spec.Connection.Tls || nsc.Spec.Connection.Mtls {
+		var tlsParameters map[string]interface{}
+
+		if value, ok := nfsModuleConfig.Spec.Settings["tlsParameters"]; !ok {
+			return errors.New(fmt.Sprintf(
+				"ModuleConfig: %s (the tlsParameters parameter is missing); NFSStorageClass: %s (tls or mtls is enabled); %s",
+				nfsModuleConfig.Name, nsc.Name, logPostfix,
+			))
+		} else {
+			tlsParameters = value.(map[string]interface{})
+		}
+		if value, ok := tlsParameters["ca"]; !ok || len(value.(string)) == 0 {
+			return errors.New(fmt.Sprintf(
+				"ModuleConfig: %s (the tlsParameters.ca parameter is either missing or has a zero length); NFSStorageClass: %s (tls or mtls is enabled); %s",
+				nfsModuleConfig.Name, nsc.Name, logPostfix,
+			))
+		}
+
+		if nsc.Spec.Connection.Mtls {
+			var mtls map[string]interface{}
+
+			if value, ok := tlsParameters["mtls"]; !ok {
+				return errors.New(fmt.Sprintf(
+					"ModuleConfig: %s (the tlsParameters.mtls parameter is missing); NFSStorageClass: %s (mtls is enabled); %s",
+					nfsModuleConfig.Name, nsc.Name, logPostfix,
+				))
+			} else {
+				mtls = value.(map[string]interface{})
+			}
+			if value, ok := mtls["clientCert"]; !ok || len(value.(string)) == 0 {
+				return errors.New(fmt.Sprintf(
+					"ModuleConfig: %s (the tlsParameters.mtls.clientCert parameter is either missing or has a zero length); NFSStorageClass: %s (mtls is enabled); %s",
+					nfsModuleConfig.Name, nsc.Name, logPostfix,
+				))
+			}
+			if value, ok := mtls["clientKey"]; !ok || len(value.(string)) == 0 {
+				return errors.New(fmt.Sprintf(
+					"ModuleConfig: %s (the tlsParameters.mtls.clientKey parameter is either missing or has a zero length); NFSStorageClass: %s (mtls is enabled); %s",
+					nfsModuleConfig.Name, nsc.Name, logPostfix,
+				))
+			}
+		}
+	}
+
+	return nil
 }
