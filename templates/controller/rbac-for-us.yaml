@@ -74,6 +74,14 @@ rules:
       - watch
       - update
   - apiGroups:
+      - storage.k8s.io
+    resources:
+      - volumeattachments
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
       - snapshot.storage.k8s.io
     resources:
       - volumesnapshots
