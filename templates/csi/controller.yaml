@@ -71,6 +71,11 @@
 
 {{- end }}
 
+{{- define "csi_custom_node_selector" }}
+nodeSelector:
+  storage.deckhouse.io/csi-nfs-node: ""
+{{- end }}
+
 {{- $csiControllerImage := include "helm_lib_module_image" (list . "csiNfs") }}
 
 {{- $csiControllerConfig := dict }}
@@ -86,6 +91,8 @@
 {{- $_ := set $csiControllerConfig "additionalControllerEnvs" (include "csi_controller_envs" . | fromYamlArray) }}
 {{- $_ := set $csiControllerConfig "additionalControllerVolumes" (include "csi_additional_controller_volume" . | fromYamlArray) }}
 {{- $_ := set $csiControllerConfig "additionalControllerVolumeMounts" (include "csi_additional_controller_volume_mounts" . | fromYamlArray) }}
+{{- $_ := set $csiControllerConfig "customNodeSelector" (include "csi_custom_node_selector" . | fromYamlArray) }}
+
 
 {{- if .Values.csiNfs.v3support }}
 {{- $_ := set $csiControllerConfig "initContainerImage" $csiInitContainerImage }}
@@ -139,6 +146,7 @@
 {{- $_ := set $csiNodeConfig "livenessProbePort" 4230 }}
 {{- $_ := set $csiNodeConfig "additionalNodeArgs" (include "csi_node_args" . | fromYamlArray) }}
 {{- $_ := set $csiNodeConfig "additionalNodeEnvs" (include "csi_node_envs" . | fromYamlArray) }}
+{{- $_ := set $csiControllerConfig "customNodeSelector" (include "csi_custom_node_selector" . | fromYamlArray) }}
 
 {{- if .Values.csiNfs.v3support }}
 {{- $_ := set $csiNodeConfig "additionalNodeVolumes" (include "csi_additional_node_volume" . | fromYamlArray) }}
