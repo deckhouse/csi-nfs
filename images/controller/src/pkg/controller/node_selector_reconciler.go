@@ -151,7 +151,7 @@ func reconcileNodeSelector(
 		}
 
 		filteredVolumeAttachmentsMap := FilterVolumeAttachments(log, volumeAttachments, nodesToRemove, NFSStorageClassProvisioner)
-		log.Trace(fmt.Sprintf("[reconcileNodeSelector] Filtered volume attachments map: %+v", filteredVolumeAttachmentsMap))
+		log.Debug(fmt.Sprintf("[reconcileNodeSelector] Filtered volume attachments map: %+v", filteredVolumeAttachmentsMap))
 
 		for _, node := range nodesToRemove.Items {
 			log.Info(fmt.Sprintf("[reconcileNodeSelector] Process remove label for node: %s", node.Name))
@@ -165,7 +165,7 @@ func reconcileNodeSelector(
 				}
 				if len(pendingVolumeSnapshots) > 0 {
 					log.Warning(fmt.Sprintf("[reconcileNodeSelector] Found %d pending volumesnapshots with NFS storage provisioner %s. Skip remove label.", len(pendingVolumeSnapshots), NFSStorageClassProvisioner))
-					log.Trace(fmt.Sprintf("[reconcileNodeSelector] Pending volumesnapshots: %+v", pendingVolumeSnapshots))
+					log.Debug(fmt.Sprintf("[reconcileNodeSelector] Pending volumesnapshots: %+v", pendingVolumeSnapshots))
 					nodesToRemoveCount--
 					continue
 				}
@@ -178,7 +178,7 @@ func reconcileNodeSelector(
 
 				if len(pendingPersistentVolumeClaims) > 0 {
 					log.Warning(fmt.Sprintf("[reconcileNodeSelector] Found %d pending persistentvolumeclaims with NFS storage provisioner %s. Skip remove label.", len(pendingPersistentVolumeClaims), NFSStorageClassProvisioner))
-					log.Trace(fmt.Sprintf("[reconcileNodeSelector] Pending persistentvolumeclaims: %+v", pendingPersistentVolumeClaims))
+					log.Debug(fmt.Sprintf("[reconcileNodeSelector] Pending persistentvolumeclaims: %+v", pendingPersistentVolumeClaims))
 					nodesToRemoveCount--
 					continue
 				}
@@ -189,7 +189,7 @@ func reconcileNodeSelector(
 			nodeVolimeAttachments, ok := filteredVolumeAttachmentsMap[node.Name]
 			if ok && len(nodeVolimeAttachments) > 0 {
 				log.Warning(fmt.Sprintf("[reconcileNodeSelector] Found %d volume attachments for node: %s. Skip remove label.", len(nodeVolimeAttachments), node.Name))
-				log.Trace(fmt.Sprintf("[reconcileNodeSelector] Volume attachments: %+v", nodeVolimeAttachments))
+				log.Debug(fmt.Sprintf("[reconcileNodeSelector] Volume attachments: %+v", nodeVolimeAttachments))
 				nodesToRemoveCount--
 				continue
 			}
@@ -227,14 +227,14 @@ func GetKubernetesNodesBySelector(ctx context.Context, cl client.Client, nodeSel
 
 func AddLabelToNodeIfNeeded(ctx context.Context, cl client.Client, log logger.Logger, node corev1.Node, labels map[string]string) error {
 	needUpdate := false
-	log.Trace(fmt.Sprintf("[AddLabelToNodeIfNeeded] node labels: %+v", node.Labels))
+	log.Debug(fmt.Sprintf("[AddLabelToNodeIfNeeded] node labels: %+v", node.Labels))
 	if node.Labels == nil {
 		needUpdate = true
 		node.Labels = map[string]string{}
 	}
 
 	for key, value := range labels {
-		log.Trace(fmt.Sprintf("[AddLabelToNodeIfNeeded] Check label %s=%s for node: %s", key, value, node.Name))
+		log.Debug(fmt.Sprintf("[AddLabelToNodeIfNeeded] Check label %s=%s for node: %s", key, value, node.Name))
 		nodeValue, ok := node.Labels[key]
 		if !ok || nodeValue != value {
 			log.Info(fmt.Sprintf("[AddLabelToNodeIfNeeded] Add label %s=%s to node: %s", key, value, node.Name))
@@ -279,33 +279,33 @@ func FilterVolumeAttachments(log logger.Logger, volumeAttachments *storagev1.Vol
 	filteredVolumeAttachments := map[string][]storagev1.VolumeAttachment{}
 
 	for _, volumeAttachment := range volumeAttachments.Items {
-		log.Trace(fmt.Sprintf("[FilterVolumeAttachments] Check volume attachment: %+v", volumeAttachment))
+		log.Debug(fmt.Sprintf("[FilterVolumeAttachments] Check volume attachment: %+v", volumeAttachment))
 		if volumeAttachment.Spec.Source.PersistentVolumeName == nil {
-			log.Trace(fmt.Sprintf("[FilterVolumeAttachments] Skip volume attachment %s. PersistentVolumeName is nil.", volumeAttachment.Name))
+			log.Debug(fmt.Sprintf("[FilterVolumeAttachments] Skip volume attachment %s. PersistentVolumeName is nil.", volumeAttachment.Name))
 			continue
 		}
 		if !volumeAttachment.Status.Attached {
-			log.Trace(fmt.Sprintf("[FilterVolumeAttachments] Skip volume attachment %s. Not attached.", volumeAttachment.Name))
+			log.Debug(fmt.Sprintf("[FilterVolumeAttachments] Skip volume attachment %s. Not attached.", volumeAttachment.Name))
 			continue
 		}
 
 		if volumeAttachment.Spec.Attacher != provisioner {
-			log.Trace(fmt.Sprintf("[FilterVolumeAttachments] Skip volume attachment %s. Attacher %s != %s.", volumeAttachment.Name, volumeAttachment.Spec.Attacher, provisioner))
+			log.Debug(fmt.Sprintf("[FilterVolumeAttachments] Skip volume attachment %s. Attacher %s != %s.", volumeAttachment.Name, volumeAttachment.Spec.Attacher, provisioner))
 			continue
 		}
 
 		if volumeAttachment.Spec.NodeName == "" {
-			log.Trace(fmt.Sprintf("[FilterVolumeAttachments] Skip volume attachment %s. NodeName is nil.", volumeAttachment.Name))
+			log.Debug(fmt.Sprintf("[FilterVolumeAttachments] Skip volume attachment %s. NodeName is nil.", volumeAttachment.Name))
 			continue
 		}
 
 		if !ContainsNode(&nodesToRemove, corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: volumeAttachment.Spec.NodeName}}) {
-			log.Trace(fmt.Sprintf("[FilterVolumeAttachments] Skip volume attachment %s. Node %s not in nodesToRemove.", volumeAttachment.Name, volumeAttachment.Spec.NodeName))
+			log.Debug(fmt.Sprintf("[FilterVolumeAttachments] Skip volume attachment %s. Node %s not in nodesToRemove.", volumeAttachment.Name, volumeAttachment.Spec.NodeName))
 			continue
 		}
 
 		nodeName := volumeAttachment.Spec.NodeName
-		log.Trace(fmt.Sprintf("[FilterVolumeAttachments] Add volume attachment %s to filteredVolumeAttachments for node %s.", volumeAttachment.Name, nodeName))
+		log.Debug(fmt.Sprintf("[FilterVolumeAttachments] Add volume attachment %s to filteredVolumeAttachments for node %s.", volumeAttachment.Name, nodeName))
 
 		filteredVolumeAttachments[nodeName] = append(filteredVolumeAttachments[nodeName], volumeAttachment)
 
@@ -365,8 +365,8 @@ func GetPendingVolumeSnapshots(ctx context.Context, cl client.Client, log logger
 	var pendingSnapshots []snapshotv1.VolumeSnapshot
 	for _, snapshot := range volumeSnapshots.Items {
 		if snapshot.Status == nil || snapshot.Status.ReadyToUse == nil || !*snapshot.Status.ReadyToUse {
-			log.Debug(fmt.Sprintf("[GetPendingVolumeSnapshots] Found pending volumesnapshot %s/%s.", snapshot.Namespace, snapshot.Name))
-			log.Trace(fmt.Sprintf("[GetPendingVolumeSnapshots] Volumesnapshot: %+v", snapshot))
+			log.Info(fmt.Sprintf("[GetPendingVolumeSnapshots] Found pending volumesnapshot %s/%s.", snapshot.Namespace, snapshot.Name))
+			log.Debug(fmt.Sprintf("[GetPendingVolumeSnapshots] Volumesnapshot: %+v", snapshot))
 			if snapshot.Spec.Source.PersistentVolumeClaimName != nil {
 				pvc := &corev1.PersistentVolumeClaim{}
 				err := cl.Get(ctx, client.ObjectKey{Namespace: snapshot.Namespace, Name: *snapshot.Spec.Source.PersistentVolumeClaimName}, pvc)
@@ -374,8 +374,8 @@ func GetPendingVolumeSnapshots(ctx context.Context, cl client.Client, log logger
 					err = fmt.Errorf("[GetPendingVolumeSnapshots] Failed get pvc %s/%s for snapshot %s/%s: %v", snapshot.Namespace, *snapshot.Spec.Source.PersistentVolumeClaimName, snapshot.Namespace, snapshot.Name, err)
 					return nil, err
 				}
-				log.Debug(fmt.Sprintf("[GetPendingVolumeSnapshots] Found PVC %s/%s for volumesnapshot %s/%s.", pvc.Namespace, pvc.Name, snapshot.Namespace, snapshot.Name))
-				log.Trace(fmt.Sprintf("[GetPendingVolumeSnapshots] PVC: %+v", pvc))
+				log.Info(fmt.Sprintf("[GetPendingVolumeSnapshots] Found PVC %s/%s for volumesnapshot %s/%s.", pvc.Namespace, pvc.Name, snapshot.Namespace, snapshot.Name))
+				log.Debug(fmt.Sprintf("[GetPendingVolumeSnapshots] PVC: %+v", pvc))
 
 				if pvc.Annotations != nil && pvc.Annotations["volume.kubernetes.io/storage-provisioner"] == provisioner {
 					log.Debug(fmt.Sprintf("[GetPendingVolumeSnapshots] PVC %s/%s has NFS storage provisioner. Append volumesnapshot %s/%s to pendingSnapshots.", pvc.Namespace, pvc.Name, snapshot.Namespace, snapshot.Name))
@@ -399,11 +399,11 @@ func GetPendingPersistentVolumeClaims(ctx context.Context, cl client.Client, log
 	var pendingPVCs []corev1.PersistentVolumeClaim
 	for _, pvc := range persistentVolumeClaimList.Items {
 		if pvc.Status.Phase == corev1.ClaimPending {
-			log.Debug(fmt.Sprintf("[GetPendingPersistentVolumeClaims] Found pending PVC %s/%s.", pvc.Namespace, pvc.Name))
-			log.Trace(fmt.Sprintf("[GetPendingPersistentVolumeClaims] PVC: %+v", pvc))
+			log.Info(fmt.Sprintf("[GetPendingPersistentVolumeClaims] Found pending PVC %s/%s.", pvc.Namespace, pvc.Name))
+			log.Debug(fmt.Sprintf("[GetPendingPersistentVolumeClaims] PVC: %+v", pvc))
 
 			if pvc.Annotations != nil && pvc.Annotations["volume.kubernetes.io/storage-provisioner"] == provisioner {
-				log.Debug(fmt.Sprintf("[GetPendingPersistentVolumeClaims] PVC %s/%s has NFS storage provisioner. Append PVC %s/%s to pendingPVCs.", pvc.Namespace, pvc.Name, pvc.Namespace, pvc.Name))
+				log.Info(fmt.Sprintf("[GetPendingPersistentVolumeClaims] PVC %s/%s has NFS storage provisioner. Append PVC %s/%s to pendingPVCs.", pvc.Namespace, pvc.Name, pvc.Namespace, pvc.Name))
 				pendingPVCs = append(pendingPVCs, pvc)
 			}
 		}
