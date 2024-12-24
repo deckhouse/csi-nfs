@@ -184,7 +184,7 @@ func reconcileNodeSelector(
 			nodePodsWithNFSVolume, ok := podsMapWithNFSVolume[node.Name]
 			if ok && len(nodePodsWithNFSVolume) > 0 {
 				log.Warning(fmt.Sprintf("[reconcileNodeSelector] Found %d pods with NFS volume for node: %s. Skip remove label.", len(nodePodsWithNFSVolume), node.Name))
-				log.Debug(fmt.Sprintf("[reconcileNodeSelector] Pods with NFS volume: %+v", nodePodsWithNFSVolume))
+				log.Debug(fmt.Sprintf("[reconcileNodeSelector] Pods with NFS volume on node %s: %+v", node.Name, nodePodsWithNFSVolume))
 				nodesToRemoveCount--
 				continue
 			}
@@ -312,7 +312,10 @@ func ContainsNode(nodeList *corev1.NodeList, node corev1.Node) bool {
 
 func GetPodsMapWithNFSVolume(ctx context.Context, cl client.Client, log logger.Logger) (map[string][]corev1.Pod, error) {
 	pods := &corev1.PodList{}
-	err := cl.List(ctx, pods)
+	err := cl.List(ctx, pods, &client.ListOptions{
+		Namespace: "",
+	})
+
 	if err != nil {
 		log.Error(err, "[GetPodsMapWithNFSVolume] Failed get pods.")
 		return nil, err
@@ -387,7 +390,9 @@ func GetCCSIControllerNodeName(ctx context.Context, cl client.Client, log logger
 
 func GetPendingVolumeSnapshots(ctx context.Context, cl client.Client, log logger.Logger, provisioner string) ([]snapshotv1.VolumeSnapshot, error) {
 	volumeSnapshots := &snapshotv1.VolumeSnapshotList{}
-	err := cl.List(ctx, volumeSnapshots)
+	err := cl.List(ctx, volumeSnapshots, &client.ListOptions{
+		Namespace: "",
+	})
 	if err != nil {
 		log.Error(err, "[GetPendingVolumeSnapshots] Failed get volume snapshots.")
 		return nil, err
@@ -421,7 +426,9 @@ func GetPendingVolumeSnapshots(ctx context.Context, cl client.Client, log logger
 
 func GetPendingPersistentVolumeClaims(ctx context.Context, cl client.Client, log logger.Logger, provisioner string) ([]corev1.PersistentVolumeClaim, error) {
 	persistentVolumeClaimList := &corev1.PersistentVolumeClaimList{}
-	err := cl.List(ctx, persistentVolumeClaimList)
+	err := cl.List(ctx, persistentVolumeClaimList, &client.ListOptions{
+		Namespace: "",
+	})
 	if err != nil {
 		log.Error(err, "[GetPendingPersistentVolumeClaims] Failed get persistent volume claims.")
 		return nil, err
