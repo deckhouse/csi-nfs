@@ -85,9 +85,9 @@ spec:
       labels:
         app: {{ $fullname }}
     spec:
-      {{- if $customNodeSelector }}
-      {{- $customNodeSelector | toYaml | nindent 6 }}
-      {{- else }}
+      # {{- if $customNodeSelector }}
+      # {{- $customNodeSelector | toYaml | nindent 6 }}
+      # {{- else }}
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
