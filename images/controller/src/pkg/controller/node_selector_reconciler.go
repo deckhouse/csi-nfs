@@ -58,7 +58,7 @@ func RunNodeSelectorReconciler(
 	c, err := controller.New(NodeSelectorReconcilerName, mgr, controller.Options{
 		Reconciler: reconcile.Func(func(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 			if request.Name == cfg.ConfigSecretName {
-				log.Info("Start reconcile of NFS node selectors. Get config secret: %s/%s", request.Namespace, request.Name)
+				log.Info(fmt.Sprintf("Start reconcile of NFS node selectors. Get config secret: %s/%s", request.Namespace, request.Name))
 				err := reconcileNodeSelector(ctx, cl, log, request.Namespace, request.Name)
 				if err != nil {
 					log.Error(nil, "Failed reconcile of NFS node selectors.")
@@ -141,12 +141,11 @@ func reconcileNodeSelector(
 			return err
 		}
 
-		podsMapWithNFSVolume, err := GetPodsMapWithNFSVolume(ctx, cl, log, namespace)
+		podsMapWithNFSVolume, err := GetPodsMapWithNFSVolume(ctx, cl, log)
 		if err != nil {
 			log.Error(err, "[reconcileNodeSelector] Failed get pods with NFS volume.")
 			return err
 		}
-
 		log.Debug(fmt.Sprintf("[reconcileNodeSelector] Pods with NFS volume: %+v", podsMapWithNFSVolume))
 
 		for _, node := range nodesToRemove.Items {
@@ -311,18 +310,22 @@ func ContainsNode(nodeList *corev1.NodeList, node corev1.Node) bool {
 // 	return filteredVolumeAttachments
 // }
 
-func GetPodsMapWithNFSVolume(ctx context.Context, cl client.Client, log logger.Logger, namespace string) (map[string][]corev1.Pod, error) {
+func GetPodsMapWithNFSVolume(ctx context.Context, cl client.Client, log logger.Logger) (map[string][]corev1.Pod, error) {
 	pods := &corev1.PodList{}
-	err := cl.List(ctx, pods, client.InNamespace(namespace))
+	err := cl.List(ctx, pods)
 	if err != nil {
 		log.Error(err, "[GetPodsMapWithNFSVolume] Failed get pods.")
 		return nil, err
 	}
+	log.Debug(fmt.Sprintf("[GetPodsMapWithNFSVolume] Found %d pods in the cluster.", len(pods.Items)))
 
 	podsMapWithNFSVolume := map[string][]corev1.Pod{}
 	for _, pod := range pods.Items {
+		log.Debug(fmt.Sprintf("[GetPodsMapWithNFSVolume] Check pod %s/%s.", pod.Namespace, pod.Name))
 		for _, volume := range pod.Spec.Volumes {
+			log.Debug(fmt.Sprintf("[GetPodsMapWithNFSVolume] Check volume %s for pod %s/%s.", volume.Name, pod.Namespace, pod.Name))
 			if volume.PersistentVolumeClaim != nil {
+				log.Debug(fmt.Sprintf("[GetPodsMapWithNFSVolume] Check pvc %s for pod %s/%s.", volume.PersistentVolumeClaim.ClaimName, pod.Namespace, pod.Name))
 				pvc := &corev1.PersistentVolumeClaim{}
 				err := cl.Get(ctx, client.ObjectKey{Namespace: pod.Namespace, Name: volume.PersistentVolumeClaim.ClaimName}, pvc)
 				if err != nil {
@@ -331,7 +334,7 @@ func GetPodsMapWithNFSVolume(ctx context.Context, cl client.Client, log logger.L
 				}
 
 				if pvc.Annotations != nil && pvc.Annotations["volume.kubernetes.io/storage-provisioner"] == NFSStorageClassProvisioner {
-					log.Debug(fmt.Sprintf("[GetPodsMapWithNFSVolume] Add pod %s/%s to podsMapWithNFSVolume on node %s.", pod.Namespace, pod.Name, pod.Spec.NodeName))
+					log.Debug(fmt.Sprintf("[GetPodsMapWithNFSVolume] pod %s/%s has volume with NFS storage provisioner. Append pod to podsMapWithNFSVolume on node %s.", pod.Namespace, pod.Name, pod.Spec.NodeName))
 					podsMapWithNFSVolume[pod.Spec.NodeName] = append(podsMapWithNFSVolume[pod.Spec.NodeName], pod)
 					break
 				}
