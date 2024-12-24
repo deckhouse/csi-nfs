@@ -227,13 +227,14 @@ func GetKubernetesNodesBySelector(ctx context.Context, cl client.Client, nodeSel
 
 func AddLabelToNodeIfNeeded(ctx context.Context, cl client.Client, log logger.Logger, node corev1.Node, labels map[string]string) error {
 	needUpdate := false
-
+	log.Trace(fmt.Sprintf("[AddLabelToNodeIfNeeded] node labels: %+v", node.Labels))
 	if node.Labels == nil {
 		needUpdate = true
 		node.Labels = map[string]string{}
 	}
 
 	for key, value := range labels {
+		log.Trace(fmt.Sprintf("[AddLabelToNodeIfNeeded] Check label %s=%s for node: %s", key, value, node.Name))
 		if node.Labels[key] != value {
 			log.Info(fmt.Sprintf("[AddLabelToNodeIfNeeded] Add label %s=%s to node: %s", key, value, node.Name))
 			node.Labels[key] = value
@@ -241,6 +242,7 @@ func AddLabelToNodeIfNeeded(ctx context.Context, cl client.Client, log logger.Lo
 		}
 	}
 
+	log.Info(fmt.Sprintf("[AddLabelToNodeIfNeeded] Need update node %s: %v", node.Name, needUpdate))
 	if needUpdate {
 		err := cl.Update(ctx, &node)
 		if err != nil {
