@@ -60,7 +60,7 @@ func RunNodeSelectorReconciler(
 	c, err := controller.New(NodeSelectorReconcilerName, mgr, controller.Options{
 		Reconciler: reconcile.Func(func(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 			if request.Name == cfg.ConfigSecretName {
-				log.Info("Start reconcile of NFS node selectors.")
+				log.Info("Start reconcile of NFS node selectors. Get config secret: %s/%s", request.Namespace, request.Name)
 				err := reconcileNodeSelector(ctx, cl, log, request.Namespace, request.Name)
 				if err != nil {
 					log.Error(nil, "Failed reconcile of NFS node selectors.")
@@ -341,9 +341,9 @@ func RemoveLabelFromNodeIfNeeded(ctx context.Context, cl client.Client, log logg
 
 func GetCCSIControllerNodeName(ctx context.Context, cl client.Client, log logger.Logger, namespace, leaseName string) (string, error) {
 	lease := &coordinationv1.Lease{}
-	err := cl.Get(ctx, client.ObjectKey{Namespace: metav1.NamespaceSystem, Name: leaseName}, lease)
+	err := cl.Get(ctx, client.ObjectKey{Namespace: namespace, Name: leaseName}, lease)
 	if err != nil {
-		log.Error(err, "[GetCCSIControllerNodeName] Failed get lease:"+leaseName)
+		log.Error(err, fmt.Sprintf("[GetCCSIControllerNodeName] Failed get lease: %s/%s", namespace, leaseName))
 		return "", err
 	}
 
