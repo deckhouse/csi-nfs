@@ -72,8 +72,7 @@
 {{- end }}
 
 {{- define "csi_custom_node_selector" }}
-nodeSelector:
-  storage.deckhouse.io/csi-nfs-node: ""
+storage.deckhouse.io/csi-nfs-node: ""
 {{- end }}
 
 {{- $csiControllerImage := include "helm_lib_module_image" (list . "csiNfs") }}
