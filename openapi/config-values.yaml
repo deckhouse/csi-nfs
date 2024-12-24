@@ -14,15 +14,15 @@ properties:
     type: boolean
     default: false
     description: NFS version v3 support. After enabling this setting, rpc-statd will be installed on nodes. When this setting is disabled, it will NOT be removed from the nodes.
-    nodeSelector:
-      type: object
-      default:
-        kubernetes.io/os: linux
-      additionalProperties:
-        type: string
-      description: |
-        Specifies where NFS shares can be mounted. Works the same way as the `spec.nodeSelector` parameter in Kubernetes Pods.
+  nodeSelector:
+    type: object
+    default:
+      kubernetes.io/os: linux
+    additionalProperties:
+      type: string
+    description: |
+      Specifies where NFS shares can be mounted. Works the same way as the `spec.nodeSelector` parameter in Kubernetes Pods.
 
-        If this parameter is omitted, NFS shares can be mounted on any node in the cluster running the `Linux` OS.
+      If this parameter is omitted, NFS shares can be mounted on any node in the cluster running the `Linux` OS.
 
-        **Caution!** Changing this parameter does not remove the rpc-statd service from nodes that do not match the new value (if the service was installed previously).
+      **Caution!** Changing this parameter does not remove the rpc-statd service from nodes that do not match the new value (if the service was installed previously).
