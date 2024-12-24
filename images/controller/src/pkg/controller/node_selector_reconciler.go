@@ -82,7 +82,7 @@ func RunNodeSelectorReconciler(
 		return nil, err
 	}
 
-	err = c.Watch(source.Kind(mgr.GetCache(), &corev1.Secret{}), &handler.EnqueueRequestForObject{})
+	err = c.Watch(source.Kind(mgr.GetCache(), &corev1.Secret{}, &handler.TypedEnqueueRequestForObject[*corev1.Secret]{}))
 
 	return c, err
 }
