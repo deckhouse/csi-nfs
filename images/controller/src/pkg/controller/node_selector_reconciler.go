@@ -27,8 +27,6 @@ import (
 	"gopkg.in/yaml.v3"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
-	storagev1 "k8s.io/api/storage/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -137,21 +135,19 @@ func reconcileNodeSelector(
 		log.Info(fmt.Sprintf("[reconcileNodeSelector] Found %d nodes to remove labels: %v. Attention! csi-nfs resources will be removed from these nodes.", nodesToRemoveCount, nfsNodeSelector))
 		log.Trace(fmt.Sprintf("[reconcileNodeSelector] Nodes: %+v", nodesToRemove.Items))
 
-		volumeAttachments := &storagev1.VolumeAttachmentList{}
-		err := cl.List(ctx, volumeAttachments)
-		if err != nil {
-			log.Error(err, "[reconcileNodeSelector] Failed get volume attachments.")
-			return err
-		}
-
 		controllerNodeName, err := GetCCSIControllerNodeName(ctx, cl, log, namespace, csiNFSExternalSnapshotterLeaseName)
 		if err != nil {
 			log.Error(err, "[reconcileNodeSelector] Failed get csi-nfs controller node name.")
 			return err
 		}
 
-		filteredVolumeAttachmentsMap := FilterVolumeAttachments(log, volumeAttachments, nodesToRemove, NFSStorageClassProvisioner)
-		log.Debug(fmt.Sprintf("[reconcileNodeSelector] Filtered volume attachments map: %+v", filteredVolumeAttachmentsMap))
+		podsMapWithNFSVolume, err := GetPodsMapWithNFSVolume(ctx, cl, log, namespace)
+		if err != nil {
+			log.Error(err, "[reconcileNodeSelector] Failed get pods with NFS volume.")
+			return err
+		}
+
+		log.Debug(fmt.Sprintf("[reconcileNodeSelector] Pods with NFS volume: %+v", podsMapWithNFSVolume))
 
 		for _, node := range nodesToRemove.Items {
 			log.Info(fmt.Sprintf("[reconcileNodeSelector] Process remove label for node: %s", node.Name))
@@ -186,10 +182,10 @@ func reconcileNodeSelector(
 
 			log.Info(fmt.Sprintf("[reconcileNodeSelector] Check volume attachments for node: %s", node.Name))
 
-			nodeVolimeAttachments, ok := filteredVolumeAttachmentsMap[node.Name]
-			if ok && len(nodeVolimeAttachments) > 0 {
-				log.Warning(fmt.Sprintf("[reconcileNodeSelector] Found %d volume attachments for node: %s. Skip remove label.", len(nodeVolimeAttachments), node.Name))
-				log.Debug(fmt.Sprintf("[reconcileNodeSelector] Volume attachments: %+v", nodeVolimeAttachments))
+			nodePodsWithNFSVolume, ok := podsMapWithNFSVolume[node.Name]
+			if ok && len(nodePodsWithNFSVolume) > 0 {
+				log.Warning(fmt.Sprintf("[reconcileNodeSelector] Found %d pods with NFS volume for node: %s. Skip remove label.", len(nodePodsWithNFSVolume), node.Name))
+				log.Debug(fmt.Sprintf("[reconcileNodeSelector] Pods with NFS volume: %+v", nodePodsWithNFSVolume))
 				nodesToRemoveCount--
 				continue
 			}
@@ -274,44 +270,76 @@ func ContainsNode(nodeList *corev1.NodeList, node corev1.Node) bool {
 	return false
 }
 
-func FilterVolumeAttachments(log logger.Logger, volumeAttachments *storagev1.VolumeAttachmentList, nodesToRemove corev1.NodeList, provisioner string) map[string][]storagev1.VolumeAttachment {
-	// filteredVolumeAttachments := map[string]storagev1.VolumeAttachmentList{}
-	filteredVolumeAttachments := map[string][]storagev1.VolumeAttachment{}
+// TODO: Move to sds-local-volume
+// func FilterVolumeAttachments(log logger.Logger, volumeAttachments *storagev1.VolumeAttachmentList, nodesToRemove corev1.NodeList, provisioner string) map[string][]storagev1.VolumeAttachment {
+// 	// filteredVolumeAttachments := map[string]storagev1.VolumeAttachmentList{}
+// 	filteredVolumeAttachments := map[string][]storagev1.VolumeAttachment{}
 
-	for _, volumeAttachment := range volumeAttachments.Items {
-		log.Debug(fmt.Sprintf("[FilterVolumeAttachments] Check volume attachment: %+v", volumeAttachment))
-		if volumeAttachment.Spec.Source.PersistentVolumeName == nil {
-			log.Debug(fmt.Sprintf("[FilterVolumeAttachments] Skip volume attachment %s. PersistentVolumeName is nil.", volumeAttachment.Name))
-			continue
-		}
-		if !volumeAttachment.Status.Attached {
-			log.Debug(fmt.Sprintf("[FilterVolumeAttachments] Skip volume attachment %s. Not attached.", volumeAttachment.Name))
-			continue
-		}
+// 	for _, volumeAttachment := range volumeAttachments.Items {
+// 		log.Debug(fmt.Sprintf("[FilterVolumeAttachments] Check volume attachment: %+v", volumeAttachment))
+// 		if volumeAttachment.Spec.Source.PersistentVolumeName == nil {
+// 			log.Debug(fmt.Sprintf("[FilterVolumeAttachments] Skip volume attachment %s. PersistentVolumeName is nil.", volumeAttachment.Name))
+// 			continue
+// 		}
+// 		if !volumeAttachment.Status.Attached {
+// 			log.Debug(fmt.Sprintf("[FilterVolumeAttachments] Skip volume attachment %s. Not attached.", volumeAttachment.Name))
+// 			continue
+// 		}
 
-		if volumeAttachment.Spec.Attacher != provisioner {
-			log.Debug(fmt.Sprintf("[FilterVolumeAttachments] Skip volume attachment %s. Attacher %s != %s.", volumeAttachment.Name, volumeAttachment.Spec.Attacher, provisioner))
-			continue
-		}
+// 		if volumeAttachment.Spec.Attacher != provisioner {
+// 			log.Debug(fmt.Sprintf("[FilterVolumeAttachments] Skip volume attachment %s. Attacher %s != %s.", volumeAttachment.Name, volumeAttachment.Spec.Attacher, provisioner))
+// 			continue
+// 		}
 
-		if volumeAttachment.Spec.NodeName == "" {
-			log.Debug(fmt.Sprintf("[FilterVolumeAttachments] Skip volume attachment %s. NodeName is nil.", volumeAttachment.Name))
-			continue
-		}
+// 		if volumeAttachment.Spec.NodeName == "" {
+// 			log.Debug(fmt.Sprintf("[FilterVolumeAttachments] Skip volume attachment %s. NodeName is nil.", volumeAttachment.Name))
+// 			continue
+// 		}
 
-		if !ContainsNode(&nodesToRemove, corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: volumeAttachment.Spec.NodeName}}) {
-			log.Debug(fmt.Sprintf("[FilterVolumeAttachments] Skip volume attachment %s. Node %s not in nodesToRemove.", volumeAttachment.Name, volumeAttachment.Spec.NodeName))
-			continue
-		}
+// 		if !ContainsNode(&nodesToRemove, corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: volumeAttachment.Spec.NodeName}}) {
+// 			log.Debug(fmt.Sprintf("[FilterVolumeAttachments] Skip volume attachment %s. Node %s not in nodesToRemove.", volumeAttachment.Name, volumeAttachment.Spec.NodeName))
+// 			continue
+// 		}
 
-		nodeName := volumeAttachment.Spec.NodeName
-		log.Debug(fmt.Sprintf("[FilterVolumeAttachments] Add volume attachment %s to filteredVolumeAttachments for node %s.", volumeAttachment.Name, nodeName))
+// 		nodeName := volumeAttachment.Spec.NodeName
+// 		log.Debug(fmt.Sprintf("[FilterVolumeAttachments] Add volume attachment %s to filteredVolumeAttachments for node %s.", volumeAttachment.Name, nodeName))
 
-		filteredVolumeAttachments[nodeName] = append(filteredVolumeAttachments[nodeName], volumeAttachment)
+// 		filteredVolumeAttachments[nodeName] = append(filteredVolumeAttachments[nodeName], volumeAttachment)
 
+// 	}
+
+// 	return filteredVolumeAttachments
+// }
+
+func GetPodsMapWithNFSVolume(ctx context.Context, cl client.Client, log logger.Logger, namespace string) (map[string][]corev1.Pod, error) {
+	pods := &corev1.PodList{}
+	err := cl.List(ctx, pods, client.InNamespace(namespace))
+	if err != nil {
+		log.Error(err, "[GetPodsMapWithNFSVolume] Failed get pods.")
+		return nil, err
 	}
 
-	return filteredVolumeAttachments
+	podsMapWithNFSVolume := map[string][]corev1.Pod{}
+	for _, pod := range pods.Items {
+		for _, volume := range pod.Spec.Volumes {
+			if volume.PersistentVolumeClaim != nil {
+				pvc := &corev1.PersistentVolumeClaim{}
+				err := cl.Get(ctx, client.ObjectKey{Namespace: pod.Namespace, Name: volume.PersistentVolumeClaim.ClaimName}, pvc)
+				if err != nil {
+					log.Error(err, fmt.Sprintf("[GetPodsMapWithNFSVolume] Failed get pvc %s/%s for pod %s/%s.", pod.Namespace, volume.PersistentVolumeClaim.ClaimName, pod.Namespace, pod.Name))
+					return nil, err
+				}
+
+				if pvc.Annotations != nil && pvc.Annotations["volume.kubernetes.io/storage-provisioner"] == NFSStorageClassProvisioner {
+					log.Debug(fmt.Sprintf("[GetPodsMapWithNFSVolume] Add pod %s/%s to podsMapWithNFSVolume on node %s.", pod.Namespace, pod.Name, pod.Spec.NodeName))
+					podsMapWithNFSVolume[pod.Spec.NodeName] = append(podsMapWithNFSVolume[pod.Spec.NodeName], pod)
+					break
+				}
+			}
+		}
+	}
+
+	return podsMapWithNFSVolume, nil
 }
 
 func RemoveLabelFromNodeIfNeeded(ctx context.Context, cl client.Client, log logger.Logger, node corev1.Node, labels map[string]string) error {
