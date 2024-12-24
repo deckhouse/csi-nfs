@@ -235,7 +235,8 @@ func AddLabelToNodeIfNeeded(ctx context.Context, cl client.Client, log logger.Lo
 
 	for key, value := range labels {
 		log.Trace(fmt.Sprintf("[AddLabelToNodeIfNeeded] Check label %s=%s for node: %s", key, value, node.Name))
-		if node.Labels[key] != value {
+		nodeValue, ok := node.Labels[key]
+		if !ok || nodeValue != value {
 			log.Info(fmt.Sprintf("[AddLabelToNodeIfNeeded] Add label %s=%s to node: %s", key, value, node.Name))
 			node.Labels[key] = value
 			needUpdate = true
