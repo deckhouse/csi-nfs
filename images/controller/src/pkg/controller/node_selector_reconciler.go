@@ -45,9 +45,8 @@ const (
 )
 
 var (
-	nfsNodeLabels   = map[string]string{NFSNodeLabelKey: ""}
-	nfsNodeSelector = map[string]string{NFSNodeLabelKey: ""}
-	// nfsCSIControllerLabelSelector = map[string]string{"app": "csi-controller"}
+	nfsNodeLabels                      = map[string]string{NFSNodeLabelKey: ""}
+	nfsNodeSelector                    = map[string]string{NFSNodeLabelKey: ""}
 	csiNFSExternalSnapshotterLeaseName = "external-snapshotter-leader-nfs-csi-k8s-io"
 )
 
