@@ -86,7 +86,8 @@ spec:
         app: {{ $fullname }}
     spec:
       {{- if $customNodeSelector }}
-      {{- $customNodeSelector | toYaml | nindent 6 }}
+      nodeSelector:
+        {{- $customNodeSelector | toYaml | nindent 8 }}
       {{- else }}
       affinity:
         nodeAffinity:

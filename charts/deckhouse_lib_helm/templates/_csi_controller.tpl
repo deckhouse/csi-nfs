@@ -197,7 +197,8 @@ spec:
       - name: deckhouse-registry
       {{- include "helm_lib_priority_class" (tuple $context "system-cluster-critical") | nindent 6 }}
       {{- if $customNodeSelector }}
-      {{- $customNodeSelector | toYaml | nindent 6 }}
+      nodeSelector:
+        {{- $customNodeSelector | toYaml | nindent 8 }}
       {{- else }}
       {{- include "helm_lib_node_selector" (tuple $context "master") | nindent 6 }}
       {{- end }}

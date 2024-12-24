@@ -91,7 +91,7 @@ nodeSelector:
 {{- $_ := set $csiControllerConfig "additionalControllerEnvs" (include "csi_controller_envs" . | fromYamlArray) }}
 {{- $_ := set $csiControllerConfig "additionalControllerVolumes" (include "csi_additional_controller_volume" . | fromYamlArray) }}
 {{- $_ := set $csiControllerConfig "additionalControllerVolumeMounts" (include "csi_additional_controller_volume_mounts" . | fromYamlArray) }}
-{{- $_ := set $csiControllerConfig "customNodeSelector" (include "csi_custom_node_selector" . | fromYamlArray) }}
+{{- $_ := set $csiControllerConfig "customNodeSelector" (include "csi_custom_node_selector" . | fromYaml) }}
 
 
 {{- if .Values.csiNfs.v3support }}
