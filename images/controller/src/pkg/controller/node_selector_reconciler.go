@@ -141,7 +141,15 @@ func reconcileNodeSelector(
 			return err
 		}
 
-		podsMapWithNFSVolume, err := GetPodsMapWithNFSVolume(ctx, cl, log)
+		namespaceList := &corev1.NamespaceList{}
+		err = cl.List(ctx, namespaceList)
+		if err != nil {
+			log.Error(err, "[reconcileNodeSelector] Failed get namespaces.")
+			return err
+		}
+		log.Debug(fmt.Sprintf("[reconcileNodeSelector] Found %d namespaces.", len(namespaceList.Items)))
+
+		podsMapWithNFSVolume, err := GetPodsMapWithNFSVolume(ctx, cl, log, namespaceList)
 		if err != nil {
 			log.Error(err, "[reconcileNodeSelector] Failed get pods with NFS volume.")
 			return err
@@ -153,7 +161,7 @@ func reconcileNodeSelector(
 
 			if node.Name == controllerNodeName {
 				log.Warning(fmt.Sprintf("[reconcileNodeSelector] Node %s is csi-nfs controller node! Check volumesnapshots and persistentvolumeclaims before remove labels.", node.Name))
-				pendingVolumeSnapshots, err := GetPendingVolumeSnapshots(ctx, cl, log, NFSStorageClassProvisioner)
+				pendingVolumeSnapshots, err := GetPendingVolumeSnapshots(ctx, cl, log, NFSStorageClassProvisioner, namespaceList)
 				if err != nil {
 					log.Error(err, "[reconcileNodeSelector] Failed check pending volumesnapshots.")
 					return err
@@ -165,7 +173,7 @@ func reconcileNodeSelector(
 					continue
 				}
 
-				pendingPersistentVolumeClaims, err := GetPendingPersistentVolumeClaims(ctx, cl, log, NFSStorageClassProvisioner)
+				pendingPersistentVolumeClaims, err := GetPendingPersistentVolumeClaims(ctx, cl, log, NFSStorageClassProvisioner, namespaceList)
 				if err != nil {
 					log.Error(err, "[reconcileNodeSelector] Failed check pending persistentvolumeclaims.")
 					return err
@@ -310,36 +318,40 @@ func ContainsNode(nodeList *corev1.NodeList, node corev1.Node) bool {
 // 	return filteredVolumeAttachments
 // }
 
-func GetPodsMapWithNFSVolume(ctx context.Context, cl client.Client, log logger.Logger) (map[string][]corev1.Pod, error) {
-	pods := &corev1.PodList{}
-	err := cl.List(ctx, pods, &client.ListOptions{
-		Namespace: "",
-	})
-
-	if err != nil {
-		log.Error(err, "[GetPodsMapWithNFSVolume] Failed get pods.")
-		return nil, err
-	}
-	log.Debug(fmt.Sprintf("[GetPodsMapWithNFSVolume] Found %d pods in the cluster.", len(pods.Items)))
-
+func GetPodsMapWithNFSVolume(ctx context.Context, cl client.Client, log logger.Logger, namespaceList *corev1.NamespaceList) (map[string][]corev1.Pod, error) {
 	podsMapWithNFSVolume := map[string][]corev1.Pod{}
-	for _, pod := range pods.Items {
-		log.Debug(fmt.Sprintf("[GetPodsMapWithNFSVolume] Check pod %s/%s.", pod.Namespace, pod.Name))
-		for _, volume := range pod.Spec.Volumes {
-			log.Debug(fmt.Sprintf("[GetPodsMapWithNFSVolume] Check volume %s for pod %s/%s.", volume.Name, pod.Namespace, pod.Name))
-			if volume.PersistentVolumeClaim != nil {
-				log.Debug(fmt.Sprintf("[GetPodsMapWithNFSVolume] Check pvc %s for pod %s/%s.", volume.PersistentVolumeClaim.ClaimName, pod.Namespace, pod.Name))
-				pvc := &corev1.PersistentVolumeClaim{}
-				err := cl.Get(ctx, client.ObjectKey{Namespace: pod.Namespace, Name: volume.PersistentVolumeClaim.ClaimName}, pvc)
-				if err != nil {
-					log.Error(err, fmt.Sprintf("[GetPodsMapWithNFSVolume] Failed get pvc %s/%s for pod %s/%s.", pod.Namespace, volume.PersistentVolumeClaim.ClaimName, pod.Namespace, pod.Name))
-					return nil, err
-				}
 
-				if pvc.Annotations != nil && pvc.Annotations["volume.kubernetes.io/storage-provisioner"] == NFSStorageClassProvisioner {
-					log.Debug(fmt.Sprintf("[GetPodsMapWithNFSVolume] pod %s/%s has volume with NFS storage provisioner. Append pod to podsMapWithNFSVolume on node %s.", pod.Namespace, pod.Name, pod.Spec.NodeName))
-					podsMapWithNFSVolume[pod.Spec.NodeName] = append(podsMapWithNFSVolume[pod.Spec.NodeName], pod)
-					break
+	for _, namespace := range namespaceList.Items {
+		log.Debug(fmt.Sprintf("[GetPodsMapWithNFSVolume] Get pods for namespace %s.", namespace.Name))
+		pods := &corev1.PodList{}
+		err := cl.List(ctx, pods, &client.ListOptions{
+			Namespace: namespace.Name,
+		})
+
+		if err != nil {
+			log.Error(err, "[GetPodsMapWithNFSVolume] Failed get pods.")
+			return nil, err
+		}
+		log.Debug(fmt.Sprintf("[GetPodsMapWithNFSVolume] Found %d pods in namespace %s.", len(pods.Items), namespace.Name))
+
+		for _, pod := range pods.Items {
+			log.Debug(fmt.Sprintf("[GetPodsMapWithNFSVolume] Check pod %s/%s.", pod.Namespace, pod.Name))
+			for _, volume := range pod.Spec.Volumes {
+				log.Debug(fmt.Sprintf("[GetPodsMapWithNFSVolume] Check volume %s for pod %s/%s.", volume.Name, pod.Namespace, pod.Name))
+				if volume.PersistentVolumeClaim != nil {
+					log.Debug(fmt.Sprintf("[GetPodsMapWithNFSVolume] Check pvc %s for pod %s/%s.", volume.PersistentVolumeClaim.ClaimName, pod.Namespace, pod.Name))
+					pvc := &corev1.PersistentVolumeClaim{}
+					err := cl.Get(ctx, client.ObjectKey{Namespace: pod.Namespace, Name: volume.PersistentVolumeClaim.ClaimName}, pvc)
+					if err != nil {
+						log.Error(err, fmt.Sprintf("[GetPodsMapWithNFSVolume] Failed get pvc %s/%s for pod %s/%s.", pod.Namespace, volume.PersistentVolumeClaim.ClaimName, pod.Namespace, pod.Name))
+						return nil, err
+					}
+
+					if pvc.Annotations != nil && pvc.Annotations["volume.kubernetes.io/storage-provisioner"] == NFSStorageClassProvisioner {
+						log.Debug(fmt.Sprintf("[GetPodsMapWithNFSVolume] pod %s/%s has volume with NFS storage provisioner. Append pod to podsMapWithNFSVolume on node %s.", pod.Namespace, pod.Name, pod.Spec.NodeName))
+						podsMapWithNFSVolume[pod.Spec.NodeName] = append(podsMapWithNFSVolume[pod.Spec.NodeName], pod)
+						break
+					}
 				}
 			}
 		}
@@ -388,34 +400,40 @@ func GetCCSIControllerNodeName(ctx context.Context, cl client.Client, log logger
 	return *lease.Spec.HolderIdentity, nil
 }
 
-func GetPendingVolumeSnapshots(ctx context.Context, cl client.Client, log logger.Logger, provisioner string) ([]snapshotv1.VolumeSnapshot, error) {
-	volumeSnapshots := &snapshotv1.VolumeSnapshotList{}
-	err := cl.List(ctx, volumeSnapshots, &client.ListOptions{
-		Namespace: "",
-	})
-	if err != nil {
-		log.Error(err, "[GetPendingVolumeSnapshots] Failed get volume snapshots.")
-		return nil, err
-	}
-
+func GetPendingVolumeSnapshots(ctx context.Context, cl client.Client, log logger.Logger, provisioner string, namespaceList *corev1.NamespaceList) ([]snapshotv1.VolumeSnapshot, error) {
 	var pendingSnapshots []snapshotv1.VolumeSnapshot
-	for _, snapshot := range volumeSnapshots.Items {
-		if snapshot.Status == nil || snapshot.Status.ReadyToUse == nil || !*snapshot.Status.ReadyToUse {
-			log.Info(fmt.Sprintf("[GetPendingVolumeSnapshots] Found pending volumesnapshot %s/%s.", snapshot.Namespace, snapshot.Name))
-			log.Debug(fmt.Sprintf("[GetPendingVolumeSnapshots] Volumesnapshot: %+v", snapshot))
-			if snapshot.Spec.Source.PersistentVolumeClaimName != nil {
-				pvc := &corev1.PersistentVolumeClaim{}
-				err := cl.Get(ctx, client.ObjectKey{Namespace: snapshot.Namespace, Name: *snapshot.Spec.Source.PersistentVolumeClaimName}, pvc)
-				if err != nil {
-					err = fmt.Errorf("[GetPendingVolumeSnapshots] Failed get pvc %s/%s for snapshot %s/%s: %v", snapshot.Namespace, *snapshot.Spec.Source.PersistentVolumeClaimName, snapshot.Namespace, snapshot.Name, err)
-					return nil, err
-				}
-				log.Info(fmt.Sprintf("[GetPendingVolumeSnapshots] Found PVC %s/%s for volumesnapshot %s/%s.", pvc.Namespace, pvc.Name, snapshot.Namespace, snapshot.Name))
-				log.Debug(fmt.Sprintf("[GetPendingVolumeSnapshots] PVC: %+v", pvc))
 
-				if pvc.Annotations != nil && pvc.Annotations["volume.kubernetes.io/storage-provisioner"] == provisioner {
-					log.Debug(fmt.Sprintf("[GetPendingVolumeSnapshots] PVC %s/%s has NFS storage provisioner. Append volumesnapshot %s/%s to pendingSnapshots.", pvc.Namespace, pvc.Name, snapshot.Namespace, snapshot.Name))
-					pendingSnapshots = append(pendingSnapshots, snapshot)
+	for _, namespace := range namespaceList.Items {
+		log.Debug(fmt.Sprintf("[GetPendingVolumeSnapshots] Get volumesnapshots for namespace %s.", namespace.Name))
+		volumeSnapshots := &snapshotv1.VolumeSnapshotList{}
+		err := cl.List(ctx, volumeSnapshots, &client.ListOptions{
+			Namespace: namespace.Name,
+		})
+		if err != nil {
+			log.Error(err, "[GetPendingVolumeSnapshots] Failed get volume snapshots.")
+			return nil, err
+		}
+
+		log.Debug(fmt.Sprintf("[GetPendingVolumeSnapshots] Found %d volumesnapshots in namespace %s.", len(volumeSnapshots.Items), namespace.Name))
+
+		for _, snapshot := range volumeSnapshots.Items {
+			if snapshot.Status == nil || snapshot.Status.ReadyToUse == nil || !*snapshot.Status.ReadyToUse {
+				log.Info(fmt.Sprintf("[GetPendingVolumeSnapshots] Found pending volumesnapshot %s/%s.", snapshot.Namespace, snapshot.Name))
+				log.Debug(fmt.Sprintf("[GetPendingVolumeSnapshots] Volumesnapshot: %+v", snapshot))
+				if snapshot.Spec.Source.PersistentVolumeClaimName != nil {
+					pvc := &corev1.PersistentVolumeClaim{}
+					err := cl.Get(ctx, client.ObjectKey{Namespace: snapshot.Namespace, Name: *snapshot.Spec.Source.PersistentVolumeClaimName}, pvc)
+					if err != nil {
+						err = fmt.Errorf("[GetPendingVolumeSnapshots] Failed get pvc %s/%s for snapshot %s/%s: %v", snapshot.Namespace, *snapshot.Spec.Source.PersistentVolumeClaimName, snapshot.Namespace, snapshot.Name, err)
+						return nil, err
+					}
+					log.Info(fmt.Sprintf("[GetPendingVolumeSnapshots] Found PVC %s/%s for volumesnapshot %s/%s.", pvc.Namespace, pvc.Name, snapshot.Namespace, snapshot.Name))
+					log.Debug(fmt.Sprintf("[GetPendingVolumeSnapshots] PVC: %+v", pvc))
+
+					if pvc.Annotations != nil && pvc.Annotations["volume.kubernetes.io/storage-provisioner"] == provisioner {
+						log.Debug(fmt.Sprintf("[GetPendingVolumeSnapshots] PVC %s/%s has NFS storage provisioner. Append volumesnapshot %s/%s to pendingSnapshots.", pvc.Namespace, pvc.Name, snapshot.Namespace, snapshot.Name))
+						pendingSnapshots = append(pendingSnapshots, snapshot)
+					}
 				}
 			}
 		}
@@ -424,25 +442,30 @@ func GetPendingVolumeSnapshots(ctx context.Context, cl client.Client, log logger
 	return pendingSnapshots, nil
 }
 
-func GetPendingPersistentVolumeClaims(ctx context.Context, cl client.Client, log logger.Logger, provisioner string) ([]corev1.PersistentVolumeClaim, error) {
-	persistentVolumeClaimList := &corev1.PersistentVolumeClaimList{}
-	err := cl.List(ctx, persistentVolumeClaimList, &client.ListOptions{
-		Namespace: "",
-	})
-	if err != nil {
-		log.Error(err, "[GetPendingPersistentVolumeClaims] Failed get persistent volume claims.")
-		return nil, err
-	}
-
+func GetPendingPersistentVolumeClaims(ctx context.Context, cl client.Client, log logger.Logger, provisioner string, namespaceList *corev1.NamespaceList) ([]corev1.PersistentVolumeClaim, error) {
 	var pendingPVCs []corev1.PersistentVolumeClaim
-	for _, pvc := range persistentVolumeClaimList.Items {
-		if pvc.Status.Phase == corev1.ClaimPending {
-			log.Info(fmt.Sprintf("[GetPendingPersistentVolumeClaims] Found pending PVC %s/%s.", pvc.Namespace, pvc.Name))
-			log.Debug(fmt.Sprintf("[GetPendingPersistentVolumeClaims] PVC: %+v", pvc))
 
-			if pvc.Annotations != nil && pvc.Annotations["volume.kubernetes.io/storage-provisioner"] == provisioner {
-				log.Info(fmt.Sprintf("[GetPendingPersistentVolumeClaims] PVC %s/%s has NFS storage provisioner. Append PVC %s/%s to pendingPVCs.", pvc.Namespace, pvc.Name, pvc.Namespace, pvc.Name))
-				pendingPVCs = append(pendingPVCs, pvc)
+	for _, namespace := range namespaceList.Items {
+		persistentVolumeClaimList := &corev1.PersistentVolumeClaimList{}
+		err := cl.List(ctx, persistentVolumeClaimList, &client.ListOptions{
+			Namespace: namespace.Name,
+		})
+		if err != nil {
+			log.Error(err, "[GetPendingPersistentVolumeClaims] Failed get persistent volume claims.")
+			return nil, err
+		}
+
+		log.Debug(fmt.Sprintf("[GetPendingPersistentVolumeClaims] Found %d persistent volume claims in namespace %s.", len(persistentVolumeClaimList.Items), namespace.Name))
+
+		for _, pvc := range persistentVolumeClaimList.Items {
+			if pvc.Status.Phase == corev1.ClaimPending {
+				log.Info(fmt.Sprintf("[GetPendingPersistentVolumeClaims] Found pending PVC %s/%s.", pvc.Namespace, pvc.Name))
+				log.Debug(fmt.Sprintf("[GetPendingPersistentVolumeClaims] PVC: %+v", pvc))
+
+				if pvc.Annotations != nil && pvc.Annotations["volume.kubernetes.io/storage-provisioner"] == provisioner {
+					log.Info(fmt.Sprintf("[GetPendingPersistentVolumeClaims] PVC %s/%s has NFS storage provisioner. Append PVC %s/%s to pendingPVCs.", pvc.Namespace, pvc.Name, pvc.Namespace, pvc.Name))
+					pendingPVCs = append(pendingPVCs, pvc)
+				}
 			}
 		}
 	}
