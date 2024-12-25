@@ -35,16 +35,46 @@ shell:
     - chmod +x /nfsplugin
 
 ---
-{{ $csiBinaries := "/bin/mount /bin/umount /sbin/mount.nfs /sbin/mount.nfs4 /sbin/umount.nfs /sbin/umount.nfs4 /bin/cp" }}
+{{ $binaries := "/nfs-utils/sbin/* /nfs-utils/usr/bin/* /nfs-utils/usr/sbin/* /lib64/libnss_files.so.2 /lib64/libnss_dns.so.2 /bin/cp /bin/mount /bin/umount" }}
+{{ $version_nfs_utils := "nfs-utils-2-5-4" }} # must match the nfs-utils package from BASE_ALT_DEV
+{{ $deckhouse_uid_gid := "64535"}}
 ---
 image: {{ $.ImageName }}-binaries-artifact
 from: {{ $.BASE_ALT_DEV }}
 final: false
 
 shell:
+  beforeInstall:
+    - apt-get update
+    - apt-get install -y libmount-devel libnl-devel libreadline-devel libtirpc libtirpc-devel libuuid-devel libevent-devel libsqlite3x-devel libdevmapper-devel libblkid-devel libkeyutils-devel
+      ### example werf build log
+      # ...
+      # nfs-utils-binaries-artifact/install  chmod go-rwx /nfs-utils/var/lib/nfs/sm /nfs-utils/var/lib/nfs/sm.bak /nfs-utils/var/lib/nfs/state
+      # nfs-utils-binaries-artifact/install  chown deckhouse /nfs-utils/var/lib/nfs/sm /nfs-utils/var/lib/nfs/sm.bak /nfs-utils/var/lib/nfs/state
+      # nfs-utils-binaries-artifact/install  chown: invalid user: ‘deckhouse’
+      # ...
+    - groupadd -g {{ $deckhouse_uid_gid }} deckhouse
+    - useradd -g deckhouse -u {{ $deckhouse_uid_gid }} deckhouse
   install:
-    - /binary_replace.sh -i "{{ $csiBinaries }}" -o /relocate
-
+    - cd
+    - git clone --depth 1 --branch {{ $version_nfs_utils }} git://git.linux-nfs.org/projects/steved/nfs-utils.git nfs-utils
+    - cd nfs-utils
+    - ./autogen.sh
+    - ./configure --disable-gss --with-statduser=deckhouse --with-rpcgen=internal
+    - make
+    - make install DESTDIR=/nfs-utils
+  beforeSetup:
+    - cp -av /nfs-utils/usr/lib/* /usr/lib/
+    - /binary_replace.sh -i "{{ $binaries }}" -o /relocate
+  setup:
+    - rm -rf /relocate/nfs-utils
+    - cp -av /nfs-utils/sbin     /relocate
+    - mkdir -p /relocate/usr
+    - cp -av /nfs-utils/usr/bin  /relocate/usr
+    - cp -av /nfs-utils/usr/sbin /relocate/usr
+    - cp -av /nfs-utils/var      /relocate
+    - mkdir -p /relocate/etc
+    - cp -av /etc/netconfig /relocate/etc/netconfig
 ---
 image: {{ $.ImageName }}-distroless-artifact
 from: {{ $.BASE_ALT_DEV }}
@@ -59,8 +89,8 @@ shell:
     - cp -pr /usr/share/zoneinfo /relocate/usr/share
     - cp -pr /var/lib/ssl/cert.pem /relocate/var/lib/ssl
     - cp -pr /var/lib/ssl/certs /relocate/var/lib/ssl
-    - echo "deckhouse:x:64535:64535:deckhouse:/:/sbin/nologin" >> /relocate/etc/passwd
-    - echo "deckhouse:x:64535:" >> /relocate/etc/group
+    - echo "deckhouse:x:{{ $deckhouse_uid_gid }}:{{ $deckhouse_uid_gid }}:deckhouse:/:/sbin/nologin" >> /relocate/etc/passwd
+    - echo "deckhouse:x:{{ $deckhouse_uid_gid }}:" >> /relocate/etc/group
     - echo "deckhouse:!::0:::::" >> /relocate/etc/shadow
 
 ---
@@ -86,16 +116,6 @@ import:
   - image: {{ $.ImageName }}-binaries-artifact
     add: /relocate
     to: /
-    before: install
-    includePaths:
-      - '**/*'
-  - image: {{ $.ImageName }}-binaries-artifact
-    add: /lib64
-    to: /lib64
-    before: install
-    includePaths:
-      - 'libresolv*'
-      - 'libnss_dns*'
-      - 'libnss_files*'
+    before: setup
 docker:
   ENTRYPOINT: ["/nfsplugin"]
