@@ -137,9 +137,7 @@ func RunNFSStorageClassWatcherController(
 			request := reconcile.Request{NamespacedName: types.NamespacedName{Namespace: e.Object.GetNamespace(), Name: e.Object.GetName()}}
 			q.Add(request)
 		},
-		// UpdateFunc: func(ctx context.Context, e event.UpdateEvent, q workqueue.RateLimitingInterface) {
 		UpdateFunc: func(ctx context.Context, e event.TypedUpdateEvent[*v1alpha1.NFSStorageClass], q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-
 			log.Info(fmt.Sprintf("[UpdateFunc] get event for NFSStorageClass %q. Check if it should be reconciled", e.ObjectNew.GetName()))
 
 			if reflect.DeepEqual(e.ObjectOld.Spec, e.ObjectNew.Spec) && e.ObjectNew.DeletionTimestamp == nil {
