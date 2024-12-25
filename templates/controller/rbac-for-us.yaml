@@ -86,6 +86,7 @@ rules:
     resources:
       - persistentvolumeclaims
       - pods
+      - namespaces
     verbs:
       - get
       - list
