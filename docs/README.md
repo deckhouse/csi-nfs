@@ -25,6 +25,7 @@ the [pod-reloader](https://deckhouse.io/products/kubernetes-platform/documentati
 - Only a single CA is supported.
 - For the `mtls` security policy, only one client certificate is supported.
 - A single `NFS` server cannot simultaneously use different security policies such as `tls`, `mtls`, and the standard (no TLS) mode.
+- There should be no running `tlshd` daemon on the cluster nodes, as it will conflict with the `tlshd` daemon of the module.
 
 ## Quickstart guide
 
