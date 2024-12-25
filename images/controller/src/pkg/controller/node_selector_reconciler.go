@@ -63,7 +63,7 @@ func RunNodeSelectorReconciler(
 				log.Info(fmt.Sprintf("Start reconcile of NFS node selectors. Get config secret: %s/%s", request.Namespace, request.Name))
 				err := reconcileNodeSelector(ctx, cl, clusterWideClient, log, request.Namespace, request.Name)
 				if err != nil {
-					log.Error(nil, "Failed reconcile of NFS node selectors.")
+					log.Error(err, "Failed reconcile of NFS node selectors.")
 				} else {
 					log.Info("END reconcile of NFS node selectors.")
 				}
@@ -195,7 +195,7 @@ func reconcileNodeSelector(
 			nodePodsWithNFSVolume, ok := podsMapWithNFSVolume[node.Name]
 			if ok && len(nodePodsWithNFSVolume) > 0 {
 				log.Warning(fmt.Sprintf("[reconcileNodeSelector] Found %d pods with NFS volume for node: %s. Skip remove label.", len(nodePodsWithNFSVolume), node.Name))
-				log.Debug(fmt.Sprintf("[reconcileNodeSelector] Pods with NFS volume on node %s: %+v", node.Name, nodePodsWithNFSVolume))
+				log.Trace(fmt.Sprintf("[reconcileNodeSelector] Pods with NFS volume on node %s: %+v", node.Name, nodePodsWithNFSVolume))
 				nodesToRemoveCount--
 				continue
 			}
