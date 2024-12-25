@@ -8,7 +8,7 @@ properties:
       - INFO
       - DEBUG
       - TRACE
-    description: Module log level
+    description: Module log level.
     default: DEBUG
   v3support:
     type: boolean
@@ -21,7 +21,7 @@ properties:
     properties:
       ca:
         type: string
-        description: Root certificate in PEM format, encoded in Base64, which can be used to verify the NFS server certificate..
+        description: Root certificate in PEM format, encoded in Base64, which can be used to verify the NFS server certificate.
       mtls:
         type: object
         default: {}

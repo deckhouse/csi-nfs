@@ -24,7 +24,7 @@ spec:
         openAPIV3Schema:
           type: object
           description: |
-            NFSStorageClass is a Kubernetes Custom Resource that defines a configuration for a Kubernetes Storage class.
+            NFSStorageClass is a Kubernetes Custom Resource that defines a configuration for a Kubernetes StorageClass.
           required:
             - spec
           properties:
@@ -34,7 +34,7 @@ spec:
                   message: "If mtls is true, tls must also be true."
               type: object
               description: |
-                Defines a Kubernetes Storage class configuration.
+                Defines a Kubernetes StorageClass configuration.
               required:
                 - connection
                 - reclaimPolicy
@@ -46,7 +46,7 @@ spec:
                     - rule: self == oldSelf
                       message: Value is immutable.
                   description: |
-                    Defines a Kubernetes Storage class configuration.
+                    Defines a Kubernetes StorageClass configuration.
                   required:
                     - host
                     - share
@@ -58,7 +58,7 @@ spec:
                         - rule: self == oldSelf
                           message: Value is immutable.
                       description: |
-                        NFS server host
+                        NFS server host.
                       minLength: 1
                     share:
                       type: string
@@ -66,7 +66,7 @@ spec:
                         - rule: self == oldSelf
                           message: Value is immutable.
                       description: |
-                        NFS server share path
+                        NFS server share path.
                       minLength: 1
                     nfsVersion:
                       type: string
@@ -74,7 +74,7 @@ spec:
                         - rule: self == oldSelf
                           message: Value is immutable.
                       description: |
-                        NFS server version
+                        NFS server version.
                       enum:
                         - "3"
                         - "4.1"
@@ -85,7 +85,7 @@ spec:
                         - rule: self == oldSelf
                           message: Value is immutable.
                       description: |
-                        Whether to use tls for connection.
+                        Whether to use TLS for connection.
                       default: false
                     mtls:
                       type: boolean
@@ -93,38 +93,38 @@ spec:
                         - rule: self == oldSelf
                           message: Value is immutable.
                       description: |
-                        Whether to use mtls; requires tls to be enabled.
+                        Whether to use mTLS — requires TLS to be enabled.
                       default: false
                 mountOptions:
                   type: object
                   description: |
-                    Storage class mount options
+                    StorageClass mount options.
                   properties:
                     mountMode:
                       type: string
                       description: |
-                        NFS share mount mode
+                        NFS share mount mode.
                       enum:
                         - hard
                         - soft
                     timeout:
                       type: integer
                       description: |
-                        NFS server timeout
+                        NFS server timeout.
                       minimum: 1
                     retransmissions:
                       type: integer
                       description: |
-                        NFS retries before fail
+                        NFS retries before fail.
                       minimum: 1
                     readOnly:
                       type: boolean
                       description: |
-                        Share read-only flag
+                        Share read-only flag.
                 chmodPermissions:
                   type: string
                   description: |
-                    chmod rights for PVs subdirectory
+                    chmod rights for PVs subdirectory.
                   pattern: '^[0-7]{3,4}$'
                 reclaimPolicy:
                   type: string
@@ -132,9 +132,9 @@ spec:
                     - rule: self == oldSelf
                       message: Value is immutable.
                   description: |
-                    The storage class's reclaim policy. Might be:
-                    - Delete (If the Persistent Volume Claim is deleted, deletes the Persistent Volume and its associated storage as well)
-                    - Retain (If the Persistent Volume Claim is deleted, remains the Persistent Volume and its associated storage)
+                    The StorageClass's reclaim policy. Might be:
+                    - Delete (If the Persistent Volume Claim is deleted, deletes the Persistent Volume and its associated storage as well);
+                    - Retain (If the Persistent Volume Claim is deleted, remains the Persistent Volume and its associated storage).
                   enum:
                     - Delete
                     - Retain
@@ -144,28 +144,28 @@ spec:
                     - rule: self == oldSelf
                       message: Value is immutable.
                   description: |
-                    The storage class's volume binding mode. Might be Immediate or WaitForFirstConsumer
+                    The StorageClass's volume binding mode. Might be Immediate or WaitForFirstConsumer.
                   enum:
                     - Immediate
                     - WaitForFirstConsumer
             status:
               type: object
               description: |
-                Displays current information about the Storage Class.
+                Displays current information about the StorageClass.
               properties:
                 phase:
                   type: string
                   description: |
-                    The Storage class current state. Might be: 
-                    - Failed (if the controller received incorrect resource configuration or some errors occurred during the operation)
-                    - Create (if everything went fine)
+                    The StorageClass current state. Might be: 
+                    - Failed (if the controller received incorrect resource configuration or some errors occurred during the operation);
+                    - Create (if everything went fine).
                   enum:
                     - Failed
                     - Created
                 reason:
                   type: string
                   description: |
-                    Additional information about the current state of the Storage Class.
+                    Additional information about the current state of the StorageClass.
       subresources:
         status: {}
       additionalPrinterColumns:
@@ -179,4 +179,4 @@ spec:
         - jsonPath: .metadata.creationTimestamp
           name: Age
           type: date
-          description: The age of this resource
+          description: The age of this resource.

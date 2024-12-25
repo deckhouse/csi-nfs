@@ -4,28 +4,30 @@ description: "The csi-nfs module: General Concepts and Principles."
 moduleStatus: experimental
 ---
 
-This module provides CSI that manages volumes based on `NFS`. The module allows you to create a `StorageClass` in `Kubernetes` by creating [Kubernetes custom resources](./cr.html#nfsstorageclass) `NFSStorageClass`.
+The module provides CSI for managing NFS volumes and allows creating StorageClass in Kubernetes through [Custom Resources](./cr.html#nfsstorageclass) `NFSStorageClass`.
 
-> **Caution!** The user is not allowed to create a `StorageClass` for the `nfs.csi.k8s.io` CSI driver.
+{{< alert level="info" >}}
+Creating a StorageClass for the CSI driver `nfs.csi.k8s.io` by the user is prohibited.
+{{< /alert >}}
 
 ## System requirements and recommendations
 
 ### Requirements
-- Stock kernels shipped with the [supported distributions](https://deckhouse.io/documentation/v1/supported_versions.html#linux).
-- Presence of a deployed and configured NFS server.
-- Enabling RPC-with-TLS requires the Linux kernel to have `CONFIG_TLS` and `CONFIG_NET_HANDSHAKE` options enabled.
+
+- Use stock kernels provided with [supported distributions](https://deckhouse.io/documentation/v1/supported_versions.html#linux);
+- Ensure the presence of a deployed and configured NFS server;
+- To support RPC-with-TLS, enable `CONFIG_TLS` and `CONFIG_NET_HANDSHAKE` options in the Linux kernel.
 
 ### Recommendations
 
-- For the module pods to restart when the `tlsParameters` parameter in the module settings is changed,
-the [pod-reloader](https://deckhouse.io/products/kubernetes-platform/documentation/v1/modules/pod-reloader) module must be enabled (enabled by default).
+For module pods to restart when the `tlsParameters` parameter is changed in the module settings, the [pod-reloader](https://deckhouse.io/products/kubernetes-platform/documentation/v1/modules/pod-reloader) module must be enabled (enabled by default).
 
-## Limitations of RPC-with-TLS
+## RPC-with-TLS mode limitations
 
-- Only a single CA is supported.
+- Only one certificate authority (CA) is supported.
 - For the `mtls` security policy, only one client certificate is supported.
-- A single `NFS` server cannot simultaneously use different security policies such as `tls`, `mtls`, and the standard (no TLS) mode.
-- There should be no running `tlshd` daemon on the cluster nodes, as it will conflict with the `tlshd` daemon of the module.
+- A single NFS server cannot simultaneously operate in different security modes: `tls`, `mtls`, and standard (non-TLS) mode.
+- The `tlshd` daemon must not be running on cluster nodes, as it will conflict with the module's `tlshd` daemon.
 
 ## Quickstart guide
 
@@ -33,27 +35,27 @@ Note that all commands must be run on a machine that has administrator access to
 
 ### Enabling module
 
-- Enable the `csi-nfs` module. This will result in the following actions across all cluster nodes:
-    - registration of the CSI driver;
-    - launch of service pods for the `csi-nfs` components.
+1. Enable the `csi-nfs` module. This will result in the following actions across all cluster nodes:
+   - registration of the CSI driver;
+   - launch of service pods for the `csi-nfs` components.
 
-```shell
-kubectl apply -f - <<EOF
-apiVersion: deckhouse.io/v1alpha1
-kind: ModuleConfig
-metadata:
-  name: csi-nfs
-spec:
-  enabled: true
-  version: 1
-EOF
-```
+   ```yaml
+   kubectl apply -f - <<EOF
+   apiVersion: deckhouse.io/v1alpha1
+   kind: ModuleConfig
+   metadata:
+     name: csi-nfs
+   spec:
+     enabled: true
+     version: 1
+   EOF
+   ```
 
-- Wait for the module to become `Ready`.
+1. Wait for the module to become `Ready`:
 
-```shell
-kubectl get module csi-nfs -w
-```
+   ```shell
+   kubectl get module csi-nfs -w
+   ```
 
 ### Creating a StorageClass
 
@@ -79,4 +81,4 @@ A directory `<directory from share>/<PV name>` will be created for each PV.
 
 ### Checking module health
 
-You can verify the functionality of the module using the instructions [here](./faq.html#how-to-check-module-health)
+You can verify the functionality of the module using the instructions [in FAQ](./faq.html#how-to-check-module-health).
