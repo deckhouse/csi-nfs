@@ -55,11 +55,13 @@ func RunNodeSelectorReconciler(
 ) (controller.Controller, error) {
 	cl := mgr.GetClient()
 
+	clusterWideClient := mgr.GetAPIReader()
+
 	c, err := controller.New(NodeSelectorReconcilerName, mgr, controller.Options{
 		Reconciler: reconcile.Func(func(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 			if request.Name == cfg.ConfigSecretName {
 				log.Info(fmt.Sprintf("Start reconcile of NFS node selectors. Get config secret: %s/%s", request.Namespace, request.Name))
-				err := reconcileNodeSelector(ctx, cl, log, request.Namespace, request.Name)
+				err := reconcileNodeSelector(ctx, cl, clusterWideClient, log, request.Namespace, request.Name)
 				if err != nil {
 					log.Error(nil, "Failed reconcile of NFS node selectors.")
 				} else {
@@ -87,6 +89,7 @@ func RunNodeSelectorReconciler(
 func reconcileNodeSelector(
 	ctx context.Context,
 	cl client.Client,
+	clusterWideClient client.Reader,
 	log logger.Logger,
 	namespace, configSecretName string,
 ) error {
@@ -149,7 +152,7 @@ func reconcileNodeSelector(
 		}
 		log.Debug(fmt.Sprintf("[reconcileNodeSelector] Found %d namespaces.", len(namespaceList.Items)))
 
-		podsMapWithNFSVolume, err := GetPodsMapWithNFSVolume(ctx, cl, log, namespaceList)
+		podsMapWithNFSVolume, err := GetPodsMapWithNFSVolume(ctx, clusterWideClient, log, namespaceList)
 		if err != nil {
 			log.Error(err, "[reconcileNodeSelector] Failed get pods with NFS volume.")
 			return err
@@ -161,7 +164,7 @@ func reconcileNodeSelector(
 
 			if node.Name == controllerNodeName {
 				log.Warning(fmt.Sprintf("[reconcileNodeSelector] Node %s is csi-nfs controller node! Check volumesnapshots and persistentvolumeclaims before remove labels.", node.Name))
-				pendingVolumeSnapshots, err := GetPendingVolumeSnapshots(ctx, cl, log, NFSStorageClassProvisioner, namespaceList)
+				pendingVolumeSnapshots, err := GetPendingVolumeSnapshots(ctx, clusterWideClient, log, NFSStorageClassProvisioner, namespaceList)
 				if err != nil {
 					log.Error(err, "[reconcileNodeSelector] Failed check pending volumesnapshots.")
 					return err
@@ -173,7 +176,7 @@ func reconcileNodeSelector(
 					continue
 				}
 
-				pendingPersistentVolumeClaims, err := GetPendingPersistentVolumeClaims(ctx, cl, log, NFSStorageClassProvisioner, namespaceList)
+				pendingPersistentVolumeClaims, err := GetPendingPersistentVolumeClaims(ctx, clusterWideClient, log, NFSStorageClassProvisioner, namespaceList)
 				if err != nil {
 					log.Error(err, "[reconcileNodeSelector] Failed check pending persistentvolumeclaims.")
 					return err
@@ -318,15 +321,16 @@ func ContainsNode(nodeList *corev1.NodeList, node corev1.Node) bool {
 // 	return filteredVolumeAttachments
 // }
 
-func GetPodsMapWithNFSVolume(ctx context.Context, cl client.Client, log logger.Logger, namespaceList *corev1.NamespaceList) (map[string][]corev1.Pod, error) {
+func GetPodsMapWithNFSVolume(ctx context.Context, clusterWideClient client.Reader, log logger.Logger, namespaceList *corev1.NamespaceList) (map[string][]corev1.Pod, error) {
 	podsMapWithNFSVolume := map[string][]corev1.Pod{}
 
 	for _, namespace := range namespaceList.Items {
 		log.Debug(fmt.Sprintf("[GetPodsMapWithNFSVolume] Get pods for namespace %s.", namespace.Name))
 		pods := &corev1.PodList{}
-		err := cl.List(ctx, pods, &client.ListOptions{
-			Namespace: namespace.Name,
-		})
+		// err := clusterWideClient.List(ctx, pods, &client.ListOptions{
+		// 	Namespace: namespace.Name,
+		// })
+		err := clusterWideClient.List(ctx, pods, client.InNamespace(namespace.Name))
 
 		if err != nil {
 			log.Error(err, "[GetPodsMapWithNFSVolume] Failed get pods.")
@@ -341,7 +345,7 @@ func GetPodsMapWithNFSVolume(ctx context.Context, cl client.Client, log logger.L
 				if volume.PersistentVolumeClaim != nil {
 					log.Debug(fmt.Sprintf("[GetPodsMapWithNFSVolume] Check pvc %s for pod %s/%s.", volume.PersistentVolumeClaim.ClaimName, pod.Namespace, pod.Name))
 					pvc := &corev1.PersistentVolumeClaim{}
-					err := cl.Get(ctx, client.ObjectKey{Namespace: pod.Namespace, Name: volume.PersistentVolumeClaim.ClaimName}, pvc)
+					err := clusterWideClient.Get(ctx, client.ObjectKey{Namespace: pod.Namespace, Name: volume.PersistentVolumeClaim.ClaimName}, pvc)
 					if err != nil {
 						log.Error(err, fmt.Sprintf("[GetPodsMapWithNFSVolume] Failed get pvc %s/%s for pod %s/%s.", pod.Namespace, volume.PersistentVolumeClaim.ClaimName, pod.Namespace, pod.Name))
 						return nil, err
@@ -400,15 +404,13 @@ func GetCCSIControllerNodeName(ctx context.Context, cl client.Client, log logger
 	return *lease.Spec.HolderIdentity, nil
 }
 
-func GetPendingVolumeSnapshots(ctx context.Context, cl client.Client, log logger.Logger, provisioner string, namespaceList *corev1.NamespaceList) ([]snapshotv1.VolumeSnapshot, error) {
+func GetPendingVolumeSnapshots(ctx context.Context, clusterWideClient client.Reader, log logger.Logger, provisioner string, namespaceList *corev1.NamespaceList) ([]snapshotv1.VolumeSnapshot, error) {
 	var pendingSnapshots []snapshotv1.VolumeSnapshot
 
 	for _, namespace := range namespaceList.Items {
 		log.Debug(fmt.Sprintf("[GetPendingVolumeSnapshots] Get volumesnapshots for namespace %s.", namespace.Name))
 		volumeSnapshots := &snapshotv1.VolumeSnapshotList{}
-		err := cl.List(ctx, volumeSnapshots, &client.ListOptions{
-			Namespace: namespace.Name,
-		})
+		err := clusterWideClient.List(ctx, volumeSnapshots, client.InNamespace(namespace.Name))
 		if err != nil {
 			log.Error(err, "[GetPendingVolumeSnapshots] Failed get volume snapshots.")
 			return nil, err
@@ -422,7 +424,7 @@ func GetPendingVolumeSnapshots(ctx context.Context, cl client.Client, log logger
 				log.Debug(fmt.Sprintf("[GetPendingVolumeSnapshots] Volumesnapshot: %+v", snapshot))
 				if snapshot.Spec.Source.PersistentVolumeClaimName != nil {
 					pvc := &corev1.PersistentVolumeClaim{}
-					err := cl.Get(ctx, client.ObjectKey{Namespace: snapshot.Namespace, Name: *snapshot.Spec.Source.PersistentVolumeClaimName}, pvc)
+					err := clusterWideClient.Get(ctx, client.ObjectKey{Namespace: snapshot.Namespace, Name: *snapshot.Spec.Source.PersistentVolumeClaimName}, pvc)
 					if err != nil {
 						err = fmt.Errorf("[GetPendingVolumeSnapshots] Failed get pvc %s/%s for snapshot %s/%s: %v", snapshot.Namespace, *snapshot.Spec.Source.PersistentVolumeClaimName, snapshot.Namespace, snapshot.Name, err)
 						return nil, err
@@ -442,14 +444,12 @@ func GetPendingVolumeSnapshots(ctx context.Context, cl client.Client, log logger
 	return pendingSnapshots, nil
 }
 
-func GetPendingPersistentVolumeClaims(ctx context.Context, cl client.Client, log logger.Logger, provisioner string, namespaceList *corev1.NamespaceList) ([]corev1.PersistentVolumeClaim, error) {
+func GetPendingPersistentVolumeClaims(ctx context.Context, clusterWideClient client.Reader, log logger.Logger, provisioner string, namespaceList *corev1.NamespaceList) ([]corev1.PersistentVolumeClaim, error) {
 	var pendingPVCs []corev1.PersistentVolumeClaim
 
 	for _, namespace := range namespaceList.Items {
 		persistentVolumeClaimList := &corev1.PersistentVolumeClaimList{}
-		err := cl.List(ctx, persistentVolumeClaimList, &client.ListOptions{
-			Namespace: namespace.Name,
-		})
+		err := clusterWideClient.List(ctx, persistentVolumeClaimList, client.InNamespace(namespace.Name))
 		if err != nil {
 			log.Error(err, "[GetPendingPersistentVolumeClaims] Failed get persistent volume claims.")
 			return nil, err
