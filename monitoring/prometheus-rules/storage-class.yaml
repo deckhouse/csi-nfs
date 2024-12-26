@@ -1,0 +1,14 @@
+- name: kubernetes.nfs.storage_class
+  rules:
+    - alert: StorageClassDoesNotMatchTheSettingsInModuleConfig
+      expr: count(kube_storageclass_labels{label_storage_deckhouse_io_does_not_match_moduleconfig="true"}) > 0
+      for: 5m
+      labels:
+        severity_level: "4"
+        tier: cluster
+      annotations:
+        plk_markup_format: "markdown"
+        plk_protocol_version: "1"
+        summary: StorageClass does not match the settings in ModuleConfig
+        description: |
+          Empty description.
