@@ -27,6 +27,7 @@ import (
 
 	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
 
+	storagev1 "k8s.io/api/storage/v1"
 	k8serr "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
@@ -77,7 +78,14 @@ func RunModuleConfigWatcherController(
 
 				alertMap := validateModuleConfig(log, mc, nscList)
 
-				shouldRequeue, err := RunModuleConfigEventReconcile(ctx, cl, log, nscList, alertMap)
+				scList := &storagev1.StorageClassList{}
+				err = cl.List(ctx, scList)
+				if err != nil {
+					log.Error(err, "[ModuleConfigReconciler] unable to list Storage Classes")
+					return reconcile.Result{}, err
+				}
+
+				shouldRequeue, err := RunModuleConfigEventReconcile(ctx, cl, log, nscList, alertMap, scList)
 				if err != nil {
 					log.Error(err, fmt.Sprintf("[ModuleConfigReconciler] an error occured while reconciles the ModuleConfig, name: %s", mc.Name))
 				}
@@ -157,42 +165,60 @@ func RunModuleConfigEventReconcile(
 	log logger.Logger,
 	nscList *v1alpha1.NFSStorageClassList,
 	alertMap map[string]string,
+	scList *storagev1.StorageClassList,
 ) (shouldRequeue bool, err error) {
 	// working with labels
 	for _, nsc := range nscList.Items {
-		action := "unknown"
+		var sc *storagev1.StorageClass
 
-		if _, ok := alertMap[nsc.Name]; !ok {
+		for _, s := range scList.Items {
+			if s.Name == nsc.Name {
+				sc = &s
+				break
+			}
+		}
+
+		if sc == nil {
+			log.Warning(fmt.Sprintf("[RunModuleConfigEventReconcile] no storage class found for the NFSStorageClass, name: %s", nsc.Name))
+			break
+
+			// maybe it's like this here !!!!!!!!!!!
+			//err = fmt.Errorf("[RunModuleConfigEventReconcile] no storage class found for the NFSStorageClass, name: %s", nsc.Name")
+			//return true, err
+		}
+
+		action := "unknown"
+		if _, ok := alertMap[sc.Name]; !ok {
 			action = "deleted"
 
-			if nsc.Labels == nil {
+			if sc.Labels == nil {
 				continue
 			}
 
-			if _, ok := nsc.Labels[doesNotMatchModuleConfigLabel]; !ok {
+			if _, ok := sc.Labels[doesNotMatchModuleConfigLabel]; !ok {
 				continue
 			}
 
-			delete(nsc.Labels, doesNotMatchModuleConfigLabel)
+			delete(sc.Labels, doesNotMatchModuleConfigLabel)
 		} else {
 			action = "added"
 
-			if nsc.Labels == nil {
-				nsc.Labels = make(map[string]string, 1)
+			if sc.Labels == nil {
+				sc.Labels = make(map[string]string, 1)
 			}
 
-			if _, ok := nsc.Labels[doesNotMatchModuleConfigLabel]; ok {
+			if _, ok := sc.Labels[doesNotMatchModuleConfigLabel]; ok {
 				continue
 			}
 
-			nsc.Labels[doesNotMatchModuleConfigLabel] = alertMap[nsc.Name]
+			sc.Labels[doesNotMatchModuleConfigLabel] = alertMap[sc.Name]
 		}
 
-		if err := cl.Update(ctx, &nsc); err != nil {
-			err = fmt.Errorf("[RunModuleConfigEventReconcile] unable to update the NFSStorageClass %s: %w", nsc.Name, err)
+		if err := cl.Update(ctx, sc); err != nil {
+			err = fmt.Errorf("[RunModuleConfigEventReconcile] unable to update the StorageClass %s: %w", sc.Name, err)
 			return true, err
 		}
-		log.Debug(fmt.Sprintf("[RunModuleConfigEventReconcile] successfully %s the label '%s' to the NFSStorageClass %s", action, doesNotMatchModuleConfigLabel, nsc.Name))
+		log.Debug(fmt.Sprintf("[RunModuleConfigEventReconcile] successfully %s the label '%s' to the StorageClass %s", action, doesNotMatchModuleConfigLabel, sc.Name))
 	}
 
 	return false, nil
