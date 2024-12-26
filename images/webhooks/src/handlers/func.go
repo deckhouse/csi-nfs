@@ -135,11 +135,18 @@ func validateNFSStorageClass(nfsModuleConfig *v1alpha1.ModuleConfig, nsc *v1alph
 	var logPostfix string = "Such a combination of parameters is not allowed"
 
 	if nsc.Spec.Connection.NFSVersion == "3" {
-		if value, ok := nfsModuleConfig.Spec.Settings["v3support"]; ok && value == false {
+		if value, ok := nfsModuleConfig.Spec.Settings["v3support"]; !ok {
 			return errors.New(fmt.Sprintf(
-				"ModuleConfig: %s (the v3support parameter is disabled); NFSStorageClass: %s (nfsVersion is set to 3); %s",
+				"ModuleConfig: %s (the v3support parameter is missing); NFSStorageClass: %s (nfsVersion is set to 3); %s",
 				nfsModuleConfig.Name, nsc.Name, logPostfix,
 			))
+		} else {
+			if value == false {
+				return errors.New(fmt.Sprintf(
+					"ModuleConfig: %s (the v3support parameter is disabled); NFSStorageClass: %s (nfsVersion is set to 3); %s",
+					nfsModuleConfig.Name, nsc.Name, logPostfix,
+				))
+			}
 		}
 	}
 
