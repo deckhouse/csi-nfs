@@ -21,12 +21,13 @@ import (
 	"d8-controller/pkg/logger"
 	"errors"
 	"fmt"
-	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
+	"github.com/deckhouse/csi-nfs/api/v1alpha1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog/v2"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
-
-	"slices"
 
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/storage/v1"
@@ -708,6 +709,7 @@ func configureSecret(nsc *v1alpha1.NFSStorageClass, controllerNamespace string) 
 			Kind:       "Secret",
 			APIVersion: "v1",
 		},
+
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      SecretForMountOptionsPrefix + nsc.Name,
 			Namespace: controllerNamespace,
@@ -722,6 +724,38 @@ func configureSecret(nsc *v1alpha1.NFSStorageClass, controllerNamespace string) 
 	}
 
 	return secret
+}
+
+func addLabelToStorageClass(nsc *v1alpha1.NFSStorageClass) map[string]string {
+	var newLabels map[string]string
+
+	if nsc.Labels == nil {
+		newLabels = make(map[string]string)
+		nsc.Labels = newLabels
+	} else {
+		newLabels = make(map[string]string, len(nsc.Labels))
+	}
+
+	for key, value := range nsc.Labels {
+		newLabels[key] = value
+	}
+	newLabels[NFS3PrometheusLabel] = "true"
+
+	return newLabels
+}
+
+func getModuleConfigNFSSettings(ctx context.Context, cl client.Client) (v3support bool, err error) {
+
+	nfsModuleConfig := &v1alpha1.ModuleConfig{}
+
+	err = cl.Get(ctx, types.NamespacedName{Name: CsiNfsModuleName, Namespace: ""}, nfsModuleConfig)
+	if err != nil {
+		klog.Fatal(err)
+	}
+	if value, exists := nfsModuleConfig.Spec.Settings["v3support"]; exists && value == true {
+		return true, nil
+	}
+	return false, nil
 }
 
 func updateStorageClass(nsc *v1alpha1.NFSStorageClass, oldSC *v1.StorageClass, controllerNamespace string) (*v1.StorageClass, error) {
