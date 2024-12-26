@@ -229,7 +229,7 @@ func validateModuleConfig(log logger.Logger, mc *v1alpha1.ModuleConfig, nscList 
 	for _, nsc := range nscList.Items {
 		if err := validateNFSStorageClass(mc, &nsc); err != nil {
 			log.Warning(fmt.Sprintf("[validateModuleConfig] invalid NFSStorageClass (%v)", err))
-			alertMap[nsc.Name] = ""
+			alertMap[nsc.Name] = "true"
 		}
 	}
 
