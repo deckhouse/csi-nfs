@@ -22,7 +22,7 @@ spec:
                         Путь к точке монтирования на NFS-сервере
                     nfsVersion:
                       description: |
-                        Версия NFS-сервера.
+                        Версия NFS.
                     tls:
                       description: |
                         Использовать ли TLS для подключения.

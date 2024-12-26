@@ -74,7 +74,7 @@ spec:
                         - rule: self == oldSelf
                           message: Value is immutable.
                       description: |
-                        NFS server version.
+                        NFS version.
                       enum:
                         - "3"
                         - "4.1"
