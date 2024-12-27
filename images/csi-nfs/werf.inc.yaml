@@ -71,7 +71,7 @@ shell:
 {{ $csiBinaries := "/bin/mount /bin/umount /sbin/mount.nfs /sbin/mount.nfs4 /sbin/umount.nfs /sbin/umount.nfs4 /bin/cp" }}
 ---
 image: {{ $.ImageName }}-binaries-artifact
-from: {{ $.ImageName }}-binary-replace-artifact
+fromImage: {{ $.ImageName }}-binary-replace-artifact
 final: false
 
 shell:
