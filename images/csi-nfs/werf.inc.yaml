@@ -47,6 +47,7 @@ git:
 
 shell:
   install:
+    - apt-get update
     - apt-get -y install git
     - git clone --depth 1 --branch v{{ $version }} {{ env "SOURCE_REPO" }}/kubernetes-csi/csi-driver-nfs.git /src/csi-driver-nfs
     - cd /src/csi-driver-nfs
