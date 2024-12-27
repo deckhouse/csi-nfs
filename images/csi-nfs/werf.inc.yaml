@@ -64,6 +64,7 @@ git:
         - '**/*'
 shell:
   install:
+  - apt-get update
   - apt-get install -y glibc-utils
   - rm -rf /var/lib/apt/lists/* /var/cache/apt/* && mkdir -p /var/lib/apt/lists/partial /var/cache/apt/archives/partial
 ---
