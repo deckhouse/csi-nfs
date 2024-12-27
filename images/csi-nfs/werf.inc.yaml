@@ -65,7 +65,7 @@ shell:
 
 ---
 image: {{ $.ImageName }}-distroless
-from: {{ $.BASE_ALT_DEV }}
+from: {{ $.BASE_SCRATCH }}
 final: false
 
 import:
