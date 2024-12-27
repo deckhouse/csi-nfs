@@ -47,6 +47,7 @@ git:
 
 shell:
   install:
+    - apt-get install git
     - git clone --depth 1 --branch v{{ $version }} {{ env "SOURCE_REPO" }}/kubernetes-csi/csi-driver-nfs.git /src/csi-driver-nfs
     - cd /src/csi-driver-nfs
     - for patchfile in /patches/*.patch ; do echo -n "Apply ${patchfile} ... "; git apply ${patchfile}; done
