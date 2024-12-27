@@ -78,6 +78,7 @@ final: false
 shell:
   install:
     - /binary_replace.sh -i "{{ $csiBinaries }}" -o /relocate
+    - chmod +x /binary_replace.sh
 
 ---
 image: {{ $.ImageName }}-distroless-artifact
