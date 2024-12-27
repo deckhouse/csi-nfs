@@ -21,9 +21,8 @@ mount:
     to: /go/pkg
 shell:
   setup:
-    - cd /src
-    - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o webhooks
-    - mv webhooks /webhooks
+    - cd /images/webhooks/src/cmd
+    - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o /webhooks
     - chmod +x /webhooks
 ---
 image: {{ $.ImageName }}-src-artifact

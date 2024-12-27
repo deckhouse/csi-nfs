@@ -21,9 +21,8 @@ mount:
     to: /go/pkg
 shell:
   setup:
-    - cd /src/cmd
-    - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o wait-rpcbind
-    - mv wait-rpcbind /wait-rpcbind
+    - cd /images/wait-rpcbind/src/cmd
+    - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o /wait-rpcbind
     - chmod +x /wait-rpcbind
 ---
 image: {{ $.ImageName }}-src-artifact
