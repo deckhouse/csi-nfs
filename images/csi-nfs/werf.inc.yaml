@@ -33,7 +33,7 @@ shell:
     - chmod +x /nfsplugin
 ---
 image: {{ $.ImageName }}-src-artifact
-fromImage: {{ $.BASE_SCRATCH }}
+from: {{ $.BASE_SCRATCH }}
 final: false
 
 git:

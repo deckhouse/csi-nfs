@@ -23,7 +23,7 @@ shell:
     - chmod +x /controller
 ---
 image: {{ $.ImageName }}-src-artifact
-fromImage: {{ $.BASE_SCRATCH }}
+from: {{ $.BASE_SCRATCH }}
 final: false
 git:
   - add: /images/{{ .ImageName }}/src
