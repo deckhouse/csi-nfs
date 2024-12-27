@@ -53,10 +53,24 @@ shell:
     - for patchfile in /patches/*.patch ; do echo -n "Apply ${patchfile} ... "; git apply ${patchfile}; done
     - rm -rf /src/csi-driver-nfs/.git
 ---
+image: {{ $.ImageName }}-binary-replace-artifact
+from: {{ $.BASE_ALT }}
+
+git:
+  - add: /tools/dev_images/additional_tools/alt/binary_replace.sh
+    to: /binary_replace.sh
+    stageDependencies:
+      install:
+        - '**/*'
+shell:
+  install:
+  - apt-get install -y glibc-utils
+  - rm -rf /var/lib/apt/lists/* /var/cache/apt/* && mkdir -p /var/lib/apt/lists/partial /var/cache/apt/archives/partial
+---
 {{ $csiBinaries := "/bin/mount /bin/umount /sbin/mount.nfs /sbin/mount.nfs4 /sbin/umount.nfs /sbin/umount.nfs4 /bin/cp" }}
 ---
 image: {{ $.ImageName }}-binaries-artifact
-from: {{ $.BASE_ALT }}
+from: {{ $.ImageName }}-binary-replace-artifact
 final: false
 
 shell:
