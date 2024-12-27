@@ -8,8 +8,11 @@ from: {{ $.BASE_GOLANG }}
 final: false
 
 git:
-  - add: /images/controller/src
-    to: /src
+  - add: /
+    to: /
+    includePaths:
+      - api
+      - images/controller/src
     stageDependencies:
       setup:
         - "**/*"

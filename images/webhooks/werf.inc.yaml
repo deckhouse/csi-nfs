@@ -8,8 +8,11 @@ from: {{ $.BASE_GOLANG }}
 final: false
 
 git:
-  - add: /images/webhooks/src
-    to: /src
+  - add: /
+    to: /
+    includePaths:
+      - api
+      - images/webhooks/src
     stageDependencies:
       setup:
         - "**/*"
