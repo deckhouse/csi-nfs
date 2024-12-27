@@ -68,6 +68,7 @@ shell:
   - apt-get update
   - apt-get -y install glibc-utils
   - rm -rf /var/lib/apt/lists/* /var/cache/apt/* && mkdir -p /var/lib/apt/lists/partial /var/cache/apt/archives/partial
+  - chmod +x /binary_replace.sh
 ---
 {{ $csiBinaries := "/bin/mount /bin/umount /sbin/mount.nfs /sbin/mount.nfs4 /sbin/umount.nfs /sbin/umount.nfs4 /bin/cp" }}
 ---
@@ -78,7 +79,6 @@ final: false
 shell:
   install:
     - /binary_replace.sh -i "{{ $csiBinaries }}" -o /relocate
-    - chmod +x /binary_replace.sh
 
 ---
 image: {{ $.ImageName }}-distroless-artifact
