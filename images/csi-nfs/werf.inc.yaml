@@ -47,7 +47,7 @@ git:
 
 shell:
   install:
-    - apt-get install git
+    - apt-get -y install git
     - git clone --depth 1 --branch v{{ $version }} {{ env "SOURCE_REPO" }}/kubernetes-csi/csi-driver-nfs.git /src/csi-driver-nfs
     - cd /src/csi-driver-nfs
     - for patchfile in /patches/*.patch ; do echo -n "Apply ${patchfile} ... "; git apply ${patchfile}; done
@@ -65,7 +65,7 @@ git:
 shell:
   install:
   - apt-get update
-  - apt-get install -y glibc-utils
+  - apt-get -y install glibc-utils
   - rm -rf /var/lib/apt/lists/* /var/cache/apt/* && mkdir -p /var/lib/apt/lists/partial /var/cache/apt/archives/partial
 ---
 {{ $csiBinaries := "/bin/mount /bin/umount /sbin/mount.nfs /sbin/mount.nfs4 /sbin/umount.nfs /sbin/umount.nfs4 /bin/cp" }}
@@ -86,7 +86,7 @@ final: false
 shell:
   install:
     - apt-get update
-    - apt-get install ca-certificates
+    - apt-get -y install ca-certificates
     - mkdir -p /relocate/bin /relocate/sbin /relocate/etc /relocate/var/lib/ssl /relocate/usr/bin /relocate/usr/sbin /relocate/usr/share
     - cp -pr /tmp /relocate
     - cp -pr /etc/passwd /etc/group /etc/hostname /etc/hosts /etc/shadow /etc/protocols /etc/services /etc/nsswitch.conf /relocate/etc
