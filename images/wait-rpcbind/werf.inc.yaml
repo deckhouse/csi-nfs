@@ -28,7 +28,7 @@ from: {{ $.BASE_ALT }}
 final: false
 git:
   - add: /images/{{ .ImageName }}/src
-    to: /src/wait-rpcbind/
+    to: /src/wait-rpcbind
     includePaths:
       - '**/*'
     stageDependencies:
