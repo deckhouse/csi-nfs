@@ -85,6 +85,7 @@ final: false
 
 shell:
   install:
+    - apt-get update
     - apt-get install ca-certificates
     - mkdir -p /relocate/bin /relocate/sbin /relocate/etc /relocate/var/lib/ssl /relocate/usr/bin /relocate/usr/sbin /relocate/usr/share
     - cp -pr /tmp /relocate
