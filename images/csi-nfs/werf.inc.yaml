@@ -79,6 +79,7 @@ final: false
 
 shell:
   install:
+    - whereis mount
     - /binary_replace.sh -i "{{ $csiBinaries }}" -o /relocate
 
 ---
