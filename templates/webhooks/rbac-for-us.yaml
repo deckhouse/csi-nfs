@@ -19,9 +19,14 @@ rules:
     verbs:
       - get
       - watch
-      - update
       - list
-      - patch
+  - apiGroups:
+      - storage.deckhouse.io
+    resources:
+      - nfsstorageclasses
+    verbs:
+      - get
+      - list
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

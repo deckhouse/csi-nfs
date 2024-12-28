@@ -1,5 +1,5 @@
-{{- $_ := set . "BASE_GOLANG" "registry.deckhouse.io/base_images/golang:1.22.6-bullseye@sha256:260918a3795372a6d33225d361fe5349723be9667de865a23411b50fbcc76c5a" }}
-{{- $_ := set . "BASE_SCRATCH"    "registry.deckhouse.io/base_images/scratch@sha256:b054705fcc9f2205777d80a558d920c0b4209efdc3163c22b5bfcb5dda1db5fc" }}
+{{- $_ := set . "BASE_GOLANG"  "registry.deckhouse.io/base_images/golang:1.23.1-bullseye@sha256:a24507d1a36fce86431198a979435dadb187e8d0ce0b5c181f46d6788d84a40f" }}
+{{- $_ := set . "BASE_SCRATCH" "registry.deckhouse.io/base_images/scratch@sha256:b054705fcc9f2205777d80a558d920c0b4209efdc3163c22b5bfcb5dda1db5fc" }}
 
 ---
 image: {{ $.ImageName }}-golang-artifact
@@ -8,7 +8,12 @@ final: false
 
 git:
   - add: /images/webhooks/src
-    to: /src
+    to: /csi-nfs/images/webhooks/src
+    stageDependencies:
+      setup:
+        - "**/*"
+  - add: /api
+    to: /csi-nfs/api
     stageDependencies:
       setup:
         - "**/*"
@@ -17,7 +22,7 @@ mount:
     to: /go/pkg
 shell:
   setup:
-    - cd /src
+    - cd /csi-nfs/images/webhooks/src
     - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o webhooks
     - mv webhooks /webhooks
     - chmod +x /webhooks
