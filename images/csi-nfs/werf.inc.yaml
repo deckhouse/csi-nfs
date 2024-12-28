@@ -66,7 +66,7 @@ git:
 shell:
   install:
   - apt-get update
-  - apt-get -y install glibc-utils mount nfs-common
+  - apt-get -y install glibc-utils mount nfs-kernel-server nfs-common
   - rm -rf /var/lib/apt/lists/* /var/cache/apt/* && mkdir -p /var/lib/apt/lists/partial /var/cache/apt/archives/partial
   - chmod +x /binary_replace.sh
 ---
