@@ -23,7 +23,6 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/deckhouse/csi-nfs/api/v1alpha1"
 	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	"github.com/go-logr/logr"
 	"github.com/slok/kubewebhook/v2/pkg/log"
@@ -131,7 +130,7 @@ func GetValidatingWebhookHandler(validationFunc func(ctx context.Context, _ *mod
 }
 
 // see images/controller/src/pkg/controller/nfs_storage_class_watcher_func.go
-func validateNFSStorageClass(nfsModuleConfig *v1alpha1.ModuleConfig, nsc *v1alpha1.NFSStorageClass) error {
+func validateNFSStorageClass(nfsModuleConfig *cn.ModuleConfig, nsc *cn.NFSStorageClass) error {
 	var logPostfix string = "Such a combination of parameters is not allowed"
 
 	if nsc.Spec.Connection.NFSVersion == "3" {
@@ -191,6 +190,16 @@ func validateNFSStorageClass(nfsModuleConfig *v1alpha1.ModuleConfig, nsc *v1alph
 					nfsModuleConfig.Name, nsc.Name, logPostfix,
 				))
 			}
+		}
+	}
+
+	return nil
+}
+
+func validateModuleConfig(mc *cn.ModuleConfig, nscList *cn.NFSStorageClassList) error {
+	for _, nsc := range nscList.Items {
+		if err := validateNFSStorageClass(mc, &nsc); err != nil {
+			return err
 		}
 	}
 

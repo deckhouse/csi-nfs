@@ -44,3 +44,31 @@ webhooks:
     admissionReviewVersions: ["v1", "v1beta1"]
     sideEffects: None
     timeoutSeconds: 5
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: "d8-{{ .Chart.Name }}-mc-validation"
+webhooks:
+  - name: "d8-{{ .Chart.Name }}-mc-validation.deckhouse.io"
+    rules:
+      - apiGroups: ["deckhouse.io"]
+        apiVersions: ["v1alpha1"]
+        operations: ["UPDATE"]
+        resources: ["moduleconfigs"]
+        scope: "Cluster"
+    clientConfig:
+      service:
+        namespace: "d8-{{ .Chart.Name }}"
+        name: "webhooks"
+        path: "/mc-validate"
+      caBundle: |
+        {{ .Values.csiNfs.internal.customWebhookCert.ca }}
+    admissionReviewVersions: ["v1", "v1beta1"]
+    sideEffects: None
+    timeoutSeconds: 5
+    {{- if semverCompare ">=1.27.0" .Values.global.clusterConfiguration.kubernetesVersion }}
+    matchConditions:
+      - name: "match-{{ .Chart.Name }}"
+        expression: 'request.name == "{{ .Chart.Name }}"'
+    {{- end }}
