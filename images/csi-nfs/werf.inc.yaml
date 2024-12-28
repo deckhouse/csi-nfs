@@ -66,7 +66,7 @@ git:
 shell:
   install:
   - apt-get update
-  - apt-get -y install glibc-utils
+  - apt-get -y install glibc-utils mount
   - rm -rf /var/lib/apt/lists/* /var/cache/apt/* && mkdir -p /var/lib/apt/lists/partial /var/cache/apt/archives/partial
   - chmod +x /binary_replace.sh
 ---
@@ -79,7 +79,6 @@ final: false
 
 shell:
   install:
-    - whereis mount
     - /binary_replace.sh -i "{{ $csiBinaries }}" -o /relocate
 
 ---
