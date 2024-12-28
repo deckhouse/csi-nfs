@@ -1,5 +1,6 @@
-{{- $_ := set . "BASE_GOLANG" "registry.deckhouse.io/base_images/golang:1.22.6-bullseye@sha256:260918a3795372a6d33225d361fe5349723be9667de865a23411b50fbcc76c5a" }}
-{{- $_ := set . "BASE_SCRATCH"    "registry.deckhouse.io/base_images/scratch@sha256:b054705fcc9f2205777d80a558d920c0b4209efdc3163c22b5bfcb5dda1db5fc" }}
+{{- $_ := set . "BASE_GOLANG" "registry.deckhouse.io/base_images/golang:1.23.4-bullseye@sha256:9b3176d53704a9b1be19d307b660733cc691af02906d7e918dbe4d11427a422c" }}
+{{- $_ := set . "BASE_SCRATCH" "registry.deckhouse.io/base_images/scratch@sha256:653ae76965c98c8cd1c8c9ff7725316d2983986f896655b30e0f44d2f8b2dd7e" }}
+{{- $_ := set . "BASE_ALT"    "registry.deckhouse.io/base_images/alt:p11@sha256:e47d84424485d3674240cb2f67d3a1801b37d327e6d1eb8cc8d01be8ed3b34f3" }}
 
 ---
 image: {{ $.ImageName }}-golang-artifact
@@ -7,8 +8,11 @@ from: {{ $.BASE_GOLANG }}
 final: false
 
 git:
-  - add: /images/controller/src
-    to: /src
+  - add: /
+    to: /
+    includePaths:
+      - api
+      - images/controller/src
     stageDependencies:
       setup:
         - "**/*"
@@ -17,11 +21,24 @@ mount:
     to: /go/pkg
 shell:
   setup:
-    - cd /src/cmd
-    - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o controller
-    - mv controller /controller
+    - cd /images/controller/src/cmd
+    - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o /controller
     - chmod +x /controller
-
+---
+image: {{ $.ImageName }}-src-artifact
+from: {{ $.BASE_ALT }}
+final: false
+git:
+  - add: /images/{{ .ImageName }}/src
+    to: /src/controller
+    includePaths:
+      - '**/*'
+    stageDependencies:
+      install:
+        - '**/*'
+shell:
+  install:
+    - rm -rf /src/controller/.git
 ---
 image: {{ $.ImageName }}
 from: {{ $.BASE_SCRATCH }}

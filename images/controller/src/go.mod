@@ -1,6 +1,6 @@
 module d8-controller
 
-go 1.22.2
+go 1.23.4
 
 require (
 	github.com/deckhouse/csi-nfs/api v0.0.0-20240803013516-738ee1ca87bc
@@ -14,6 +14,8 @@ require (
 	k8s.io/klog/v2 v2.120.1
 	sigs.k8s.io/controller-runtime v0.17.4
 )
+
+replace github.com/deckhouse/csi-nfs/api => ../../../api
 
 require (
 	github.com/beorn7/perks v1.0.1 // indirect
