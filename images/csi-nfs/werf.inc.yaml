@@ -56,8 +56,8 @@ shell:
     - groupadd -g {{ $deckhouse_uid_gid }} deckhouse
     - useradd -g deckhouse -u {{ $deckhouse_uid_gid }} deckhouse
   install:
-    - echo "git clone --depth 1 --branch {{ $version_nfs_utils }} {{ env "SOURCE_REPO" }}/steved/nfs-utils.git nfs-utils"
-    - git clone --depth 1 --branch {{ $version_nfs_utils }} {{ env "SOURCE_REPO" }}/steved/nfs-utils.git nfs-utils
+    - cd
+    - git clone --depth 1 --branch {{ $version_nfs_utils }} git://git.linux-nfs.org/projects/steved/nfs-utils.git nfs-utils
     - cd nfs-utils
     - ./autogen.sh
     - ./configure --disable-gss --with-statduser=deckhouse --with-rpcgen=internal
