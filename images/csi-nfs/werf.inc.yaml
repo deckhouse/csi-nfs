@@ -56,7 +56,6 @@ shell:
     - groupadd -g {{ $deckhouse_uid_gid }} deckhouse
     - useradd -g deckhouse -u {{ $deckhouse_uid_gid }} deckhouse
   install:
-    - cd
     - git clone --depth 1 --branch {{ $version_nfs_utils }} {{ env "SOURCE_REPO" }}/steved/nfs-utils.git nfs-utils
     - cd nfs-utils
     - ./autogen.sh
