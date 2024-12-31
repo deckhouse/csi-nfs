@@ -133,9 +133,14 @@ func reconcileNodeSelector(
 	}
 
 	nodesToRemove := DiffNodeLists(nodesWithCSI, selectedKubernetesNodes)
-	if len(nodesToRemove.Items) != 0 {
-		nodesToRemoveCount := len(nodesToRemove.Items)
-		log.Info(fmt.Sprintf("[reconcileNodeSelector] Found %d nodes to remove labels: %v. Attention! csi-nfs resources will be removed from these nodes.", nodesToRemoveCount, nfsNodeSelector))
+	nodesToRemoveCount := len(nodesToRemove.Items)
+	if nodesToRemoveCount > 0 {
+		nodeNamesToRemove := []string{}
+		for _, node := range nodesToRemove.Items {
+			nodeNamesToRemove = append(nodeNamesToRemove, node.Name)
+		}
+		log.Warning(fmt.Sprintf("[reconcileNodeSelector] Found %d nodes that not in selected nodes by user defined selector %v. Remove csi-nfs node label %v from them", nodesToRemoveCount, configNodeSelector, nfsNodeLabels))
+		log.Info(fmt.Sprintf("[reconcileNodeSelector] Nodes to remove: %v", nodeNamesToRemove))
 		log.Trace(fmt.Sprintf("[reconcileNodeSelector] Nodes: %+v", nodesToRemove.Items))
 
 		controllerNodeName, err := GetCCSIControllerNodeName(ctx, cl, log, namespace, csiNFSExternalSnapshotterLeaseName)
@@ -163,19 +168,27 @@ func reconcileNodeSelector(
 			log.Info(fmt.Sprintf("[reconcileNodeSelector] Process remove label for node: %s", node.Name))
 
 			if node.Name == controllerNodeName {
-				log.Warning(fmt.Sprintf("[reconcileNodeSelector] Node %s is csi-nfs controller node! Check volumesnapshots and persistentvolumeclaims before remove labels.", node.Name))
+				log.Warning(fmt.Sprintf("[reconcileNodeSelector] Node %s is csi-nfs controller node!", node.Name))
+
+				log.Info(fmt.Sprintf("[reconcileNodeSelector] Check pending volumesnapshots before remove labels from csi-nfs controller node: %s", node.Name))
 				pendingVolumeSnapshots, err := GetPendingVolumeSnapshots(ctx, clusterWideClient, log, NFSStorageClassProvisioner, namespaceList)
 				if err != nil {
 					log.Error(err, "[reconcileNodeSelector] Failed check pending volumesnapshots.")
 					return err
 				}
 				if len(pendingVolumeSnapshots) > 0 {
+					pendingVolumeSnapshotNames := []string{}
+					for _, snapshot := range pendingVolumeSnapshots {
+						pendingVolumeSnapshotNames = append(pendingVolumeSnapshotNames, fmt.Sprintf("%s/%s", snapshot.Namespace, snapshot.Name))
+					}
 					log.Warning(fmt.Sprintf("[reconcileNodeSelector] Found %d pending volumesnapshots with NFS storage provisioner %s. Skip remove label.", len(pendingVolumeSnapshots), NFSStorageClassProvisioner))
+					log.Info(fmt.Sprintf("[reconcileNodeSelector] Pending volumesnapshots: %v", pendingVolumeSnapshotNames))
 					log.Debug(fmt.Sprintf("[reconcileNodeSelector] Pending volumesnapshots: %+v", pendingVolumeSnapshots))
 					nodesToRemoveCount--
 					continue
 				}
 
+				log.Info(fmt.Sprintf("[reconcileNodeSelector] Check pending persistentvolumeclaims before remove labels from csi-nfs controller node: %s", node.Name))
 				pendingPersistentVolumeClaims, err := GetPendingPersistentVolumeClaims(ctx, clusterWideClient, log, NFSStorageClassProvisioner, namespaceList)
 				if err != nil {
 					log.Error(err, "[reconcileNodeSelector] Failed check pending persistentvolumeclaims.")
@@ -183,18 +196,28 @@ func reconcileNodeSelector(
 				}
 
 				if len(pendingPersistentVolumeClaims) > 0 {
+					pendingPersistentVolumeClaimNames := []string{}
+					for _, pvc := range pendingPersistentVolumeClaims {
+						pendingPersistentVolumeClaimNames = append(pendingPersistentVolumeClaimNames, fmt.Sprintf("%s/%s", pvc.Namespace, pvc.Name))
+					}
 					log.Warning(fmt.Sprintf("[reconcileNodeSelector] Found %d pending persistentvolumeclaims with NFS storage provisioner %s. Skip remove label.", len(pendingPersistentVolumeClaims), NFSStorageClassProvisioner))
+					log.Info(fmt.Sprintf("[reconcileNodeSelector] Pending persistentvolumeclaims: %v", pendingPersistentVolumeClaimNames))
 					log.Debug(fmt.Sprintf("[reconcileNodeSelector] Pending persistentvolumeclaims: %+v", pendingPersistentVolumeClaims))
 					nodesToRemoveCount--
 					continue
 				}
 			}
 
-			log.Info(fmt.Sprintf("[reconcileNodeSelector] Check volume attachments for node: %s", node.Name))
+			log.Info(fmt.Sprintf("[reconcileNodeSelector] Check if node %s has pods with NFS volume.", node.Name))
 
 			nodePodsWithNFSVolume, ok := podsMapWithNFSVolume[node.Name]
 			if ok && len(nodePodsWithNFSVolume) > 0 {
+				nodePodNamesWithNFSVolume := []string{}
+				for _, pod := range nodePodsWithNFSVolume {
+					nodePodNamesWithNFSVolume = append(nodePodNamesWithNFSVolume, fmt.Sprintf("%s/%s", pod.Namespace, pod.Name))
+				}
 				log.Warning(fmt.Sprintf("[reconcileNodeSelector] Found %d pods with NFS volume for node: %s. Skip remove label.", len(nodePodsWithNFSVolume), node.Name))
+				log.Info(fmt.Sprintf("[reconcileNodeSelector] Pods with NFS volume on node %s: %v", node.Name, nodePodNamesWithNFSVolume))
 				log.Trace(fmt.Sprintf("[reconcileNodeSelector] Pods with NFS volume on node %s: %+v", node.Name, nodePodsWithNFSVolume))
 				nodesToRemoveCount--
 				continue
@@ -327,9 +350,6 @@ func GetPodsMapWithNFSVolume(ctx context.Context, clusterWideClient client.Reade
 	for _, namespace := range namespaceList.Items {
 		log.Debug(fmt.Sprintf("[GetPodsMapWithNFSVolume] Get pods for namespace %s.", namespace.Name))
 		pods := &corev1.PodList{}
-		// err := clusterWideClient.List(ctx, pods, &client.ListOptions{
-		// 	Namespace: namespace.Name,
-		// })
 		err := clusterWideClient.List(ctx, pods, client.InNamespace(namespace.Name))
 
 		if err != nil {
