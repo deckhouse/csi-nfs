@@ -30,8 +30,10 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 
+	snapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumesnapshot/v1"
 	v1 "k8s.io/api/core/v1"
 	sv1 "k8s.io/api/storage/v1"
+
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
@@ -47,6 +49,7 @@ var (
 		extv1.AddToScheme,
 		v1.AddToScheme,
 		sv1.AddToScheme,
+		snapshotv1.AddToScheme,
 	}
 )
 
