@@ -18,6 +18,7 @@ rules:
       - ""
     resources:
       - secrets
+      - pods
     verbs:
       - get
       - list
