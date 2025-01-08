@@ -36,7 +36,7 @@ index 76e0d675..c8fedc65 100644
  )
  
 +const (
-+	TopologyKey = "topology.nfs.csi.k8s.io/node"
++	TopologyKey = "topology.nfs.csi.storage.deckhouse.io/node"
 +)
 +
  // NodeServer driver
