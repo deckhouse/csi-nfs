@@ -1,0 +1,59 @@
+From b22d140ab884d528b5b4efa69f704b127333f107 Mon Sep 17 00:00:00 2001
+From: Aleksandr Zimin <alexandr.zimin@flant.com>
+Date: Thu, 9 Jan 2025 01:48:45 +0300
+Subject: [PATCH] Add topology
+
+Signed-off-by: Aleksandr Zimin <alexandr.zimin@flant.com>
+---
+ pkg/nfs/identityserver.go | 7 +++++++
+ pkg/nfs/nodeserver.go     | 9 +++++++++
+ 2 files changed, 16 insertions(+)
+
+diff --git a/pkg/nfs/identityserver.go b/pkg/nfs/identityserver.go
+index d76fcf49..1b27d7dc 100644
+--- a/pkg/nfs/identityserver.go
++++ b/pkg/nfs/identityserver.go
+@@ -61,6 +61,13 @@ func (ids *IdentityServer) GetPluginCapabilities(_ context.Context, _ *csi.GetPl
+ 					},
+ 				},
+ 			},
++			{
++				Type: &csi.PluginCapability_Service_{
++					Service: &csi.PluginCapability_Service{
++						Type: csi.PluginCapability_Service_VOLUME_ACCESSIBILITY_CONSTRAINTS,
++					},
++				},
++			},
+ 		},
+ 	}, nil
+ }
+diff --git a/pkg/nfs/nodeserver.go b/pkg/nfs/nodeserver.go
+index 76e0d675..c8fedc65 100644
+--- a/pkg/nfs/nodeserver.go
++++ b/pkg/nfs/nodeserver.go
+@@ -34,6 +34,10 @@ import (
+ 	azcache "sigs.k8s.io/cloud-provider-azure/pkg/cache"
+ )
+ 
++const (
++	TopologyKey = "topology.nfs.csi.k8s.io/node"
++)
++
+ // NodeServer driver
+ type NodeServer struct {
+ 	Driver  *Driver
+@@ -191,6 +195,11 @@ func (ns *NodeServer) NodeUnpublishVolume(_ context.Context, req *csi.NodeUnpubl
+ func (ns *NodeServer) NodeGetInfo(_ context.Context, _ *csi.NodeGetInfoRequest) (*csi.NodeGetInfoResponse, error) {
+ 	return &csi.NodeGetInfoResponse{
+ 		NodeId: ns.Driver.nodeID,
++		AccessibleTopology: &csi.Topology{
++			Segments: map[string]string{
++				TopologyKey: ns.Driver.nodeID,
++			},
++		},
+ 	}, nil
+ }
+ 
+-- 
+2.39.5 (Apple Git-154)
+
