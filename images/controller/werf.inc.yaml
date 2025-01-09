@@ -1,11 +1,7 @@
-{{- $_ := set . "BASE_GOLANG"  "registry.deckhouse.io/base_images/golang:1.23.1-bullseye@sha256:a24507d1a36fce86431198a979435dadb187e8d0ce0b5c181f46d6788d84a40f" }}
-{{- $_ := set . "BASE_SCRATCH" "registry.deckhouse.io/base_images/scratch@sha256:653ae76965c98c8cd1c8c9ff7725316d2983986f896655b30e0f44d2f8b2dd7e" }}
-{{- $_ := set . "BASE_ALT"     "registry.deckhouse.io/base_images/alt:p11@sha256:e47d84424485d3674240cb2f67d3a1801b37d327e6d1eb8cc8d01be8ed3b34f3" }}
-
 ---
 # do not remove this image: used in external audits (DKP CSE)
 image: {{ $.ImageName }}-src-artifact
-from: {{ $.BASE_ALT }}
+from: {{ $.Root.BASE_ALT }}
 final: false
 git:
   - add: /
@@ -22,7 +18,7 @@ shell:
 
 ---
 image: {{ $.ImageName }}-golang-artifact
-from: {{ $.BASE_GOLANG }}
+from: {{ $.Root.BASE_GOLANG }}
 final: false
 import:
   - image: {{ $.ImageName }}-src-artifact
@@ -41,7 +37,7 @@ shell:
 
 ---
 image: {{ $.ImageName }}
-from: {{ $.BASE_SCRATCH }}
+from: {{ $.Root.BASE_SCRATCH }}
 import:
   - image: {{ $.ImageName }}-golang-artifact
     add: /controller
