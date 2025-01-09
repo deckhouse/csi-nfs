@@ -1,8 +1,8 @@
 module d8-controller
 
-go 1.23.0
+go 1.23.4
 
-toolchain go1.23.1
+//toolchain go1.23.1
 
 require (
 	github.com/deckhouse/csi-nfs/api v0.0.0-00010101000000-000000000000

@@ -1,7 +1,7 @@
 ---
 # do not remove this image: used in external audits (DKP CSE)
 image: {{ $.ImageName }}-src-artifact
-from: {{ $.Root.BASE_ALT }}
+from: {{ $.Root.BASE_ALT_P11 }}
 final: false
 git:
   - add: /
@@ -18,7 +18,7 @@ shell:
 
 ---
 image: {{ $.ImageName }}-golang-artifact
-from: {{ $.Root.BASE_GOLANG }}
+from: {{ $.Root.BASE_GOLANG_1_23 }}
 final: false
 import:
   - image: {{ $.ImageName }}-src-artifact
