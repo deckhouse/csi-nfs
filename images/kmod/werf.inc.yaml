@@ -1,28 +1,53 @@
-{{- $_ := set . "BASE_SCRATCH"    "registry.deckhouse.ru/base_images/scratch@sha256:b054705fcc9f2205777d80a558d920c0b4209efdc3163c22b5bfcb5dda1db5fc" }}
-{{- $_ := set . "BASE_ALPINE_DEV" "registry.deckhouse.ru/base_images/dev-alpine:3.16.3@sha256:c706fa83cc129079e430480369a3f062b8178cac9ec89266ebab753a574aca8e" }}
-{{- $_ := set . "BASE_ALT_DEV"    "registry.deckhouse.ru/base_images/dev-alt:p10@sha256:76e6e163fa982f03468166203488b569e6d9fc10855d6a259c662706436cdcad" }}
-
-{{ $binaries := "/opt/deckhouse/csi/bin/kmod" }}
-{{ $version := "33" }}
+---
+# do not remove this image: used in external audits (DKP CSE)
+image: {{ $.ImageName }}-src-artifact
+from: {{ $.Root.BASE_ALT_P11 }}
+final: false
+git:
+  - url: {{ env "SOURCE_REPO" }}/kmod-project/kmod.git
+    add: /
+    to: /src
+    tag: v{{ $.Versions.KMOD }}
+    stageDependencies:
+      install:
+        - '**/*'
+shell:
+  install:
+    - rm -rf /src/.git
 ---
 image: {{ $.ImageName }}-binaries-artifact
-from: {{ $.BASE_ALT_DEV }}
+from: {{ $.Root.BASE_ALT_P11 }}
 final: false
+
+import:
+  - image: {{ $.ImageName }}-src-artifact
+    add: /src
+    to: /src
+    before: install
+
+git:
+  - add: /tools/dev_images/additional_tools/alt/binary_replace.sh
+    to: /binary_replace.sh
+    stageDependencies:
+      beforeSetup:
+        - '**/*'
 
 shell:
   beforeInstall:
     - apt-get update
-    - apt-get install -y libzstd-devel liblzma-devel
+    - apt-get install -y {{ $.Root.DEV_PACKAGES }}
+    - apt-get install -y libzstd-devel liblzma-devel zlib-devel libssl-devel
+    - {{ $.Root.ALT_CLEANUP_CMD }}
   install:
-    - git clone --depth 1 --branch v{{ $version }} {{ env "SOURCE_REPO" }}/kmod-project/kmod.git /kmod
-    - cd /kmod
+    - cd /src
     - ./autogen.sh
     - ./configure CFLAGS='-g -O2' --with-zstd --with-xz --with-zlib --with-openssl --disable-manpages --disable-test-modules
     - make
   beforeSetup:
     - mkdir -p /opt/deckhouse/csi/bin
-    - cp -v /kmod/tools/kmod /opt/deckhouse/csi/bin/kmod # do not use an end name other than 'kmod'
-    - /binary_replace.sh -i "{{ $binaries }}" -o /relocate
+    - cp -v /src/tools/kmod /opt/deckhouse/csi/bin/kmod # do not use an end name other than 'kmod'
+    - chmod +x /binary_replace.sh
+    - /binary_replace.sh -i "/opt/deckhouse/csi/bin/kmod" -o /relocate
   setup:
     - |
         cd /opt/deckhouse/csi/bin
@@ -33,25 +58,30 @@ shell:
 
 ---
 image: {{ $.ImageName }}-distroless-artifact
-from: {{ $.BASE_ALPINE_DEV }}
+from: {{ $.Root.BASE_ALT_P11 }}
 final: false
 
 shell:
+  beforeInstall:
+    - apt-get update
+    - apt-get install -y openssl libtirpc
+    - {{ $.Root.ALT_CLEANUP_CMD }}
   install:
-    - mkdir -p /relocate/bin /relocate/sbin /relocate/etc /relocate/etc/ssl /relocate/usr/bin /relocate/usr/sbin /relocate/usr/share
+    - mkdir -p /relocate/bin /relocate/sbin /relocate/etc /relocate/var/lib/ssl /relocate/usr/bin /relocate/usr/sbin /relocate/usr/share
     - cp -pr /tmp /relocate
-    - cp -pr /etc/passwd /etc/group /etc/hostname /etc/hosts /etc/shadow /etc/protocols /etc/services /etc/nsswitch.conf /relocate/etc
+    - cp -pr /etc/passwd /etc/group /etc/hostname /etc/hosts /etc/shadow /etc/protocols /etc/services /etc/nsswitch.conf /etc/netconfig /relocate/etc
     - cp -pr /usr/share/ca-certificates /relocate/usr/share
     - cp -pr /usr/share/zoneinfo /relocate/usr/share
-    - cp -pr /etc/ssl/cert.pem /relocate/etc/ssl
-    - cp -pr /etc/ssl/certs /relocate/etc/ssl
-    - echo "deckhouse:x:64535:64535:deckhouse:/:/sbin/nologin" >> /relocate/etc/passwd
-    - echo "deckhouse:x:64535:" >> /relocate/etc/group
+    - cp -pr /var/lib/ssl/cert.pem /relocate/var/lib/ssl
+    - cp -pr /var/lib/ssl/certs /relocate/var/lib/ssl
+    - echo "deckhouse:x:{{ $.Root.DECKHOUSE_UID_GID }}:{{ $.Root.DECKHOUSE_UID_GID }}:deckhouse:/:/sbin/nologin" >> /relocate/etc/passwd
+    - echo "deckhouse:x:{{ $.Root.DECKHOUSE_UID_GID }}:" >> /relocate/etc/group
     - echo "deckhouse:!::0:::::" >> /relocate/etc/shadow
+
 
 ---
 image: {{ $.ImageName }}-distroless
-from: {{ $.BASE_SCRATCH }}
+from: {{ $.Root.BASE_SCRATCH }}
 final: false
 
 import:
