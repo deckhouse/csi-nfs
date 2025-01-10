@@ -18,26 +18,23 @@ package main
 
 import (
 	"context"
-	"d8-controller/pkg/config"
-	"d8-controller/pkg/controller"
-	"d8-controller/pkg/kubutils"
-	"d8-controller/pkg/logger"
 	"fmt"
 	"os"
 	goruntime "runtime"
 
+	"d8-controller/pkg/config"
+	"d8-controller/pkg/controller"
+	"d8-controller/pkg/kubutils"
+	"d8-controller/pkg/logger"
 	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
-
-	"sigs.k8s.io/controller-runtime/pkg/cache"
-
 	snapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumesnapshot/v1"
 	v1 "k8s.io/api/core/v1"
 	sv1 "k8s.io/api/storage/v1"
-
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )

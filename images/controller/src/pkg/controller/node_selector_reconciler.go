@@ -18,10 +18,11 @@ package controller
 
 import (
 	"context"
-	"d8-controller/pkg/config"
-	"d8-controller/pkg/logger"
 	"fmt"
 	"time"
+
+	"d8-controller/pkg/config"
+	"d8-controller/pkg/logger"
 
 	snapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumesnapshot/v1"
 	"gopkg.in/yaml.v3"
@@ -30,14 +31,12 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
-
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 const (
@@ -63,27 +62,27 @@ func RunNodeSelectorReconciler(
 
 	c, err := controller.New(NodeSelectorReconcilerName, mgr, controller.Options{
 		Reconciler: reconcile.Func(func(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
-			if request.Name == cfg.ConfigSecretName {
-				log.Info(fmt.Sprintf("Start reconcile of NFS node selectors. Get config secret: %s/%s", request.Namespace, request.Name))
-				err := ReconcileNodeSelector(ctx, cl, clusterWideClient, log, request.Namespace, request.Name)
-				if err != nil {
-					log.Error(err, "Failed reconcile of NFS node selectors.")
-				}
-				log.Info("END reconcile of NFS node selectors.")
-
-				log.Info("Start reconcile of module pods.")
-				err = ReconcileModulePods(ctx, cl, clusterWideClient, log, cfg.ControllerNamespace, nfsNodeSelector)
-				if err != nil {
-					log.Error(err, "Failed reconcile of module pods.")
-				}
-				log.Info("END reconcile of module pods.")
-
-				return reconcile.Result{
-					RequeueAfter: time.Duration(cfg.RequeueNodeSelectorInterval) * time.Second,
-				}, nil
+			if request.Name != cfg.ConfigSecretName {
+				return reconcile.Result{}, nil
 			}
 
-			return reconcile.Result{}, nil
+			log.Info(fmt.Sprintf("Start reconcile of NFS node selectors. Get config secret: %s/%s", request.Namespace, request.Name))
+			err := ReconcileNodeSelector(ctx, cl, clusterWideClient, log, request.Namespace, request.Name)
+			if err != nil {
+				log.Error(err, "Failed reconcile of NFS node selectors.")
+			}
+			log.Info("END reconcile of NFS node selectors.")
+
+			log.Info("Start reconcile of module pods.")
+			err = ReconcileModulePods(ctx, cl, clusterWideClient, log, cfg.ControllerNamespace, nfsNodeSelector)
+			if err != nil {
+				log.Error(err, "Failed reconcile of module pods.")
+			}
+			log.Info("END reconcile of module pods.")
+
+			return reconcile.Result{
+				RequeueAfter: cfg.RequeueNodeSelectorInterval * time.Second,
+			}, nil
 		}),
 	})
 
