@@ -7,7 +7,6 @@ git:
   - add: /
     to: /src
     includePaths:
-      - api
       - images/{{ $.ImageName }}/src
     stageDependencies:
       install:
