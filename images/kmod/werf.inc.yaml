@@ -14,6 +14,7 @@ git:
 shell:
   install:
     - rm -rf /src/.git
+
 ---
 image: {{ $.ImageName }}-binaries-artifact
 from: {{ $.Root.BASE_ALT_P11 }}
@@ -77,7 +78,6 @@ shell:
     - echo "deckhouse:x:{{ $.Root.DECKHOUSE_UID_GID }}:{{ $.Root.DECKHOUSE_UID_GID }}:deckhouse:/:/sbin/nologin" >> /relocate/etc/passwd
     - echo "deckhouse:x:{{ $.Root.DECKHOUSE_UID_GID }}:" >> /relocate/etc/group
     - echo "deckhouse:!::0:::::" >> /relocate/etc/shadow
-
 
 ---
 image: {{ $.ImageName }}-distroless
