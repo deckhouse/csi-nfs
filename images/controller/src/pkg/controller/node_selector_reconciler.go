@@ -49,6 +49,10 @@ var (
 	nfsNodeSelector                    = map[string]string{NFSNodeLabelKey: ""}
 	csiControllerLabel                 = map[string]string{"app": "csi-controller"}
 	csiNFSExternalSnapshotterLeaseName = "external-snapshotter-leader-nfs-csi-k8s-io"
+	modulePodSelectorList              = []map[string]string{
+		{"app": "csi-nfs-controller"},
+		{"app": "csi-nfs-node"},
+	}
 )
 
 func RunNodeSelectorReconciler(
@@ -74,7 +78,7 @@ func RunNodeSelectorReconciler(
 			log.Info("END reconcile of NFS node selectors.")
 
 			log.Info("Start reconcile of module pods.")
-			err = ReconcileModulePods(ctx, cl, clusterWideClient, log, cfg.ControllerNamespace, nfsNodeSelector)
+			err = ReconcileModulePods(ctx, cl, clusterWideClient, log, cfg.ControllerNamespace, nfsNodeSelector, modulePodSelectorList)
 			if err != nil {
 				log.Error(err, "Failed reconcile of module pods.")
 			}
@@ -544,7 +548,7 @@ func IsCSIControllerRemovable(ctx context.Context, clusterWideClient client.Read
 	return true, nil
 }
 
-func ReconcileModulePods(ctx context.Context, cl client.Client, clusterWideClient client.Reader, log logger.Logger, moduleNamespace string, nodeSelector map[string]string) error {
+func ReconcileModulePods(ctx context.Context, cl client.Client, clusterWideClient client.Reader, log logger.Logger, moduleNamespace string, nodeSelector map[string]string, modulePodSelectorList []map[string]string) error {
 	modulePods := &corev1.PodList{}
 	err := cl.List(ctx, modulePods, client.InNamespace(moduleNamespace))
 	if err != nil {
@@ -570,10 +574,24 @@ func ReconcileModulePods(ctx context.Context, cl client.Client, clusterWideClien
 
 	csiControllerPods := []corev1.Pod{}
 	for _, pod := range modulePods.Items {
+		podMatchSelector := false
 		log.Debug(fmt.Sprintf("[ReconcileModulePods] Reconcile pod %s/%s. Pod assigned to node: %s", pod.Namespace, pod.Name, pod.Spec.NodeName))
 		log.Trace(fmt.Sprintf("[ReconcileModulePods] Pod: %+v", pod))
 		if pod.Spec.NodeName == "" {
 			log.Debug(fmt.Sprintf("[ReconcileModulePods] Skip pod %s/%s. NodeName is nil.", pod.Namespace, pod.Name))
+			continue
+		}
+
+		for _, selector := range modulePodSelectorList {
+			if isPodMatchLabels(pod, selector) {
+				log.Debug(fmt.Sprintf("[ReconcileModulePods] Pod %s/%s match selector %v.", pod.Namespace, pod.Name, selector))
+				podMatchSelector = true
+				break
+			}
+		}
+
+		if !podMatchSelector {
+			log.Debug(fmt.Sprintf("[ReconcileModulePods] Skip pod %s/%s. Pod not match any selector from list: %v.", pod.Namespace, pod.Name, modulePodSelectorList))
 			continue
 		}
 
