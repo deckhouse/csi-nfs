@@ -6,6 +6,7 @@
 # component versions
 {{- $versions := dict }}
 {{- $_ := set $versions "KMOD" "33" }}
+{{- $_ := set $versions "KTLS_UTILS" "ktls-utils-0.11" }}
 {{- $_ := set $ "VERSIONS" $versions }}
 
 # custom constants
