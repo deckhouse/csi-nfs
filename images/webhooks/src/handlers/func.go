@@ -18,6 +18,11 @@ package handlers
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"net/http"
+	"os"
+
 	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	"github.com/go-logr/logr"
 	"github.com/slok/kubewebhook/v2/pkg/log"
@@ -29,11 +34,8 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"net/http"
-	"os"
 	controllerruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	mc "webhooks/api"
 
 	kwhhttp "github.com/slok/kubewebhook/v2/pkg/http"
 	"github.com/slok/kubewebhook/v2/pkg/model"
@@ -62,7 +64,6 @@ func NewKubeClient(kubeconfigPath string) (client.Client, error) {
 	var (
 		resourcesSchemeFuncs = []func(*apiruntime.Scheme) error{
 			v1alpha2.AddToScheme,
-			mc.AddToScheme,
 			cn.AddToScheme,
 			clientgoscheme.AddToScheme,
 			extv1.AddToScheme,
@@ -126,4 +127,81 @@ func GetValidatingWebhookHandler(validationFunc func(ctx context.Context, _ *mod
 
 	return mutationWebhookHandler, err
 
+}
+
+// see images/controller/src/pkg/controller/nfs_storage_class_watcher_func.go
+func validateNFSStorageClass(nfsModuleConfig *cn.ModuleConfig, nsc *cn.NFSStorageClass) error {
+	var logPostfix string = "Such a combination of parameters is not allowed"
+
+	if nsc.Spec.Connection.NFSVersion == "3" {
+		if value, ok := nfsModuleConfig.Spec.Settings["v3support"]; !ok {
+			return errors.New(fmt.Sprintf(
+				"ModuleConfig: %s (the v3support parameter is missing); NFSStorageClass: %s (nfsVersion is set to 3); %s",
+				nfsModuleConfig.Name, nsc.Name, logPostfix,
+			))
+		} else {
+			if value == false {
+				return errors.New(fmt.Sprintf(
+					"ModuleConfig: %s (the v3support parameter is disabled); NFSStorageClass: %s (nfsVersion is set to 3); %s",
+					nfsModuleConfig.Name, nsc.Name, logPostfix,
+				))
+			}
+		}
+	}
+
+	if nsc.Spec.Connection.Tls || nsc.Spec.Connection.Mtls {
+		var tlsParameters map[string]interface{}
+
+		if value, ok := nfsModuleConfig.Spec.Settings["tlsParameters"]; !ok {
+			return errors.New(fmt.Sprintf(
+				"ModuleConfig: %s (the tlsParameters parameter is missing); NFSStorageClass: %s (tls or mtls is enabled); %s",
+				nfsModuleConfig.Name, nsc.Name, logPostfix,
+			))
+		} else {
+			tlsParameters = value.(map[string]interface{})
+		}
+		if value, ok := tlsParameters["ca"]; !ok || len(value.(string)) == 0 {
+			return errors.New(fmt.Sprintf(
+				"ModuleConfig: %s (the tlsParameters.ca parameter is either missing or has a zero length); NFSStorageClass: %s (tls or mtls is enabled); %s",
+				nfsModuleConfig.Name, nsc.Name, logPostfix,
+			))
+		}
+
+		if nsc.Spec.Connection.Mtls {
+			var mtls map[string]interface{}
+
+			if value, ok := tlsParameters["mtls"]; !ok {
+				return errors.New(fmt.Sprintf(
+					"ModuleConfig: %s (the tlsParameters.mtls parameter is missing); NFSStorageClass: %s (mtls is enabled); %s",
+					nfsModuleConfig.Name, nsc.Name, logPostfix,
+				))
+			} else {
+				mtls = value.(map[string]interface{})
+			}
+			if value, ok := mtls["clientCert"]; !ok || len(value.(string)) == 0 {
+				return errors.New(fmt.Sprintf(
+					"ModuleConfig: %s (the tlsParameters.mtls.clientCert parameter is either missing or has a zero length); NFSStorageClass: %s (mtls is enabled); %s",
+					nfsModuleConfig.Name, nsc.Name, logPostfix,
+				))
+			}
+			if value, ok := mtls["clientKey"]; !ok || len(value.(string)) == 0 {
+				return errors.New(fmt.Sprintf(
+					"ModuleConfig: %s (the tlsParameters.mtls.clientKey parameter is either missing or has a zero length); NFSStorageClass: %s (mtls is enabled); %s",
+					nfsModuleConfig.Name, nsc.Name, logPostfix,
+				))
+			}
+		}
+	}
+
+	return nil
+}
+
+func validateModuleConfig(mc *cn.ModuleConfig, nscList *cn.NFSStorageClassList) error {
+	for _, nsc := range nscList.Items {
+		if err := validateNFSStorageClass(mc, &nsc); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

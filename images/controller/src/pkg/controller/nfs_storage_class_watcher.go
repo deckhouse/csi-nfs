@@ -22,9 +22,10 @@ import (
 	"d8-controller/pkg/logger"
 	"errors"
 	"fmt"
-	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	"reflect"
 	"time"
+
+	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/storage/v1"
@@ -100,6 +101,20 @@ func RunNFSStorageClassWatcherController(
 			if nsc.Name == "" {
 				log.Info(fmt.Sprintf("[NFSStorageClassReconciler] seems like the NFSStorageClass for the request %s was deleted. Reconcile retrying will stop.", request.Name))
 				return reconcile.Result{}, nil
+			}
+
+			if nsc.DeletionTimestamp == nil {
+				nfsModuleConfig := &v1alpha1.ModuleConfig{}
+				err := cl.Get(ctx, types.NamespacedName{Name: cfg.CsiNfsModuleName, Namespace: ""}, nfsModuleConfig)
+				if err != nil {
+					log.Error(err, fmt.Sprintf("[NFSStorageClassReconciler] unable to get ModuleConfig, name: %s", cfg.CsiNfsModuleName))
+					return reconcile.Result{}, err
+				}
+
+				if err := validateNFSStorageClass(nfsModuleConfig, nsc); err != nil {
+					log.Error(err, "[NFSStorageClassReconciler] invalid NFSStorageClass")
+					return reconcile.Result{}, err
+				}
 			}
 
 			scList := &v1.StorageClassList{}
