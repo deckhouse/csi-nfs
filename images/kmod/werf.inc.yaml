@@ -7,7 +7,7 @@ git:
   - url: {{ env "SOURCE_REPO" }}/kmod-project/kmod.git
     add: /
     to: /src
-    tag: v{{ $.Versions.KMOD }}
+    tag: {{ $.Versions.KMOD }}
     stageDependencies:
       install:
         - '**/*'
