@@ -6,6 +6,7 @@
 # component versions
 {{- $versions := dict }}
 {{- $_ := set $versions "CSI_DRIVER_NFS" "v4.7.0" }}
+{{- $_ := set $versions "NFS_UTILS" "nfs-utils-2-7-1" }}  # must match the nfs-utils package from BASE_ALT_P11
 {{- $_ := set $ "VERSIONS" $versions }}
 
 # custom constants
