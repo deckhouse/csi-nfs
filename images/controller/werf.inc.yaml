@@ -76,4 +76,3 @@ import:
     before: setup
 docker:
   ENTRYPOINT: ["/controller"]
-  USER: deckhouse:deckhouse

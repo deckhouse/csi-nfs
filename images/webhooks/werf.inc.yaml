@@ -68,7 +68,7 @@ import:
 
 ---
 image: {{ $.ImageName }}
-from: {{ $.Root.BASE_SCRATCH }}
+fromImage: {{ $.ImageName }}-distroless
 import:
   - image: {{ $.ImageName }}-golang-artifact
     add: /webhooks
