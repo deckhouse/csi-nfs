@@ -21,10 +21,11 @@ import (
 	"d8-controller/pkg/logger"
 	"errors"
 	"fmt"
-	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	"reflect"
 	"strconv"
 	"strings"
+
+	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
 
 	"slices"
 
@@ -400,11 +401,7 @@ func shouldReconcileStorageClassByUpdateFunc(log logger.Logger, scList *v1.Stora
 }
 
 func shouldReconcileByDeleteFunc(obj metav1.Object) bool {
-	if obj.GetDeletionTimestamp() != nil {
-		return true
-	}
-
-	return false
+	return obj.GetDeletionTimestamp() != nil
 }
 
 func removeFinalizerIfExists(ctx context.Context, cl client.Client, obj metav1.Object, finalizerName string) (bool, error) {

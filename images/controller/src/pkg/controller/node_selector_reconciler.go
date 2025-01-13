@@ -156,7 +156,7 @@ func ReconcileNodeSelector(
 	for _, node := range nodesToRemove.Items {
 		nodeNamesToRemove = append(nodeNamesToRemove, node.Name)
 	}
-	log.Warning(fmt.Sprintf("[reconcileNodeSelector] Found %d nodes that not in selected nodes by user defined selector %v. Remove csi-nfs node label %v from them", nodesToRemoveCount, configNodeSelector, nfsNodeLabels))
+	log.Warning(fmt.Sprintf("[reconcileNodeSelector] Found nodes that not in selected nodes by user defined selector %v. Remove csi-nfs node label %v from them", configNodeSelector, nfsNodeLabels))
 	log.Info(fmt.Sprintf("[reconcileNodeSelector] Nodes to remove: %v", nodeNamesToRemove))
 	log.Trace(fmt.Sprintf("[reconcileNodeSelector] Nodes: %+v", nodesToRemove.Items))
 
@@ -556,7 +556,15 @@ func IsCSIControllerRemovable(ctx context.Context, clusterWideClient client.Read
 	return true, nil
 }
 
-func ReconcileModulePods(ctx context.Context, cl client.Client, clusterWideClient client.Reader, log logger.Logger, moduleNamespace string, nodeSelector map[string]string, modulePodSelectorList []map[string]string) error {
+func ReconcileModulePods(
+	ctx context.Context,
+	cl client.Client,
+	clusterWideClient client.Reader,
+	log logger.Logger,
+	moduleNamespace string,
+	nodeSelector map[string]string,
+	modulePodSelectorList []map[string]string,
+) error {
 	modulePods := &corev1.PodList{}
 	err := cl.List(ctx, modulePods, client.InNamespace(moduleNamespace))
 	if err != nil {
@@ -580,13 +588,14 @@ func ReconcileModulePods(ctx context.Context, cl client.Client, clusterWideClien
 	log.Info(fmt.Sprintf("[ReconcileModulePods] csi-nfs node names: %v", csiNFSNodeNames))
 	log.Debug(fmt.Sprintf("[ReconcileModulePods] csi-nfs node names map: %+v", csiNFSNodeNamesMap))
 
-	csiControllerPods := []corev1.Pod{}
-	for _, pod := range modulePods.Items {
+	csiControllerPods := []*corev1.Pod{}
+	for i := 0; i < len(modulePods.Items); i++ {
+		pod := &modulePods.Items[i]
 		podMatchSelector := false
 		log.Debug(fmt.Sprintf("[ReconcileModulePods] Reconcile pod %s/%s. Pod assigned to node: %s", pod.Namespace, pod.Name, pod.Spec.NodeName))
 		log.Trace(fmt.Sprintf("[ReconcileModulePods] Pod: %+v", pod))
 		if pod.Spec.NodeName == "" {
-			log.Debug(fmt.Sprintf("[ReconcileModulePods] Skip pod %s/%s. NodeName is nil.", pod.Namespace, pod.Name))
+			log.Debug(fmt.Sprintf("[ReconcileModulePods] Skip pod %s/%s. NodeName is empty.", pod.Namespace, pod.Name))
 			continue
 		}
 
@@ -603,52 +612,55 @@ func ReconcileModulePods(ctx context.Context, cl client.Client, clusterWideClien
 			continue
 		}
 
-		_, ok := csiNFSNodeNamesMap[pod.Spec.NodeName]
-		if !ok {
-			if isPodMatchLabels(pod, csiControllerLabel) {
-				log.Debug(fmt.Sprintf("[ReconcileModulePods] Add pod %s/%s to csi-controller pods.", pod.Namespace, pod.Name))
-				csiControllerPods = append(csiControllerPods, pod)
-			} else {
-				log.Info(fmt.Sprintf("[ReconcileModulePods] Remove pod %s/%s because it is assigned to node %s that not in csi-nfs nodes: %v.", pod.Namespace, pod.Name, pod.Spec.NodeName, csiNFSNodeNames))
-				err := cl.Delete(ctx, &pod)
-				if err != nil {
-					log.Error(err, fmt.Sprintf("[ReconcileModulePods] Failed delete pod %s/%s.", pod.Namespace, pod.Name))
-					return err
-				}
+		if _, ok := csiNFSNodeNamesMap[pod.Spec.NodeName]; ok {
+			continue
+		}
+
+		if isPodMatchLabels(pod, csiControllerLabel) {
+			log.Debug(fmt.Sprintf("[ReconcileModulePods] Add pod %s/%s to csi-controller pods.", pod.Namespace, pod.Name))
+			csiControllerPods = append(csiControllerPods, pod)
+		} else {
+			log.Info(fmt.Sprintf("[ReconcileModulePods] Remove pod %s/%s because it is assigned to node %s that not in csi-nfs nodes: %v.", pod.Namespace, pod.Name, pod.Spec.NodeName, csiNFSNodeNames))
+			if err := cl.Delete(ctx, pod); err != nil {
+				log.Error(err, fmt.Sprintf("[ReconcileModulePods] Failed delete pod %s/%s.", pod.Namespace, pod.Name))
+				return err
 			}
 		}
 	}
 
-	if len(csiControllerPods) > 0 {
-		csiControllerPodNames := []string{}
+	if len(csiControllerPods) == 0 {
+		log.Debug("[ReconcileModulePods] Successfully reconciled module pods.")
+		return nil
+	}
+
+	csiControllerPodNames := []string{}
+	for _, pod := range csiControllerPods {
+		csiControllerPodNames = append(csiControllerPodNames, fmt.Sprintf("%s/%s on node %s", pod.Namespace, pod.Name, pod.Spec.NodeName))
+	}
+	log.Warning(fmt.Sprintf("[ReconcileModulePods] Found %d csi-controller pods that assigned to nodes not in csi-nfs nodes: %v.", len(csiControllerPods), csiNFSNodeNames))
+	log.Info(fmt.Sprintf("[ReconcileModulePods] csi-controller pods: %v", csiControllerPodNames))
+
+	namespaceList := &corev1.NamespaceList{}
+	err = cl.List(ctx, namespaceList)
+	if err != nil {
+		log.Error(err, "[ReconcileModulePods] Failed get namespaces.")
+		return err
+	}
+	log.Debug(fmt.Sprintf("[ReconcileModulePods] Found %d namespaces.", len(namespaceList.Items)))
+
+	csiControllerRemovable, err := IsCSIControllerRemovable(ctx, clusterWideClient, log, NFSStorageClassProvisioner, namespaceList)
+	if err != nil {
+		log.Error(err, "[ReconcileModulePods] Failed check if can remove csi-nfs controller node.")
+		return err
+	}
+	if csiControllerRemovable {
+		log.Warning("[ReconcileModulePods] Found csi-controller pods that assigned to nodes not in csi-nfs nodes. Remove csi-nfs controller pods.")
 		for _, pod := range csiControllerPods {
-			csiControllerPodNames = append(csiControllerPodNames, fmt.Sprintf("%s/%s on node %s", pod.Namespace, pod.Name, pod.Spec.NodeName))
-		}
-		log.Warning(fmt.Sprintf("[ReconcileModulePods] Found %d csi-controller pods that assigned to nodes not in csi-nfs nodes: %v.", len(csiControllerPods), csiNFSNodeNames))
-		log.Info(fmt.Sprintf("[ReconcileModulePods] csi-controller pods: %v", csiControllerPodNames))
-
-		namespaceList := &corev1.NamespaceList{}
-		err = cl.List(ctx, namespaceList)
-		if err != nil {
-			log.Error(err, "[ReconcileModulePods] Failed get namespaces.")
-			return err
-		}
-		log.Debug(fmt.Sprintf("[ReconcileModulePods] Found %d namespaces.", len(namespaceList.Items)))
-
-		csiControllerRemovable, err := IsCSIControllerRemovable(ctx, clusterWideClient, log, NFSStorageClassProvisioner, namespaceList)
-		if err != nil {
-			log.Error(err, "[ReconcileModulePods] Failed check if can remove csi-nfs controller node.")
-			return err
-		}
-		if csiControllerRemovable {
-			log.Warning("[ReconcileModulePods] Found csi-controller pods that assigned to nodes not in csi-nfs nodes. Remove csi-nfs controller pods.")
-			for _, pod := range csiControllerPods {
-				log.Info(fmt.Sprintf("[ReconcileModulePods] Remove csi-controller pod %s/%s.", pod.Namespace, pod.Name))
-				err := cl.Delete(ctx, &pod)
-				if err != nil {
-					log.Error(err, "[ReconcileModulePods] Failed remove csi-nfs controller node.")
-					return err
-				}
+			log.Info(fmt.Sprintf("[ReconcileModulePods] Remove csi-controller pod %s/%s.", pod.Namespace, pod.Name))
+			err := cl.Delete(ctx, pod)
+			if err != nil {
+				log.Error(err, "[ReconcileModulePods] Failed remove csi-nfs controller node.")
+				return err
 			}
 		}
 	}
@@ -658,7 +670,7 @@ func ReconcileModulePods(ctx context.Context, cl client.Client, clusterWideClien
 	return nil
 }
 
-func isPodMatchLabels(pod corev1.Pod, labelsMap map[string]string) bool {
+func isPodMatchLabels(pod *corev1.Pod, labelsMap map[string]string) bool {
 	selector := labels.SelectorFromSet(labelsMap)
 	return selector.Matches(labels.Set(pod.Labels))
 }
