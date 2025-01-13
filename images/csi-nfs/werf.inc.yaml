@@ -67,6 +67,7 @@ shell:
     - make install DESTDIR=/nfs-utils
   beforeSetup:
     - cp -av /nfs-utils/usr/lib/* /usr/lib/
+    - chmod +x /binary_replace.sh
     - |
       /binary_replace.sh \
       -i "/nfs-utils/sbin/* /nfs-utils/usr/bin/* /nfs-utils/usr/sbin/* /lib64/libnss_files.so.2 /lib64/libnss_dns.so.2 /bin/cp /bin/mount /bin/umount" \
