@@ -45,7 +45,7 @@ jobs:
 
       - name: Prepare sub repo
         run: |
-          version=v`grep "version :=" images/csi-nfs/werf.inc.yaml | awk -F'"' '{ print $2}'`
+          version=`grep "CSI_DRIVER_NFS" .werf/consts.yaml | awk -F'"' '{ print $4}'`
           git clone --depth 1 --branch $version ${{ secrets.SOURCE_REPO }}/kubernetes-csi/csi-driver-nfs.git ./csi-driver-nfs
           cp -R ./images/csi-nfs/patches ./csi-driver-nfs
           cd ./csi-driver-nfs
