@@ -1,0 +1,15 @@
+# base images
+{{- $_ := set . "BASE_GOLANG_1_23" "registry.deckhouse.io/base_images/golang:1.23.4-bookworm@sha256:a9147a48ac5e925a66764afae7cf4b1cfd37a6e94ad7519eca74c1fd8993ae45" }}
+{{- $_ := set . "BASE_SCRATCH" "registry.deckhouse.io/base_images/scratch@sha256:653ae76965c98c8cd1c8c9ff7725316d2983986f896655b30e0f44d2f8b2dd7e" }}
+{{- $_ := set . "BASE_ALT_P11" "registry.deckhouse.io/base_images/alt:p11@sha256:e47d84424485d3674240cb2f67d3a1801b37d327e6d1eb8cc8d01be8ed3b34f3" }}
+
+# component versions
+{{- $versions := dict }}
+{{- $_ := set $versions "CSI_DRIVER_NFS" "v4.7.0" }}
+{{- $_ := set $versions "NFS_UTILS" "nfs-utils-2-7-1" }}  # must match the nfs-utils package from BASE_ALT_P11
+{{- $_ := set $ "VERSIONS" $versions }}
+
+# custom constants
+{{- $_ := set $ "DEV_PACKAGES" "make automake pkg-config gcc libtool git curl" }}
+{{- $_ := set $ "DECKHOUSE_UID_GID" "64535" }}
+{{- $_ := set $ "ALT_CLEANUP_CMD" "rm -rf /var/lib/apt/lists/* /var/cache/apt/* && mkdir -p /var/lib/apt/lists/partial /var/cache/apt/archives/partial" }}
