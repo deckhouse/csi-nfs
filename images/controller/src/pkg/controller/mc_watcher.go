@@ -18,14 +18,13 @@ package controller
 
 import (
 	"context"
-	"d8-controller/pkg/config"
-	"d8-controller/pkg/logger"
 	"fmt"
 	"reflect"
 	"time"
 
+	"d8-controller/pkg/config"
+	"d8-controller/pkg/logger"
 	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
-
 	storagev1 "k8s.io/api/storage/v1"
 	k8serr "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -34,10 +33,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 const (
@@ -86,7 +84,7 @@ func RunModuleConfigWatcherController(
 
 				shouldRequeue, err := RunModuleConfigEventReconcile(ctx, cl, log, nscList, alertMap, scList)
 				if err != nil {
-					log.Error(err, fmt.Sprintf("[ModuleConfigReconciler] an error occured while reconciles the ModuleConfig, name: %s", mc.Name))
+					log.Error(err, fmt.Sprintf("[ModuleConfigReconciler] an error occurred while reconciles the ModuleConfig, name: %s", mc.Name))
 				}
 
 				if shouldRequeue {
@@ -114,7 +112,7 @@ func RunModuleConfigWatcherController(
 			&v1alpha1.ModuleConfig{},
 			handler.TypedFuncs[*v1alpha1.ModuleConfig, reconcile.Request]{
 				CreateFunc: func(
-					ctx context.Context,
+					_ context.Context,
 					e event.TypedCreateEvent[*v1alpha1.ModuleConfig],
 					q workqueue.TypedRateLimitingInterface[reconcile.Request],
 				) {
@@ -128,7 +126,7 @@ func RunModuleConfigWatcherController(
 					q.Add(request)
 				},
 				UpdateFunc: func(
-					ctx context.Context,
+					_ context.Context,
 					e event.TypedUpdateEvent[*v1alpha1.ModuleConfig],
 					q workqueue.TypedRateLimitingInterface[reconcile.Request],
 				) {
@@ -186,11 +184,11 @@ func RunModuleConfigEventReconcile(
 			break
 
 			// maybe it's like this here !!!!!!!!!!!
-			//err = fmt.Errorf("[RunModuleConfigEventReconcile] no storage class found for the NFSStorageClass, name: %s", nsc.Name")
-			//return true, err
+			// err = fmt.Errorf("[RunModuleConfigEventReconcile] no storage class found for the NFSStorageClass, name: %s", nsc.Name")
+			// return true, err
 		}
 
-		action := "unknown"
+		var action string
 		if _, ok := alertMap[sc.Name]; !ok {
 			action = "deleted"
 

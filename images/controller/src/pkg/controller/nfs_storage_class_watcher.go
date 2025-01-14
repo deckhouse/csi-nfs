@@ -18,15 +18,14 @@ package controller
 
 import (
 	"context"
-	"d8-controller/pkg/config"
-	"d8-controller/pkg/logger"
 	"errors"
 	"fmt"
 	"reflect"
 	"time"
 
+	"d8-controller/pkg/config"
+	"d8-controller/pkg/logger"
 	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
-
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/storage/v1"
 	k8serr "k8s.io/apimachinery/pkg/api/errors"
@@ -36,10 +35,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 const (
@@ -126,7 +124,7 @@ func RunNFSStorageClassWatcherController(
 
 			shouldRequeue, err := RunEventReconcile(ctx, cl, log, scList, nsc, cfg.ControllerNamespace)
 			if err != nil {
-				log.Error(err, fmt.Sprintf("[NFSStorageClassReconciler] an error occured while reconciles the NFSStorageClass, name: %s", nsc.Name))
+				log.Error(err, fmt.Sprintf("[NFSStorageClassReconciler] an error occurred while reconciles the NFSStorageClass, name: %s", nsc.Name))
 			}
 
 			if shouldRequeue {
@@ -151,7 +149,7 @@ func RunNFSStorageClassWatcherController(
 			&v1alpha1.NFSStorageClass{},
 			handler.TypedFuncs[*v1alpha1.NFSStorageClass, reconcile.Request]{
 				CreateFunc: func(
-					ctx context.Context,
+					_ context.Context,
 					e event.TypedCreateEvent[*v1alpha1.NFSStorageClass],
 					q workqueue.TypedRateLimitingInterface[reconcile.Request],
 				) {
@@ -160,7 +158,7 @@ func RunNFSStorageClassWatcherController(
 					q.Add(request)
 				},
 				UpdateFunc: func(
-					ctx context.Context,
+					_ context.Context,
 					e event.TypedUpdateEvent[*v1alpha1.NFSStorageClass],
 					q workqueue.TypedRateLimitingInterface[reconcile.Request],
 				) {
@@ -199,7 +197,7 @@ func RunEventReconcile(ctx context.Context, cl client.Client, log logger.Logger,
 
 	reconcileTypeForStorageClass, err := IdentifyReconcileFuncForStorageClass(log, scList, nsc, controllerNamespace)
 	if err != nil {
-		err = fmt.Errorf("[runEventReconcile] error occured while identifying the reconcile function for StorageClass %s: %w", nsc.Name, err)
+		err = fmt.Errorf("[runEventReconcile] error occurred while identifying the reconcile function for StorageClass %s: %w", nsc.Name, err)
 		return true, err
 	}
 
@@ -238,7 +236,7 @@ func RunEventReconcile(ctx context.Context, cl client.Client, log logger.Logger,
 
 	reconcileTypeForSecret, err := IdentifyReconcileFuncForSecret(log, secretList, nsc, controllerNamespace)
 	if err != nil {
-		log.Error(err, fmt.Sprintf("[runEventReconcile] error occured while identifying the reconcile function for the Secret %q", SecretForMountOptionsPrefix+nsc.Name))
+		log.Error(err, fmt.Sprintf("[runEventReconcile] error occurred while identifying the reconcile function for the Secret %q", SecretForMountOptionsPrefix+nsc.Name))
 		return true, err
 	}
 
@@ -275,5 +273,4 @@ func RunEventReconcile(ctx context.Context, cl client.Client, log logger.Logger,
 	}
 
 	return false, nil
-
 }
