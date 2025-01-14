@@ -20,7 +20,6 @@ import (
 	"context"
 	"d8-controller/pkg/config"
 	"d8-controller/pkg/logger"
-	"errors"
 	"fmt"
 	"reflect"
 	"time"
@@ -109,48 +108,52 @@ func RunModuleConfigWatcherController(
 		return nil, err
 	}
 
-	err = c.Watch(source.Kind(mgr.GetCache(), &v1alpha1.ModuleConfig{}), handler.Funcs{
-		CreateFunc: func(ctx context.Context, e event.CreateEvent, q workqueue.RateLimitingInterface) {
-			// we only process our ModuleConfig
-			if e.Object.GetName() != cfg.CsiNfsModuleName {
-				return
-			}
+	err = c.Watch(
+		source.Kind(
+			mgr.GetCache(),
+			&v1alpha1.ModuleConfig{},
+			handler.TypedFuncs[*v1alpha1.ModuleConfig, reconcile.Request]{
+				CreateFunc: func(
+					ctx context.Context,
+					e event.TypedCreateEvent[*v1alpha1.ModuleConfig],
+					q workqueue.TypedRateLimitingInterface[reconcile.Request],
+				) {
+					// we only process our ModuleConfig
+					if e.Object.GetName() != cfg.CsiNfsModuleName {
+						return
+					}
 
-			log.Info(fmt.Sprintf("[CreateFunc] get event for ModuleConfig %q. Add to the queue", e.Object.GetName()))
-			request := reconcile.Request{NamespacedName: types.NamespacedName{Namespace: e.Object.GetNamespace(), Name: e.Object.GetName()}}
-			q.Add(request)
-		},
-		UpdateFunc: func(ctx context.Context, e event.UpdateEvent, q workqueue.RateLimitingInterface) {
-			// we only process our ModuleConfig
-			if e.ObjectNew.GetName() != cfg.CsiNfsModuleName {
-				return
-			}
+					log.Info(fmt.Sprintf("[CreateFunc] get event for ModuleConfig %q. Add to the queue", e.Object.GetName()))
+					request := reconcile.Request{NamespacedName: types.NamespacedName{Namespace: e.Object.GetNamespace(), Name: e.Object.GetName()}}
+					q.Add(request)
+				},
+				UpdateFunc: func(
+					ctx context.Context,
+					e event.TypedUpdateEvent[*v1alpha1.ModuleConfig],
+					q workqueue.TypedRateLimitingInterface[reconcile.Request],
+				) {
+					// we only process our ModuleConfig
+					if e.ObjectNew.GetName() != cfg.CsiNfsModuleName {
+						return
+					}
 
-			log.Info(fmt.Sprintf("[UpdateFunc] get event for ModuleConfig %q. Check if it should be reconciled", e.ObjectNew.GetName()))
+					log.Info(fmt.Sprintf("[UpdateFunc] get event for ModuleConfig %q. Check if it should be reconciled", e.ObjectNew.GetName()))
 
-			oldMC, ok := e.ObjectOld.(*v1alpha1.ModuleConfig)
-			if !ok {
-				err = errors.New("unable to cast event object to a given type")
-				log.Error(err, "[UpdateFunc] an error occurred while handling create event")
-				return
-			}
-			newMC, ok := e.ObjectNew.(*v1alpha1.ModuleConfig)
-			if !ok {
-				err = errors.New("unable to cast event object to a given type")
-				log.Error(err, "[UpdateFunc] an error occurred while handling create event")
-				return
-			}
+					oldMC := e.ObjectOld
+					newMC := e.ObjectNew
 
-			if reflect.DeepEqual(oldMC.Spec, newMC.Spec) && newMC.DeletionTimestamp == nil {
-				log.Info(fmt.Sprintf("[UpdateFunc] an update event for the ModuleConfig %s has no Spec field updates. It will not be reconciled", newMC.Name))
-				return
-			}
+					if reflect.DeepEqual(oldMC.Spec, newMC.Spec) && newMC.DeletionTimestamp == nil {
+						log.Info(fmt.Sprintf("[UpdateFunc] an update event for the ModuleConfig %s has no Spec field updates. It will not be reconciled", newMC.Name))
+						return
+					}
 
-			log.Info(fmt.Sprintf("[UpdateFunc] the ModuleConfig %q will be reconciled. Add to the queue", newMC.Name))
-			request := reconcile.Request{NamespacedName: types.NamespacedName{Namespace: newMC.Namespace, Name: newMC.Name}}
-			q.Add(request)
-		},
-	})
+					log.Info(fmt.Sprintf("[UpdateFunc] the ModuleConfig %q will be reconciled. Add to the queue", newMC.Name))
+					request := reconcile.Request{NamespacedName: types.NamespacedName{Namespace: newMC.Namespace, Name: newMC.Name}}
+					q.Add(request)
+				},
+			},
+		),
+	)
 	if err != nil {
 		log.Error(err, "[RunModuleConfigWatcherController] unable to watch the events")
 		return nil, err
