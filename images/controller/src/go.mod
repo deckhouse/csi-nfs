@@ -5,7 +5,7 @@ go 1.23.4
 //toolchain go1.23.1
 
 require (
-	github.com/deckhouse/csi-nfs/api v0.0.0-00010101000000-000000000000
+	github.com/deckhouse/csi-nfs/api v0.0.0-20241227140928-560829fde94f
 	github.com/go-logr/logr v1.4.2
 	github.com/onsi/ginkgo/v2 v2.21.0
 	github.com/onsi/gomega v1.35.1
