@@ -43,7 +43,7 @@ type Opt struct {
 
 func (o *Opt) Parse() {
 	var rootCmd = &cobra.Command{
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			if !regexp.MustCompile(`^containers$|^init-containers$`).MatchString(o.Mode) {
 				return errors.New("invalid 'mode'")
 			}
@@ -57,7 +57,7 @@ func (o *Opt) Parse() {
 	}
 
 	// Exit after displaying the help information
-	rootCmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
+	rootCmd.SetHelpFunc(func(cmd *cobra.Command, _ []string) {
 		cmd.Print(cmd.UsageString())
 		os.Exit(0)
 	})
