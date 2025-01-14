@@ -1,19 +1,19 @@
-From 418c274da295fa9abc461a4f183158f29bee2ed9 Mon Sep 17 00:00:00 2001
+From 15e557b31662d7003e65185e238bfeea788bb93d Mon Sep 17 00:00:00 2001
 From: Aleksandr Zimin <alexandr.zimin@flant.com>
-Date: Tue, 14 Jan 2025 14:06:22 +0300
+Date: Tue, 14 Jan 2025 14:31:15 +0300
 Subject: [PATCH] fix go.mod
 
 Signed-off-by: Aleksandr Zimin <alexandr.zimin@flant.com>
 ---
- go.mod | 14 +++++++-------
- go.sum | 28 ++++++++++++++--------------
- 2 files changed, 21 insertions(+), 21 deletions(-)
+ go.mod | 16 ++++++++--------
+ go.sum | 32 ++++++++++++++++----------------
+ 2 files changed, 24 insertions(+), 24 deletions(-)
 
 diff --git a/go.mod b/go.mod
-index 69f569b7..bc549a3a 100644
+index 69f569b7..c8e28ec8 100644
 --- a/go.mod
 +++ b/go.mod
-@@ -11,7 +11,7 @@ require (
+@@ -11,14 +11,14 @@ require (
  	github.com/onsi/gomega v1.33.0
  	github.com/pborman/uuid v1.2.1
  	github.com/stretchr/testify v1.9.0
@@ -22,6 +22,14 @@ index 69f569b7..bc549a3a 100644
  	google.golang.org/grpc v1.63.2
  	google.golang.org/protobuf v1.34.0
  	k8s.io/api v0.28.9
+ 	k8s.io/apimachinery v0.28.9
+ 	k8s.io/client-go v0.28.9
+ 	k8s.io/klog/v2 v2.120.1
+-	k8s.io/kubernetes v1.28.9
++	k8s.io/kubernetes v1.28.12
+ 	k8s.io/mount-utils v0.29.4
+ 	k8s.io/pod-security-admission v0.0.0
+ 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
 @@ -96,16 +96,16 @@ require (
  	go.uber.org/atomic v1.10.0 // indirect
  	go.uber.org/multierr v1.11.0 // indirect
@@ -46,7 +54,7 @@ index 69f569b7..bc549a3a 100644
  	google.golang.org/genproto v0.0.0-20240227224415-6ceb2ff114de // indirect
  	google.golang.org/genproto/googleapis/api v0.0.0-20240227224415-6ceb2ff114de // indirect
 diff --git a/go.sum b/go.sum
-index 1a9f74e4..3ce316b0 100644
+index 1a9f74e4..1566701e 100644
 --- a/go.sum
 +++ b/go.sum
 @@ -431,8 +431,8 @@ golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550/go.mod h1:yigFU9vqHzYiE8U
@@ -120,6 +128,17 @@ index 1a9f74e4..3ce316b0 100644
  golang.org/x/xerrors v0.0.0-20190717185122-a985d3407aa7/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
  golang.org/x/xerrors v0.0.0-20191011141410-1b5146add898/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
  golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
+@@ -694,8 +694,8 @@ k8s.io/kubectl v0.28.9 h1:FTf/aapuuFxPmt8gYUeqUmcsgG0gKC2ei6n+TO5sGOw=
+ k8s.io/kubectl v0.28.9/go.mod h1:ip/zTUr1MM/H2M+YbPHnSKLt0x6kb85SJtRSjwEGDfs=
+ k8s.io/kubelet v0.28.9 h1:76v00fFLeniz27kXhGGUIxONdwa9LKcD2Jd5cXYAZko=
+ k8s.io/kubelet v0.28.9/go.mod h1:46P39DFjI+E59nU2OgpatyS3oWy58ClulKO6riZ/97o=
+-k8s.io/kubernetes v1.28.9 h1:I4sYGQJOuxEo4/QWoY7M8kDB7O0HcH266t6o6mR6ogg=
+-k8s.io/kubernetes v1.28.9/go.mod h1:chlmcCDBnOA/y+572cw8dO0Rci1wiA8bm5+zhPdFLCk=
++k8s.io/kubernetes v1.28.12 h1:DtWB8ZjoYiN/PXD4qDXFppf9IouVUavn6r3S+3NMUkU=
++k8s.io/kubernetes v1.28.12/go.mod h1:chlmcCDBnOA/y+572cw8dO0Rci1wiA8bm5+zhPdFLCk=
+ k8s.io/mount-utils v0.29.4 h1:tW/URea4gtXlaVW7VObr52NQhS+z3SXTg1GUaFZjRL4=
+ k8s.io/mount-utils v0.29.4/go.mod h1:SHUMR9n3b6tLgEmlyT36cL6fV6Sjwa5CJhc0guCXvb0=
+ k8s.io/pod-security-admission v0.28.9 h1:towoNqSp7aU7gF8T89zftCuQUfliyib3ds20Kz/hysg=
 -- 
 2.39.5 (Apple Git-154)
 
