@@ -18,15 +18,13 @@ package controller
 
 import (
 	"context"
-	"d8-controller/pkg/config"
-	"d8-controller/pkg/logger"
-	"errors"
 	"fmt"
 	"reflect"
 	"time"
 
+	"d8-controller/pkg/config"
+	"d8-controller/pkg/logger"
 	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
-
 	storagev1 "k8s.io/api/storage/v1"
 	k8serr "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -35,10 +33,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 const (
@@ -87,7 +84,7 @@ func RunModuleConfigWatcherController(
 
 				shouldRequeue, err := RunModuleConfigEventReconcile(ctx, cl, log, nscList, alertMap, scList)
 				if err != nil {
-					log.Error(err, fmt.Sprintf("[ModuleConfigReconciler] an error occured while reconciles the ModuleConfig, name: %s", mc.Name))
+					log.Error(err, fmt.Sprintf("[ModuleConfigReconciler] an error occurred while reconciles the ModuleConfig, name: %s", mc.Name))
 				}
 
 				if shouldRequeue {
@@ -109,48 +106,52 @@ func RunModuleConfigWatcherController(
 		return nil, err
 	}
 
-	err = c.Watch(source.Kind(mgr.GetCache(), &v1alpha1.ModuleConfig{}), handler.Funcs{
-		CreateFunc: func(ctx context.Context, e event.CreateEvent, q workqueue.RateLimitingInterface) {
-			// we only process our ModuleConfig
-			if e.Object.GetName() != cfg.CsiNfsModuleName {
-				return
-			}
+	err = c.Watch(
+		source.Kind(
+			mgr.GetCache(),
+			&v1alpha1.ModuleConfig{},
+			handler.TypedFuncs[*v1alpha1.ModuleConfig, reconcile.Request]{
+				CreateFunc: func(
+					_ context.Context,
+					e event.TypedCreateEvent[*v1alpha1.ModuleConfig],
+					q workqueue.TypedRateLimitingInterface[reconcile.Request],
+				) {
+					// we only process our ModuleConfig
+					if e.Object.GetName() != cfg.CsiNfsModuleName {
+						return
+					}
 
-			log.Info(fmt.Sprintf("[CreateFunc] get event for ModuleConfig %q. Add to the queue", e.Object.GetName()))
-			request := reconcile.Request{NamespacedName: types.NamespacedName{Namespace: e.Object.GetNamespace(), Name: e.Object.GetName()}}
-			q.Add(request)
-		},
-		UpdateFunc: func(ctx context.Context, e event.UpdateEvent, q workqueue.RateLimitingInterface) {
-			// we only process our ModuleConfig
-			if e.ObjectNew.GetName() != cfg.CsiNfsModuleName {
-				return
-			}
+					log.Info(fmt.Sprintf("[CreateFunc] get event for ModuleConfig %q. Add to the queue", e.Object.GetName()))
+					request := reconcile.Request{NamespacedName: types.NamespacedName{Namespace: e.Object.GetNamespace(), Name: e.Object.GetName()}}
+					q.Add(request)
+				},
+				UpdateFunc: func(
+					_ context.Context,
+					e event.TypedUpdateEvent[*v1alpha1.ModuleConfig],
+					q workqueue.TypedRateLimitingInterface[reconcile.Request],
+				) {
+					// we only process our ModuleConfig
+					if e.ObjectNew.GetName() != cfg.CsiNfsModuleName {
+						return
+					}
 
-			log.Info(fmt.Sprintf("[UpdateFunc] get event for ModuleConfig %q. Check if it should be reconciled", e.ObjectNew.GetName()))
+					log.Info(fmt.Sprintf("[UpdateFunc] get event for ModuleConfig %q. Check if it should be reconciled", e.ObjectNew.GetName()))
 
-			oldMC, ok := e.ObjectOld.(*v1alpha1.ModuleConfig)
-			if !ok {
-				err = errors.New("unable to cast event object to a given type")
-				log.Error(err, "[UpdateFunc] an error occurred while handling create event")
-				return
-			}
-			newMC, ok := e.ObjectNew.(*v1alpha1.ModuleConfig)
-			if !ok {
-				err = errors.New("unable to cast event object to a given type")
-				log.Error(err, "[UpdateFunc] an error occurred while handling create event")
-				return
-			}
+					oldMC := e.ObjectOld
+					newMC := e.ObjectNew
 
-			if reflect.DeepEqual(oldMC.Spec, newMC.Spec) && newMC.DeletionTimestamp == nil {
-				log.Info(fmt.Sprintf("[UpdateFunc] an update event for the ModuleConfig %s has no Spec field updates. It will not be reconciled", newMC.Name))
-				return
-			}
+					if reflect.DeepEqual(oldMC.Spec, newMC.Spec) && newMC.DeletionTimestamp == nil {
+						log.Info(fmt.Sprintf("[UpdateFunc] an update event for the ModuleConfig %s has no Spec field updates. It will not be reconciled", newMC.Name))
+						return
+					}
 
-			log.Info(fmt.Sprintf("[UpdateFunc] the ModuleConfig %q will be reconciled. Add to the queue", newMC.Name))
-			request := reconcile.Request{NamespacedName: types.NamespacedName{Namespace: newMC.Namespace, Name: newMC.Name}}
-			q.Add(request)
-		},
-	})
+					log.Info(fmt.Sprintf("[UpdateFunc] the ModuleConfig %q will be reconciled. Add to the queue", newMC.Name))
+					request := reconcile.Request{NamespacedName: types.NamespacedName{Namespace: newMC.Namespace, Name: newMC.Name}}
+					q.Add(request)
+				},
+			},
+		),
+	)
 	if err != nil {
 		log.Error(err, "[RunModuleConfigWatcherController] unable to watch the events")
 		return nil, err
@@ -183,11 +184,11 @@ func RunModuleConfigEventReconcile(
 			break
 
 			// maybe it's like this here !!!!!!!!!!!
-			//err = fmt.Errorf("[RunModuleConfigEventReconcile] no storage class found for the NFSStorageClass, name: %s", nsc.Name")
-			//return true, err
+			// err = fmt.Errorf("[RunModuleConfigEventReconcile] no storage class found for the NFSStorageClass, name: %s", nsc.Name")
+			// return true, err
 		}
 
-		action := "unknown"
+		var action string
 		if _, ok := alertMap[sc.Name]; !ok {
 			action = "deleted"
 

@@ -18,17 +18,15 @@ package controller
 
 import (
 	"context"
-	"d8-controller/pkg/logger"
 	"errors"
 	"fmt"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 
+	"d8-controller/pkg/logger"
 	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
-
-	"slices"
-
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -89,7 +87,6 @@ func reconcileStorageClassUpdateFunc(
 	nsc *v1alpha1.NFSStorageClass,
 	controllerNamespace string,
 ) (bool, error) {
-
 	log.Debug(fmt.Sprintf("[reconcileStorageClassUpdateFunc] starts for NFSStorageClass %q", nsc.Name))
 
 	var oldSC *v1.StorageClass
@@ -127,7 +124,7 @@ func reconcileStorageClassUpdateFunc(
 
 	diff, err := GetSCDiff(oldSC, newSC)
 	if err != nil {
-		err = fmt.Errorf("[reconcileStorageClassUpdateFunc] error occured while identifying the difference between the existed StorageClass %s and the new one: %w", newSC.Name, err)
+		err = fmt.Errorf("[reconcileStorageClassUpdateFunc] error occurred while identifying the difference between the existed StorageClass %s and the new one: %w", newSC.Name, err)
 		upError := updateNFSStorageClassPhase(ctx, cl, nsc, FailedStatusPhase, err.Error())
 		if upError != nil {
 			upError = fmt.Errorf("[reconcileStorageClassUpdateFunc] unable to update the NFSStorageClass %s: %w", nsc.Name, upError)
@@ -367,32 +364,34 @@ func shouldReconcileStorageClassByUpdateFunc(log logger.Logger, scList *v1.Stora
 
 	for _, oldSC := range scList.Items {
 		if oldSC.Name == nsc.Name {
-			if slices.Contains(allowedProvisioners, oldSC.Provisioner) {
-				newSC, err := updateStorageClass(nsc, &oldSC, controllerNamespace)
-				if err != nil {
-					return false, err
-				}
-
-				diff, err := GetSCDiff(&oldSC, newSC)
-				if err != nil {
-					return false, err
-				}
-
-				if diff != "" {
-					log.Debug(fmt.Sprintf("[shouldReconcileStorageClassByUpdateFunc] a storage class %s should be updated. Diff: %s", oldSC.Name, diff))
-					return true, nil
-				}
-
-				if nsc.Status != nil && nsc.Status.Phase == FailedStatusPhase {
-					return true, nil
-				}
-
-				return false, nil
-
-			} else {
-				err := fmt.Errorf("a storage class %s with provisioner % s does not belong to allowed provisioners: %v", oldSC.Name, oldSC.Provisioner, allowedProvisioners)
+			if !slices.Contains(allowedProvisioners, oldSC.Provisioner) {
+				return false, fmt.Errorf(
+					"a storage class %s with provisioner % s does not belong to allowed provisioners: %v",
+					oldSC.Name,
+					oldSC.Provisioner,
+					allowedProvisioners,
+				)
+			}
+			newSC, err := updateStorageClass(nsc, &oldSC, controllerNamespace)
+			if err != nil {
 				return false, err
 			}
+
+			diff, err := GetSCDiff(&oldSC, newSC)
+			if err != nil {
+				return false, err
+			}
+
+			if diff != "" {
+				log.Debug(fmt.Sprintf("[shouldReconcileStorageClassByUpdateFunc] a storage class %s should be updated. Diff: %s", oldSC.Name, diff))
+				return true, nil
+			}
+
+			if nsc.Status != nil && nsc.Status.Phase == FailedStatusPhase {
+				return true, nil
+			}
+
+			return false, nil
 		}
 	}
 
@@ -401,11 +400,7 @@ func shouldReconcileStorageClassByUpdateFunc(log logger.Logger, scList *v1.Stora
 }
 
 func shouldReconcileByDeleteFunc(obj metav1.Object) bool {
-	if obj.GetDeletionTimestamp() != nil {
-		return true
-	}
-
-	return false
+	return obj.GetDeletionTimestamp() != nil
 }
 
 func removeFinalizerIfExists(ctx context.Context, cl client.Client, obj metav1.Object, finalizerName string) (bool, error) {
@@ -431,7 +426,6 @@ func removeFinalizerIfExists(ctx context.Context, cl client.Client, obj metav1.O
 }
 
 func GetSCDiff(oldSC, newSC *v1.StorageClass) (string, error) {
-
 	if oldSC.Provisioner != newSC.Provisioner {
 		err := fmt.Errorf("NFSStorageClass %q: the provisioner field is different in the StorageClass %q", newSC.Name, oldSC.Name)
 		return "", err
@@ -600,7 +594,6 @@ func GetSCMountOptions(nsc *v1alpha1.NFSStorageClass) []string {
 	}
 
 	if nsc.Spec.MountOptions != nil {
-
 		if nsc.Spec.MountOptions.MountMode != "" {
 			mountOptions = append(mountOptions, nsc.Spec.MountOptions.MountMode)
 		}
@@ -746,64 +739,70 @@ func updateStorageClass(nsc *v1alpha1.NFSStorageClass, oldSC *v1.StorageClass, c
 
 // see images/webhooks/src/handlers/func.go
 func validateNFSStorageClass(nfsModuleConfig *v1alpha1.ModuleConfig, nsc *v1alpha1.NFSStorageClass) error {
-	var logPostfix string = "Such a combination of parameters is not allowed"
+	var logPostfix = "Such a combination of parameters is not allowed"
 
 	if nsc.Spec.Connection.NFSVersion == "3" {
 		if value, ok := nfsModuleConfig.Spec.Settings["v3support"]; !ok {
-			return errors.New(fmt.Sprintf(
+			return fmt.Errorf(
 				"ModuleConfig: %s (the v3support parameter is missing); NFSStorageClass: %s (nfsVersion is set to 3); %s",
-				nfsModuleConfig.Name, nsc.Name, logPostfix,
-			))
-		} else {
-			if value == false {
-				return errors.New(fmt.Sprintf(
-					"ModuleConfig: %s (the v3support parameter is disabled); NFSStorageClass: %s (nfsVersion is set to 3); %s",
-					nfsModuleConfig.Name, nsc.Name, logPostfix,
-				))
-			}
+				nfsModuleConfig.Name,
+				nsc.Name,
+				logPostfix,
+			)
+		} else if value == false {
+			return fmt.Errorf(
+				"ModuleConfig: %s (the v3support parameter is disabled); NFSStorageClass: %s (nfsVersion is set to 3); %s",
+				nfsModuleConfig.Name,
+				nsc.Name,
+				logPostfix,
+			)
 		}
 	}
 
 	if nsc.Spec.Connection.Tls || nsc.Spec.Connection.Mtls {
-		var tlsParameters map[string]interface{}
+		var tlsParameters map[string]any
 
-		if value, ok := nfsModuleConfig.Spec.Settings["tlsParameters"]; !ok {
-			return errors.New(fmt.Sprintf(
+		value, ok := nfsModuleConfig.Spec.Settings["tlsParameters"]
+		if !ok {
+			return fmt.Errorf(
 				"ModuleConfig: %s (the tlsParameters parameter is missing); NFSStorageClass: %s (tls or mtls is enabled); %s",
-				nfsModuleConfig.Name, nsc.Name, logPostfix,
-			))
-		} else {
-			tlsParameters = value.(map[string]interface{})
+				nfsModuleConfig.Name,
+				nsc.Name,
+				logPostfix,
+			)
 		}
+		tlsParameters = value.(map[string]any)
+
 		if value, ok := tlsParameters["ca"]; !ok || len(value.(string)) == 0 {
-			return errors.New(fmt.Sprintf(
+			return fmt.Errorf(
 				"ModuleConfig: %s (the tlsParameters.ca parameter is either missing or has a zero length); NFSStorageClass: %s (tls or mtls is enabled); %s",
 				nfsModuleConfig.Name, nsc.Name, logPostfix,
-			))
+			)
 		}
 
 		if nsc.Spec.Connection.Mtls {
-			var mtls map[string]interface{}
+			var mtls map[string]any
 
-			if value, ok := tlsParameters["mtls"]; !ok {
-				return errors.New(fmt.Sprintf(
+			value, ok := tlsParameters["mtls"]
+			if !ok {
+				return fmt.Errorf(
 					"ModuleConfig: %s (the tlsParameters.mtls parameter is missing); NFSStorageClass: %s (mtls is enabled); %s",
 					nfsModuleConfig.Name, nsc.Name, logPostfix,
-				))
-			} else {
-				mtls = value.(map[string]interface{})
+				)
 			}
+			mtls = value.(map[string]any)
+
 			if value, ok := mtls["clientCert"]; !ok || len(value.(string)) == 0 {
-				return errors.New(fmt.Sprintf(
+				return fmt.Errorf(
 					"ModuleConfig: %s (the tlsParameters.mtls.clientCert parameter is either missing or has a zero length); NFSStorageClass: %s (mtls is enabled); %s",
 					nfsModuleConfig.Name, nsc.Name, logPostfix,
-				))
+				)
 			}
 			if value, ok := mtls["clientKey"]; !ok || len(value.(string)) == 0 {
-				return errors.New(fmt.Sprintf(
+				return fmt.Errorf(
 					"ModuleConfig: %s (the tlsParameters.mtls.clientKey parameter is either missing or has a zero length); NFSStorageClass: %s (mtls is enabled); %s",
 					nfsModuleConfig.Name, nsc.Name, logPostfix,
-				))
+				)
 			}
 		}
 	}
