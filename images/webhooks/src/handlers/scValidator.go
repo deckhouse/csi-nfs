@@ -22,12 +22,11 @@ import (
 	"fmt"
 	"reflect"
 
-	"k8s.io/klog/v2"
-
 	"github.com/slok/kubewebhook/v2/pkg/model"
 	kwhvalidating "github.com/slok/kubewebhook/v2/pkg/webhook/validating"
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/klog/v2"
 )
 
 const (
@@ -72,7 +71,6 @@ func SCValidate(ctx context.Context, arReview *model.AdmissionReview, obj metav1
 		return &kwhvalidating.ValidatorResult{Valid: true},
 			nil
 	}
-
 }
 
 func isStorageClassChangedExceptAnnotations(oldObjectRaw, newObjectRaw []byte) (bool, error) {

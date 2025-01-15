@@ -20,7 +20,6 @@ import (
 	"context"
 	"net/http"
 	"os"
-	mc "webhooks/api"
 
 	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	"github.com/go-logr/logr"
@@ -41,6 +40,7 @@ import (
 	controllerruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
+	mc "webhooks/api"
 )
 
 func NewKubeClient(kubeconfigPath string) (client.Client, error) {
@@ -104,7 +104,6 @@ func GetMutatingWebhookHandler(mutationFunc func(ctx context.Context, _ *model.A
 	mutationWebhookHandler, err := kwhhttp.HandlerFor(kwhhttp.HandlerConfig{Webhook: mutationWebhook, Logger: logger})
 
 	return mutationWebhookHandler, err
-
 }
 
 func GetValidatingWebhookHandler(validationFunc func(ctx context.Context, _ *model.AdmissionReview, obj metav1.Object) (*kwhvalidating.ValidatorResult, error), validatorID string, obj metav1.Object, logger log.Logger) (http.Handler, error) {
@@ -125,5 +124,4 @@ func GetValidatingWebhookHandler(validationFunc func(ctx context.Context, _ *mod
 	mutationWebhookHandler, err := kwhhttp.HandlerFor(kwhhttp.HandlerConfig{Webhook: mutationWebhook, Logger: logger})
 
 	return mutationWebhookHandler, err
-
 }
