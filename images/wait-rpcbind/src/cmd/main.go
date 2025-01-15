@@ -46,22 +46,22 @@ func main() {
 			return
 		default:
 			info, err := os.Lstat("/run/rpcbind.sock")
-			if err == nil {
+			switch {
+			case err == nil:
 				if (info.Mode() & os.ModeSocket) != 0 {
 					conn, err := net.DialTimeout("unix", "/run/rpcbind.sock", 1*time.Second)
 					if err == nil {
 						conn.Close()
 						log.Println("Socket /run/rpcbind.sock found and confirmed as rpcbind.")
 						return
-					} else {
-						log.Println("Unable to connect to the socket /run/rpcbind.sock, continuing to wait...")
 					}
+					log.Println("Unable to connect to the socket /run/rpcbind.sock, continuing to wait...")
 				} else {
 					log.Println("/run/rpcbind.sock found but is not a socket. Continuing to wait...")
 				}
-			} else if os.IsNotExist(err) {
+			case os.IsNotExist(err):
 				log.Println("/run/rpcbind.sock does not exist, continuing to wait...")
-			} else {
+			default:
 				log.Printf("Error checking socket /run/rpcbind.sock: %v", err)
 			}
 			time.Sleep(1 * time.Second)

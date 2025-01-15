@@ -363,45 +363,46 @@ func shouldReconcileStorageClassByUpdateFunc(log logger.Logger, scList *v1.Stora
 	}
 
 	for _, oldSC := range scList.Items {
-		if oldSC.Name == nsc.Name {
-			if slices.Contains(allowedProvisioners, oldSC.Provisioner) {
-				newSC, err := updateStorageClass(nsc, &oldSC, controllerNamespace)
-				if err != nil {
-					return false, err
-				}
-
-				diff, err := GetSCDiff(&oldSC, newSC)
-				if err != nil {
-					return false, err
-				}
-
-				if diff != "" {
-					log.Debug(fmt.Sprintf("[shouldReconcileStorageClassByUpdateFunc] a storage class %s should be updated. Diff: %s", oldSC.Name, diff))
-					return true, nil
-				}
-
-				if nsc.Status != nil && nsc.Status.Phase == FailedStatusPhase {
-					return true, nil
-				}
-
-				return false, nil
-			} else {
-				err := fmt.Errorf("a storage class %s with provisioner % s does not belong to allowed provisioners: %v", oldSC.Name, oldSC.Provisioner, allowedProvisioners)
-				return false, err
-			}
+		if oldSC.Name != nsc.Name {
+			continue
 		}
+
+		if !slices.Contains(allowedProvisioners, oldSC.Provisioner) {
+			return false, fmt.Errorf(
+				"a storage class %s with provisioner % s does not belong to allowed provisioners: %v",
+				oldSC.Name,
+				oldSC.Provisioner,
+				allowedProvisioners,
+			)
+		}
+
+		newSC, err := updateStorageClass(nsc, &oldSC, controllerNamespace)
+		if err != nil {
+			return false, err
+		}
+
+		diff, err := GetSCDiff(&oldSC, newSC)
+		if err != nil {
+			return false, err
+		}
+
+		if diff != "" {
+			log.Debug(fmt.Sprintf("[shouldReconcileStorageClassByUpdateFunc] a storage class %s should be updated. Diff: %s", oldSC.Name, diff))
+			return true, nil
+		}
+
+		if nsc.Status != nil && nsc.Status.Phase == FailedStatusPhase {
+			return true, nil
+		}
+
+		return false, nil
 	}
 
-	err := fmt.Errorf("a storage class %s does not exist", nsc.Name)
-	return false, err
+	return false, fmt.Errorf("a storage class %s does not exist", nsc.Name)
 }
 
 func shouldReconcileByDeleteFunc(obj metav1.Object) bool {
-	if obj.GetDeletionTimestamp() != nil {
-		return true
-	}
-
-	return false
+	return obj.GetDeletionTimestamp() != nil
 }
 
 func removeFinalizerIfExists(ctx context.Context, cl client.Client, obj metav1.Object, finalizerName string) (bool, error) {

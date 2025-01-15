@@ -34,7 +34,7 @@ type config struct {
 	keyFile  string
 }
 
-func httpHandlerHealthz(w http.ResponseWriter, r *http.Request) {
+func httpHandlerHealthz(w http.ResponseWriter, _ *http.Request) {
 	fmt.Fprint(w, "Ok.")
 }
 
@@ -45,14 +45,14 @@ func initFlags() config {
 	fl.StringVar(&cfg.certFile, "tls-cert-file", "", "TLS certificate file")
 	fl.StringVar(&cfg.keyFile, "tls-key-file", "", "TLS key file")
 
-	fl.Parse(os.Args[1:])
+	_ = fl.Parse(os.Args[1:])
 	return cfg
 }
 
 const (
 	port           = ":8443"
-	NSCValidatorId = "NSCValidator"
-	SCValidatorId  = "SCValidator"
+	NSCValidatorID = "NSCValidator"
+	SCValidatorID  = "SCValidator"
 )
 
 func main() {
@@ -62,13 +62,13 @@ func main() {
 
 	cfg := initFlags()
 
-	scValidatingWebhookHandler, err := handlers.GetValidatingWebhookHandler(handlers.SCValidate, SCValidatorId, &storagev1.StorageClass{}, logger)
+	scValidatingWebhookHandler, err := handlers.GetValidatingWebhookHandler(handlers.SCValidate, SCValidatorID, &storagev1.StorageClass{}, logger)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error creating scValidatingWebhookHandler: %s", err)
 		os.Exit(1)
 	}
 
-	nscValidatingWebhookHandler, err := handlers.GetValidatingWebhookHandler(handlers.NSCValidate, NSCValidatorId, &cn.NFSStorageClass{}, logger)
+	nscValidatingWebhookHandler, err := handlers.GetValidatingWebhookHandler(handlers.NSCValidate, NSCValidatorID, &cn.NFSStorageClass{}, logger)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error creating nscValidatingWebhookHandler: %s", err)
 		os.Exit(1)
