@@ -18,16 +18,15 @@ package controller
 
 import (
 	"context"
-	"d8-controller/pkg/logger"
 	"errors"
 	"fmt"
-	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 
-	"slices"
-
+	"d8-controller/pkg/logger"
+	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -88,7 +87,6 @@ func reconcileStorageClassUpdateFunc(
 	nsc *v1alpha1.NFSStorageClass,
 	controllerNamespace string,
 ) (bool, error) {
-
 	log.Debug(fmt.Sprintf("[reconcileStorageClassUpdateFunc] starts for NFSStorageClass %q", nsc.Name))
 
 	var oldSC *v1.StorageClass
@@ -126,7 +124,7 @@ func reconcileStorageClassUpdateFunc(
 
 	diff, err := GetSCDiff(oldSC, newSC)
 	if err != nil {
-		err = fmt.Errorf("[reconcileStorageClassUpdateFunc] error occured while identifying the difference between the existed StorageClass %s and the new one: %w", newSC.Name, err)
+		err = fmt.Errorf("[reconcileStorageClassUpdateFunc] error occurred while identifying the difference between the existed StorageClass %s and the new one: %w", newSC.Name, err)
 		upError := updateNFSStorageClassPhase(ctx, cl, nsc, FailedStatusPhase, err.Error())
 		if upError != nil {
 			upError = fmt.Errorf("[reconcileStorageClassUpdateFunc] unable to update the NFSStorageClass %s: %w", nsc.Name, upError)
@@ -387,7 +385,6 @@ func shouldReconcileStorageClassByUpdateFunc(log logger.Logger, scList *v1.Stora
 				}
 
 				return false, nil
-
 			} else {
 				err := fmt.Errorf("a storage class %s with provisioner % s does not belong to allowed provisioners: %v", oldSC.Name, oldSC.Provisioner, allowedProvisioners)
 				return false, err
@@ -430,7 +427,6 @@ func removeFinalizerIfExists(ctx context.Context, cl client.Client, obj metav1.O
 }
 
 func GetSCDiff(oldSC, newSC *v1.StorageClass) (string, error) {
-
 	if oldSC.Provisioner != newSC.Provisioner {
 		err := fmt.Errorf("NFSStorageClass %q: the provisioner field is different in the StorageClass %q", newSC.Name, oldSC.Name)
 		return "", err
@@ -593,7 +589,6 @@ func GetSCMountOptions(nsc *v1alpha1.NFSStorageClass) []string {
 	}
 
 	if nsc.Spec.MountOptions != nil {
-
 		if nsc.Spec.MountOptions.MountMode != "" {
 			mountOptions = append(mountOptions, nsc.Spec.MountOptions.MountMode)
 		}
