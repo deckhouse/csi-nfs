@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+
 	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	"github.com/slok/kubewebhook/v2/pkg/model"
 	kwhvalidating "github.com/slok/kubewebhook/v2/pkg/webhook/validating"
@@ -34,6 +35,9 @@ func NSCValidate(ctx context.Context, arReview *model.AdmissionReview, obj metav
 
 	listClasses := &cn.NFSStorageClassList{}
 	err = cl.List(ctx, listClasses)
+	if err != nil {
+		klog.Fatal(err)
+	}
 
 	if nsc.ObjectMeta.DeletionTimestamp == nil && arReview.Operation != "delete" && nsc.Spec.Connection.NFSVersion == "3" {
 		v3presents = true
