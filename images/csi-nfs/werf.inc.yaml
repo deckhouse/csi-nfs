@@ -1,56 +1,117 @@
-{{- $version := "4.7.0" }}
+---
+# do not remove this image: used in external audits (DKP CSE)
+image: {{ $.ImageName }}-src-artifact
+from: {{ $.Root.BASE_ALT_P11 }}
+final: false
+git:
+  - url: {{ env "SOURCE_REPO" }}/steved/nfs-utils.git
+    add: /
+    to: /src/nfs-utils
+    tag: {{ $.Versions.NFS_UTILS }}
+    stageDependencies:
+      install:
+        - '**/*'
+  - url: {{ env "SOURCE_REPO" }}/kubernetes-csi/csi-driver-nfs.git
+    add: /
+    to: /src/csi-driver-nfs
+    tag: {{ $.Versions.CSI_DRIVER_NFS }}
+    stageDependencies:
+      install:
+        - '**/*'
+  - add: /
+    to: /src
+    includePaths:
+      - images/{{ $.ImageName }}/patches
+    stageDependencies:
+      install:
+        - '**/*'
+shell:
+  install:
+    - rm -rf /src/csi-driver-nfs/.git
+    - rm -rf /src/nfs-utils/.git
 
-{{- $_ := set . "BASE_GOLANG" "registry.deckhouse.io/base_images/golang:1.23.1-bullseye@sha256:a24507d1a36fce86431198a979435dadb187e8d0ce0b5c181f46d6788d84a40f" }}
-{{- $_ := set . "BASE_SCRATCH"    "registry.deckhouse.io/base_images/scratch@sha256:b054705fcc9f2205777d80a558d920c0b4209efdc3163c22b5bfcb5dda1db5fc" }}
-{{- $_ := set . "BASE_ALPINE_DEV" "registry.deckhouse.io/base_images/dev-alpine:3.16.3@sha256:c706fa83cc129079e430480369a3f062b8178cac9ec89266ebab753a574aca8e" }}
-{{- $_ := set . "BASE_ALT_DEV"    "registry.deckhouse.io/base_images/dev-alt:p10@sha256:76e6e163fa982f03468166203488b569e6d9fc10855d6a259c662706436cdcad" }}
+---
+image: {{ $.ImageName }}-binaries-artifact
+from: {{ $.Root.BASE_ALT_P11 }}
+final: false
+import:
+  - image: {{ $.ImageName }}-src-artifact
+    add: /src
+    to: /src
+    before: install
+git:
+  - add: /tools/dev_images/additional_tools/alt/binary_replace.sh
+    to: /binary_replace.sh
+    stageDependencies:
+      beforeSetup:
+        - '**/*'
+shell:
+  beforeInstall:
+    - apt-get update
+    - apt-get install -y {{ $.Root.DEV_PACKAGES }}
+    - apt-get install -y libmount-devel libnl-devel libreadline-devel libtirpc libtirpc-devel libuuid-devel libevent-devel libsqlite3x-devel libdevmapper-devel libblkid-devel libkeyutils-devel libxml2-devel mount
+    - {{ $.Root.ALT_CLEANUP_CMD }}
+      ### example werf build log
+      # ...
+      # nfs-utils-binaries-artifact/install  chmod go-rwx /nfs-utils/var/lib/nfs/sm /nfs-utils/var/lib/nfs/sm.bak /nfs-utils/var/lib/nfs/state
+      # nfs-utils-binaries-artifact/install  chown deckhouse /nfs-utils/var/lib/nfs/sm /nfs-utils/var/lib/nfs/sm.bak /nfs-utils/var/lib/nfs/state
+      # nfs-utils-binaries-artifact/install  chown: invalid user: ‘deckhouse’
+      # ...
+    - groupadd -g {{ $.Root.DECKHOUSE_UID_GID }} deckhouse
+    - useradd -g deckhouse -u {{ $.Root.DECKHOUSE_UID_GID }} deckhouse
+  install:
+    - cd /src/nfs-utils
+    - ./autogen.sh
+    - ./configure --disable-gss --with-statduser=deckhouse --with-rpcgen=internal
+    - make
+    - make install DESTDIR=/nfs-utils
+  beforeSetup:
+    - cp -av /nfs-utils/usr/lib/* /usr/lib/
+    - chmod +x /binary_replace.sh
+    - |
+      /binary_replace.sh \
+      -i "/nfs-utils/sbin/* /nfs-utils/usr/bin/* /nfs-utils/usr/sbin/* /lib64/libnss_files.so.2 /lib64/libnss_dns.so.2 /bin/cp /bin/mount /bin/umount" \
+      -o /relocate
+  setup:
+    - rm -rf /relocate/nfs-utils
+    - cp -av /nfs-utils/sbin     /relocate
+    - mkdir -p /relocate/usr
+    - cp -av /nfs-utils/usr/bin  /relocate/usr
+    - cp -av /nfs-utils/usr/sbin /relocate/usr
+    - cp -av /nfs-utils/var      /relocate
+    - mkdir -p /relocate/etc
+    - cp -av /etc/netconfig /relocate/etc/netconfig
 
 ---
 image: {{ $.ImageName }}-golang-artifact
-from: {{ $.BASE_GOLANG }}
+from: {{ $.Root.BASE_GOLANG_1_23 }}
 final: false
-fromCacheVersion: 20240924100030
-
-git:
-  - add: /images/{{ $.ImageName }}
-    to: /
-    stageDependencies:
-      install:
-        - "**/*"
-    includePaths:
-    - patches
-
+import:
+  - image: {{ $.ImageName }}-src-artifact
+    add: /src
+    to: /src
+    before: install
 mount:
   - fromPath: ~/go-pkg-cache
     to: /go/pkg
 shell:
-  install:
-    - export GO_VERSION={{ env "GOLANG_VERSION" }}
-    - export GOPROXY={{ env "GOPROXY" }}
-    - git clone --depth 1 --branch v{{ $version }} {{ env "SOURCE_REPO" }}/kubernetes-csi/csi-driver-nfs.git /csi-driver-nfs
-    - cd /csi-driver-nfs
-    - for patchfile in /patches/*.patch ; do echo -n "Apply ${patchfile} ... "; git apply ${patchfile}; done
+  setup:
+    - cd /src/csi-driver-nfs
+    - export CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO_VERSION={{ env "GOLANG_VERSION" }} GOPROXY={{ env "GOPROXY" }}
+    - for patchfile in /src/images/{{ $.ImageName }}/patches/*.patch ; do echo -n "Apply ${patchfile} ... "; git apply ${patchfile}; done
     - go mod vendor
-    - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o /nfsplugin ./cmd/nfsplugin
+    - go build -ldflags="-s -w" -o /nfsplugin ./cmd/nfsplugin
     - chmod +x /nfsplugin
 
 ---
-{{ $csiBinaries := "/bin/mount /bin/umount /sbin/mount.nfs /sbin/mount.nfs4 /sbin/umount.nfs /sbin/umount.nfs4 /bin/cp" }}
----
-image: {{ $.ImageName }}-binaries-artifact
-from: {{ $.BASE_ALT_DEV }}
-final: false
-
-shell:
-  install:
-    - /binary_replace.sh -i "{{ $csiBinaries }}" -o /relocate
-
----
 image: {{ $.ImageName }}-distroless-artifact
-from: {{ $.BASE_ALT_DEV }}
+from: {{ $.Root.BASE_ALT_P11 }}
 final: false
-
 shell:
+  beforeInstall:
+    - apt-get update
+    - apt-get install -y openssl libtirpc
+    - {{ $.Root.ALT_CLEANUP_CMD }}
   install:
     - mkdir -p /relocate/bin /relocate/sbin /relocate/etc /relocate/var/lib/ssl /relocate/usr/bin /relocate/usr/sbin /relocate/usr/share
     - cp -pr /tmp /relocate
@@ -59,15 +120,14 @@ shell:
     - cp -pr /usr/share/zoneinfo /relocate/usr/share
     - cp -pr /var/lib/ssl/cert.pem /relocate/var/lib/ssl
     - cp -pr /var/lib/ssl/certs /relocate/var/lib/ssl
-    - echo "deckhouse:x:64535:64535:deckhouse:/:/sbin/nologin" >> /relocate/etc/passwd
-    - echo "deckhouse:x:64535:" >> /relocate/etc/group
+    - echo "deckhouse:x:{{ $.Root.DECKHOUSE_UID_GID }}:{{ $.Root.DECKHOUSE_UID_GID }}:deckhouse:/:/sbin/nologin" >> /relocate/etc/passwd
+    - echo "deckhouse:x:{{ $.Root.DECKHOUSE_UID_GID }}:" >> /relocate/etc/group
     - echo "deckhouse:!::0:::::" >> /relocate/etc/shadow
 
 ---
 image: {{ $.ImageName }}-distroless
-from: {{ $.BASE_SCRATCH }}
+from: {{ $.Root.BASE_SCRATCH }}
 final: false
-
 import:
   - image: {{ $.ImageName }}-distroless-artifact
     add: /relocate
@@ -77,7 +137,6 @@ import:
 ---
 image: {{ $.ImageName }}
 fromImage: {{ $.ImageName }}-distroless
-
 import:
   - image: {{ $.ImageName }}-golang-artifact
     add: /nfsplugin
@@ -86,16 +145,7 @@ import:
   - image: {{ $.ImageName }}-binaries-artifact
     add: /relocate
     to: /
-    before: install
-    includePaths:
-      - '**/*'
-  - image: {{ $.ImageName }}-binaries-artifact
-    add: /lib64
-    to: /lib64
-    before: install
-    includePaths:
-      - 'libresolv*'
-      - 'libnss_dns*'
-      - 'libnss_files*'
+    before: setup
 docker:
   ENTRYPOINT: ["/nfsplugin"]
+  USER: deckhouse:deckhouse

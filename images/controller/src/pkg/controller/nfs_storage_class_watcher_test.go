@@ -18,26 +18,26 @@ package controller_test
 
 import (
 	"context"
+	"fmt"
+
 	"d8-controller/pkg/controller"
 	"d8-controller/pkg/logger"
-	"fmt"
 	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const (
+	controllerNamespace = "test-namespace"
+	nameForTestResource = "example"
+)
+
 var _ = Describe(controller.NFSStorageClassCtrlName, func() {
-	const (
-		controllerNamespace = "test-namespace"
-		nameForTestResource = "example"
-	)
 	var (
 		ctx = context.Background()
 		cl  = NewFakeClient()
@@ -102,7 +102,7 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		sc := &v1.StorageClass{}
 		err = cl.Get(ctx, client.ObjectKey{Name: nameForTestResource}, sc)
 		Expect(err).NotTo(HaveOccurred())
-		performStandartChecksForSc(sc, server, share, nameForTestResource, controllerNamespace)
+		performStandartChecksForSc(sc, server, share)
 		Expect(sc.MountOptions).To(HaveLen(5))
 		Expect(sc.MountOptions).To((ContainElements(mountOptForNFSVer, mountMode, mountOptForTimeout, mountOptForRetransmissions, mountOptForReadOnlyFalse)))
 		Expect(sc.Parameters).To(HaveLen(5))
@@ -111,7 +111,7 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		secret := &corev1.Secret{}
 		err = cl.Get(ctx, client.ObjectKey{Name: controller.SecretForMountOptionsPrefix + nameForTestResource, Namespace: controllerNamespace}, secret)
 		Expect(err).NotTo(HaveOccurred())
-		performStandartChecksForSecret(secret, nameForTestResource, controllerNamespace)
+		performStandartChecksForSecret(secret)
 		Expect(secret.StringData).To(HaveKeyWithValue(controller.MountOptionsSecretKey, fmt.Sprintf("%s,%s,%s,%s,%s", mountOptForNFSVer, mountMode, mountOptForTimeout, mountOptForRetransmissions, mountOptForReadOnlyFalse)))
 
 	})
@@ -168,7 +168,7 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		sc := &v1.StorageClass{}
 		err = cl.Get(ctx, client.ObjectKey{Name: nameForTestResource}, sc)
 		Expect(err).NotTo(HaveOccurred())
-		performStandartChecksForSc(sc, server, share, nameForTestResource, controllerNamespace)
+		performStandartChecksForSc(sc, server, share)
 		Expect(sc.MountOptions).To(HaveLen(5))
 		Expect(sc.MountOptions).To((ContainElements(mountOptForNFSVer, mountModeUpdated, mountOptForTimeout, mountOptForRetransmissions, mountOptForReadOnlyTrue)))
 		Expect(sc.Parameters).To(HaveLen(5))
@@ -177,7 +177,7 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		secret := &corev1.Secret{}
 		err = cl.Get(ctx, client.ObjectKey{Name: controller.SecretForMountOptionsPrefix + nameForTestResource, Namespace: controllerNamespace}, secret)
 		Expect(err).NotTo(HaveOccurred())
-		performStandartChecksForSecret(secret, nameForTestResource, controllerNamespace)
+		performStandartChecksForSecret(secret)
 		Expect(secret.StringData).To(HaveKeyWithValue(controller.MountOptionsSecretKey, fmt.Sprintf("%s,%s,%s,%s,%s", mountOptForNFSVer, mountModeUpdated, mountOptForTimeout, mountOptForRetransmissions, mountOptForReadOnlyTrue)))
 
 	})
@@ -225,7 +225,7 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		sc := &v1.StorageClass{}
 		err = cl.Get(ctx, client.ObjectKey{Name: nameForTestResource}, sc)
 		Expect(err).NotTo(HaveOccurred())
-		performStandartChecksForSc(sc, server, share, nameForTestResource, controllerNamespace)
+		performStandartChecksForSc(sc, server, share)
 		Expect(sc.MountOptions).To(HaveLen(1))
 		Expect(sc.MountOptions).To((ContainElements(mountOptForNFSVer)))
 		Expect(sc.Parameters).To(HaveLen(5))
@@ -234,7 +234,7 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		secret := &corev1.Secret{}
 		err = cl.Get(ctx, client.ObjectKey{Name: controller.SecretForMountOptionsPrefix + nameForTestResource, Namespace: controllerNamespace}, secret)
 		Expect(err).NotTo(HaveOccurred())
-		performStandartChecksForSecret(secret, nameForTestResource, controllerNamespace)
+		performStandartChecksForSecret(secret)
 		Expect(secret.StringData).To(HaveKeyWithValue(controller.MountOptionsSecretKey, mountOptForNFSVer))
 
 	})
@@ -276,7 +276,7 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		sc := &v1.StorageClass{}
 		err = cl.Get(ctx, client.ObjectKey{Name: nameForTestResource}, sc)
 		Expect(err).NotTo(HaveOccurred())
-		performStandartChecksForSc(sc, server, share, nameForTestResource, controllerNamespace)
+		performStandartChecksForSc(sc, server, share)
 		Expect(sc.MountOptions).To(HaveLen(3))
 		Expect(sc.MountOptions).To((ContainElements(mountOptForNFSVer, mountModeUpdated, mountOptForRetransmissions)))
 		Expect(sc.Parameters).To(HaveLen(5))
@@ -285,7 +285,7 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		secret := &corev1.Secret{}
 		err = cl.Get(ctx, client.ObjectKey{Name: controller.SecretForMountOptionsPrefix + nameForTestResource, Namespace: controllerNamespace}, secret)
 		Expect(err).NotTo(HaveOccurred())
-		performStandartChecksForSecret(secret, nameForTestResource, controllerNamespace)
+		performStandartChecksForSecret(secret)
 
 		Expect(secret.StringData).To(HaveKeyWithValue(controller.MountOptionsSecretKey, fmt.Sprintf("%s,%s,%s", mountOptForNFSVer, mountModeUpdated, mountOptForRetransmissions)))
 
@@ -448,7 +448,7 @@ func BoolPtr(b bool) *bool {
 	return &b
 }
 
-func performStandartChecksForSc(sc *v1.StorageClass, server, share, nameForTestResource, controllerNamespace string) {
+func performStandartChecksForSc(sc *v1.StorageClass, server, share string) {
 	Expect(sc).NotTo(BeNil())
 	Expect(sc.Name).To(Equal(nameForTestResource))
 	Expect(sc.Finalizers).To(HaveLen(1))
@@ -462,7 +462,7 @@ func performStandartChecksForSc(sc *v1.StorageClass, server, share, nameForTestR
 	Expect(sc.Parameters).To(HaveKeyWithValue(controller.StorageClassSecretNSKey, controllerNamespace))
 }
 
-func performStandartChecksForSecret(secret *corev1.Secret, nameForTestResource, controllerNamespace string) {
+func performStandartChecksForSecret(secret *corev1.Secret) {
 	Expect(secret).NotTo(BeNil())
 	Expect(secret.Name).To(Equal(controller.SecretForMountOptionsPrefix + nameForTestResource))
 	Expect(secret.Namespace).To(Equal(controllerNamespace))
