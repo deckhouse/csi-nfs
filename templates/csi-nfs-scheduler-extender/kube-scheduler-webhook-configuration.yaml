@@ -1,0 +1,21 @@
+{{- $ns := .Values.csiNfs.nodeSelector | default dict }}
+{{- if or (ne (len $ns) 1) (ne (index $ns "kubernetes.io/os") "linux") }}
+{{- if or (eq "dev" .Values.global.deckhouseVersion) (semverCompare ">=1.64" .Values.global.deckhouseVersion) }}
+apiVersion: deckhouse.io/v1alpha1
+kind: KubeSchedulerWebhookConfiguration
+metadata:
+  name: d8-{{ .Chart.Name }}
+webhooks:
+- weight: 5
+  failurePolicy: Ignore
+  clientConfig:
+    service:
+      name: {{ .Chart.Name }}-scheduler-extender
+      namespace: d8-{{ .Chart.Name }}
+      port: 8099
+      path: /scheduler
+    caBundle: {{ .Values.csiNfs.internal.customSchedulerExtenderCert.ca }}
+  timeoutSeconds: 5
+
+{{- end }}
+{{- end }}

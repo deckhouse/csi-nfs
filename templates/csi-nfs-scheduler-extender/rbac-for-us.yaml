@@ -1,0 +1,27 @@
+{{- $ns := .Values.csiNfs.nodeSelector | default dict }}
+{{- if or (ne (len $ns) 1) (ne (index $ns "kubernetes.io/os") "linux") }}
+{{- if or (eq "dev" .Values.global.deckhouseVersion) (semverCompare ">=1.64" .Values.global.deckhouseVersion) }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: csi-nfs-scheduler-extender
+  namespace: d8-{{ .Chart.Name }}
+  {{- include "helm_lib_module_labels" (list . (dict "app" "csi-nfs-scheduler-extender")) | nindent 2 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: d8:{{ .Chart.Name }}:csi-nfs-scheduler-extender-volume-scheduler
+  {{- include "helm_lib_module_labels" (list . (dict "app" "csi-nfs-scheduler-extender")) | nindent 2 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:volume-scheduler
+subjects:
+  - kind: ServiceAccount
+    name: csi-nfs-scheduler-extender
+    namespace: d8-{{ .Chart.Name }}
+
+{{- end }}
+{{- end }}
