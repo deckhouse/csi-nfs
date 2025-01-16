@@ -146,78 +146,77 @@ func ReconcileNodeSelector(
 	}
 
 	nodesToRemove := DiffNodeLists(csiNFSNodes, selectedKubernetesNodes)
-	nodesToRemoveCount := len(nodesToRemove.Items)
-	if nodesToRemoveCount > 0 {
-		nodeNamesToRemove := []string{}
-		for _, node := range nodesToRemove.Items {
-			nodeNamesToRemove = append(nodeNamesToRemove, node.Name)
-		}
-		log.Warning(fmt.Sprintf("[reconcileNodeSelector] Found %d nodes that not in selected nodes by user defined selector %v. Remove csi-nfs node label %v from them", nodesToRemoveCount, configNodeSelector, nfsNodeLabels))
-		log.Info(fmt.Sprintf("[reconcileNodeSelector] Nodes to remove: %v", nodeNamesToRemove))
-		log.Trace(fmt.Sprintf("[reconcileNodeSelector] Nodes: %+v", nodesToRemove.Items))
 
-		controllerNodeName, err := GetCCSIControllerNodeName(ctx, cl, log, namespace, csiNFSExternalSnapshotterLeaseName)
-		if err != nil {
-			log.Error(err, "[reconcileNodeSelector] Failed get csi-nfs controller node name.")
-			return err
-		}
+	if len(nodesToRemove.Items) == 0 {
+		log.Info("[reconcileNodeSelector] Successfully reconciled NFS node selectors.")
+		return nil
+	}
 
-		namespaceList := &corev1.NamespaceList{}
-		err = cl.List(ctx, namespaceList)
-		if err != nil {
-			log.Error(err, "[reconcileNodeSelector] Failed get namespaces.")
-			return err
-		}
-		log.Debug(fmt.Sprintf("[reconcileNodeSelector] Found %d namespaces.", len(namespaceList.Items)))
+	nodeNamesToRemove := []string{}
+	for _, node := range nodesToRemove.Items {
+		nodeNamesToRemove = append(nodeNamesToRemove, node.Name)
+	}
+	log.Warning(fmt.Sprintf("[reconcileNodeSelector] Found nodes that not in selected nodes by user defined selector %v. Remove csi-nfs node label %v from them", configNodeSelector, nfsNodeLabels))
+	log.Info(fmt.Sprintf("[reconcileNodeSelector] Nodes to remove: %v", nodeNamesToRemove))
+	log.Trace(fmt.Sprintf("[reconcileNodeSelector] Nodes: %+v", nodesToRemove.Items))
 
-		podsMapWithNFSVolume, err := GetPodsMapWithNFSVolume(ctx, clusterWideClient, log, namespaceList)
-		if err != nil {
-			log.Error(err, "[reconcileNodeSelector] Failed get pods with NFS volume.")
-			return err
-		}
-		log.Debug(fmt.Sprintf("[reconcileNodeSelector] Pods with NFS volume: %+v", podsMapWithNFSVolume))
+	controllerNodeName, err := GetCCSIControllerNodeName(ctx, cl, log, namespace, csiNFSExternalSnapshotterLeaseName)
+	if err != nil {
+		log.Error(err, "[reconcileNodeSelector] Failed get csi-nfs controller node name.")
+		return err
+	}
 
-		for _, node := range nodesToRemove.Items {
-			log.Info(fmt.Sprintf("[reconcileNodeSelector] Process remove label for node: %s", node.Name))
+	namespaceList := &corev1.NamespaceList{}
+	err = cl.List(ctx, namespaceList)
+	if err != nil {
+		log.Error(err, "[reconcileNodeSelector] Failed get namespaces.")
+		return err
+	}
+	log.Debug(fmt.Sprintf("[reconcileNodeSelector] Found %d namespaces.", len(namespaceList.Items)))
 
-			if node.Name == controllerNodeName {
-				log.Warning(fmt.Sprintf("[reconcileNodeSelector] Node %s is csi-nfs controller node!", node.Name))
-				csiControllerRemovable, err := IsCSIControllerRemovable(ctx, clusterWideClient, log, NFSStorageClassProvisioner, namespaceList)
-				if err != nil {
-					log.Error(err, "[reconcileNodeSelector] Failed check if can remove csi-nfs controller node.")
-					return err
-				}
+	podsMapWithNFSVolume, err := GetPodsMapWithNFSVolume(ctx, clusterWideClient, log, namespaceList)
+	if err != nil {
+		log.Error(err, "[reconcileNodeSelector] Failed get pods with NFS volume.")
+		return err
+	}
+	log.Debug(fmt.Sprintf("[reconcileNodeSelector] Pods with NFS volume: %+v", podsMapWithNFSVolume))
 
-				if !csiControllerRemovable {
-					log.Warning(fmt.Sprintf("[reconcileNodeSelector] Skip remove label from csi-nfs controller node: %s", node.Name))
-					nodesToRemoveCount--
-					continue
-				}
-			}
+	for _, node := range nodesToRemove.Items {
+		log.Info(fmt.Sprintf("[reconcileNodeSelector] Process remove label for node: %s", node.Name))
 
-			log.Info(fmt.Sprintf("[reconcileNodeSelector] Check if node %s has pods with NFS volume.", node.Name))
-
-			nodePodsWithNFSVolume, ok := podsMapWithNFSVolume[node.Name]
-			if ok && len(nodePodsWithNFSVolume) > 0 {
-				nodePodNamesWithNFSVolume := []string{}
-				for _, pod := range nodePodsWithNFSVolume {
-					nodePodNamesWithNFSVolume = append(nodePodNamesWithNFSVolume, fmt.Sprintf("%s/%s", pod.Namespace, pod.Name))
-				}
-				log.Warning(fmt.Sprintf("[reconcileNodeSelector] Found %d pods with NFS volume for node: %s. Skip remove label.", len(nodePodsWithNFSVolume), node.Name))
-				log.Info(fmt.Sprintf("[reconcileNodeSelector] Pods with NFS volume on node %s: %v", node.Name, nodePodNamesWithNFSVolume))
-				log.Trace(fmt.Sprintf("[reconcileNodeSelector] Pods with NFS volume on node %s: %+v", node.Name, nodePodsWithNFSVolume))
-				nodesToRemoveCount--
-				continue
-			}
-
-			err := RemoveLabelsFromNode(ctx, cl, log, node, nfsNodeLabels)
+		if node.Name == controllerNodeName {
+			log.Warning(fmt.Sprintf("[reconcileNodeSelector] Node %s is csi-nfs controller node!", node.Name))
+			csiControllerRemovable, err := IsCSIControllerRemovable(ctx, clusterWideClient, log, NFSStorageClassProvisioner, namespaceList)
 			if err != nil {
-				log.Error(err, fmt.Sprintf("[reconcileNodeSelector] Failed remove labels %+v from node: %s", nfsNodeLabels, node.Name))
+				log.Error(err, "[reconcileNodeSelector] Failed check if can remove csi-nfs controller node.")
 				return err
 			}
+
+			if !csiControllerRemovable {
+				log.Warning(fmt.Sprintf("[reconcileNodeSelector] Skip remove label from csi-nfs controller node: %s", node.Name))
+				continue
+			}
 		}
 
-		log.Info(fmt.Sprintf("[reconcileNodeSelector] Successfully removed labels %v from %d nodes.", nfsNodeLabels, nodesToRemoveCount))
+		log.Info(fmt.Sprintf("[reconcileNodeSelector] Check if node %s has pods with NFS volume.", node.Name))
+
+		nodePodsWithNFSVolume, ok := podsMapWithNFSVolume[node.Name]
+		if ok && len(nodePodsWithNFSVolume) > 0 {
+			nodePodNamesWithNFSVolume := []string{}
+			for _, pod := range nodePodsWithNFSVolume {
+				nodePodNamesWithNFSVolume = append(nodePodNamesWithNFSVolume, fmt.Sprintf("%s/%s", pod.Namespace, pod.Name))
+			}
+			log.Warning(fmt.Sprintf("[reconcileNodeSelector] Found %d pods with NFS volume for node: %s. Skip remove label.", len(nodePodsWithNFSVolume), node.Name))
+			log.Info(fmt.Sprintf("[reconcileNodeSelector] Pods with NFS volume on node %s: %v", node.Name, nodePodNamesWithNFSVolume))
+			log.Trace(fmt.Sprintf("[reconcileNodeSelector] Pods with NFS volume on node %s: %+v", node.Name, nodePodsWithNFSVolume))
+			continue
+		}
+
+		err := RemoveLabelsFromNode(ctx, cl, log, node, nfsNodeLabels)
+		if err != nil {
+			log.Error(err, fmt.Sprintf("[reconcileNodeSelector] Failed remove labels %+v from node: %s", nfsNodeLabels, node.Name))
+			return err
+		}
 	}
 
 	log.Info("[reconcileNodeSelector] Successfully reconciled NFS node selectors.")
@@ -244,24 +243,23 @@ func GetKubernetesNodesBySelector(ctx context.Context, cl client.Client, nodeSel
 func AddLabelsToNode(ctx context.Context, cl client.Client, log logger.Logger, node corev1.Node, labels map[string]string) error {
 	log.Debug(fmt.Sprintf("[AddLabelsToNode] node labels: %+v", node.Labels))
 	_, added := AddLabelsIfNeeded(log, node.Labels, labels)
-	if added {
-		log.Info(fmt.Sprintf("[AddLabelsToNode] Node %s has not labels %v. Add labels to node.", node.Name, labels))
-		return retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			latestNode := &corev1.Node{}
-			if err := cl.Get(ctx, types.NamespacedName{Name: node.Name}, latestNode); err != nil {
-				return err
-			}
-
-			latestNode.Labels, added = AddLabelsIfNeeded(log, latestNode.Labels, labels)
-			if added {
-				return cl.Update(ctx, latestNode)
-			}
-
-			return nil
-		})
+	if !added {
+		return nil
 	}
+	log.Info(fmt.Sprintf("[AddLabelsToNode] Node %s has not labels %v. Add labels to node.", node.Name, labels))
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		latestNode := &corev1.Node{}
+		if err := cl.Get(ctx, types.NamespacedName{Name: node.Name}, latestNode); err != nil {
+			return err
+		}
 
-	return nil
+		latestNode.Labels, added = AddLabelsIfNeeded(log, latestNode.Labels, labels)
+		if added {
+			return cl.Update(ctx, latestNode)
+		}
+
+		return nil
+	})
 }
 
 func AddLabelsIfNeeded(log logger.Logger, originalLabels, labelsToAdd map[string]string) (map[string]string, bool) {
@@ -349,7 +347,8 @@ func ContainsNode(nodeList *corev1.NodeList, nodeName string) bool {
 func GetPodsMapWithNFSVolume(ctx context.Context, clusterWideClient client.Reader, log logger.Logger, namespaceList *corev1.NamespaceList) (map[string][]corev1.Pod, error) {
 	podsMapWithNFSVolume := map[string][]corev1.Pod{}
 
-	for _, namespace := range namespaceList.Items {
+	for i := 0; i < len(namespaceList.Items); i++ {
+		namespace := &namespaceList.Items[i]
 		log.Debug(fmt.Sprintf("[GetPodsMapWithNFSVolume] Get pods for namespace %s.", namespace.Name))
 		pods := &corev1.PodList{}
 		err := clusterWideClient.List(ctx, pods, client.InNamespace(namespace.Name))
@@ -360,24 +359,29 @@ func GetPodsMapWithNFSVolume(ctx context.Context, clusterWideClient client.Reade
 		}
 		log.Debug(fmt.Sprintf("[GetPodsMapWithNFSVolume] Found %d pods in namespace %s.", len(pods.Items), namespace.Name))
 
-		for _, pod := range pods.Items {
-			log.Debug(fmt.Sprintf("[GetPodsMapWithNFSVolume] Check pod %s/%s.", pod.Namespace, pod.Name))
-			for _, volume := range pod.Spec.Volumes {
-				log.Debug(fmt.Sprintf("[GetPodsMapWithNFSVolume] Check volume %s for pod %s/%s.", volume.Name, pod.Namespace, pod.Name))
-				if volume.PersistentVolumeClaim != nil {
-					log.Debug(fmt.Sprintf("[GetPodsMapWithNFSVolume] Check pvc %s for pod %s/%s.", volume.PersistentVolumeClaim.ClaimName, pod.Namespace, pod.Name))
-					pvc := &corev1.PersistentVolumeClaim{}
-					err := clusterWideClient.Get(ctx, client.ObjectKey{Namespace: pod.Namespace, Name: volume.PersistentVolumeClaim.ClaimName}, pvc)
-					if err != nil {
-						log.Error(err, fmt.Sprintf("[GetPodsMapWithNFSVolume] Failed get pvc %s/%s for pod %s/%s.", pod.Namespace, volume.PersistentVolumeClaim.ClaimName, pod.Namespace, pod.Name))
-						return nil, err
-					}
+		for i := 0; i < len(pods.Items); i++ {
+			pod := &pods.Items[i]
 
-					if pvc.Annotations != nil && pvc.Annotations["volume.kubernetes.io/storage-provisioner"] == NFSStorageClassProvisioner {
-						log.Debug(fmt.Sprintf("[GetPodsMapWithNFSVolume] pod %s/%s has volume with NFS storage provisioner. Append pod to podsMapWithNFSVolume on node %s.", pod.Namespace, pod.Name, pod.Spec.NodeName))
-						podsMapWithNFSVolume[pod.Spec.NodeName] = append(podsMapWithNFSVolume[pod.Spec.NodeName], pod)
-						break
-					}
+			log.Debug(fmt.Sprintf("[GetPodsMapWithNFSVolume] Check pod %s/%s.", pod.Namespace, pod.Name))
+
+			for j := 0; j < len(pod.Spec.Volumes); i++ {
+				volume := &pod.Spec.Volumes[i]
+				log.Debug(fmt.Sprintf("[GetPodsMapWithNFSVolume] Check volume %s for pod %s/%s.", volume.Name, pod.Namespace, pod.Name))
+				if volume.PersistentVolumeClaim == nil {
+					continue
+				}
+				log.Debug(fmt.Sprintf("[GetPodsMapWithNFSVolume] Check pvc %s for pod %s/%s.", volume.PersistentVolumeClaim.ClaimName, pod.Namespace, pod.Name))
+				pvc := &corev1.PersistentVolumeClaim{}
+				err := clusterWideClient.Get(ctx, client.ObjectKey{Namespace: pod.Namespace, Name: volume.PersistentVolumeClaim.ClaimName}, pvc)
+				if err != nil {
+					log.Error(err, fmt.Sprintf("[GetPodsMapWithNFSVolume] Failed get pvc %s/%s for pod %s/%s.", pod.Namespace, volume.PersistentVolumeClaim.ClaimName, pod.Namespace, pod.Name))
+					return nil, err
+				}
+
+				if pvc.Annotations["volume.kubernetes.io/storage-provisioner"] == NFSStorageClassProvisioner {
+					log.Debug(fmt.Sprintf("[GetPodsMapWithNFSVolume] pod %s/%s has volume with NFS storage provisioner. Append pod to podsMapWithNFSVolume on node %s.", pod.Namespace, pod.Name, pod.Spec.NodeName))
+					podsMapWithNFSVolume[pod.Spec.NodeName] = append(podsMapWithNFSVolume[pod.Spec.NodeName], *pod)
+					break
 				}
 			}
 		}
@@ -389,24 +393,23 @@ func GetPodsMapWithNFSVolume(ctx context.Context, clusterWideClient client.Reade
 func RemoveLabelsFromNode(ctx context.Context, cl client.Client, log logger.Logger, node corev1.Node, labels map[string]string) error {
 	log.Debug(fmt.Sprintf("[RemoveLabelFromNode] node labels: %+v", node.Labels))
 	_, removed := RemoveLabelsIfNeeded(log, node.Labels, labels)
-	if removed {
-		log.Info(fmt.Sprintf("[RemoveLabelFromNode] Remove labels %v from node: %s", labels, node.Name))
-		return retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			latestNode := &corev1.Node{}
-			if err := cl.Get(ctx, types.NamespacedName{Name: node.Name}, latestNode); err != nil {
-				return err
-			}
-
-			latestNode.Labels, removed = RemoveLabelsIfNeeded(log, latestNode.Labels, labels)
-			if removed {
-				return cl.Update(ctx, latestNode)
-			}
-
-			return nil
-		})
+	if !removed {
+		return nil
 	}
+	log.Info(fmt.Sprintf("[RemoveLabelFromNode] Remove labels %v from node: %s", labels, node.Name))
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		latestNode := &corev1.Node{}
+		if err := cl.Get(ctx, types.NamespacedName{Name: node.Name}, latestNode); err != nil {
+			return err
+		}
 
-	return nil
+		latestNode.Labels, removed = RemoveLabelsIfNeeded(log, latestNode.Labels, labels)
+		if removed {
+			return cl.Update(ctx, latestNode)
+		}
+
+		return nil
+	})
 }
 
 func RemoveLabelsIfNeeded(log logger.Logger, originalLabels, labelsToRemove map[string]string) (map[string]string, bool) {
@@ -458,24 +461,29 @@ func GetPendingVolumeSnapshots(ctx context.Context, clusterWideClient client.Rea
 		log.Debug(fmt.Sprintf("[GetPendingVolumeSnapshots] Found %d volumesnapshots in namespace %s.", len(volumeSnapshots.Items), namespace.Name))
 
 		for _, snapshot := range volumeSnapshots.Items {
-			if snapshot.Status == nil || snapshot.Status.ReadyToUse == nil || !*snapshot.Status.ReadyToUse {
-				log.Info(fmt.Sprintf("[GetPendingVolumeSnapshots] Found pending volumesnapshot %s/%s.", snapshot.Namespace, snapshot.Name))
-				log.Debug(fmt.Sprintf("[GetPendingVolumeSnapshots] Volumesnapshot: %+v", snapshot))
-				if snapshot.Spec.Source.PersistentVolumeClaimName != nil {
-					pvc := &corev1.PersistentVolumeClaim{}
-					err := clusterWideClient.Get(ctx, client.ObjectKey{Namespace: snapshot.Namespace, Name: *snapshot.Spec.Source.PersistentVolumeClaimName}, pvc)
-					if err != nil {
-						err = fmt.Errorf("[GetPendingVolumeSnapshots] Failed get pvc %s/%s for snapshot %s/%s: %v", snapshot.Namespace, *snapshot.Spec.Source.PersistentVolumeClaimName, snapshot.Namespace, snapshot.Name, err)
-						return nil, err
-					}
-					log.Info(fmt.Sprintf("[GetPendingVolumeSnapshots] Found PVC %s/%s for volumesnapshot %s/%s.", pvc.Namespace, pvc.Name, snapshot.Namespace, snapshot.Name))
-					log.Debug(fmt.Sprintf("[GetPendingVolumeSnapshots] PVC: %+v", pvc))
+			if snapshot.Status != nil && snapshot.Status.ReadyToUse != nil && *snapshot.Status.ReadyToUse {
+				continue
+			}
 
-					if pvc.Annotations != nil && pvc.Annotations["volume.kubernetes.io/storage-provisioner"] == provisioner {
-						log.Debug(fmt.Sprintf("[GetPendingVolumeSnapshots] PVC %s/%s has NFS storage provisioner. Append volumesnapshot %s/%s to pendingSnapshots.", pvc.Namespace, pvc.Name, snapshot.Namespace, snapshot.Name))
-						pendingSnapshots = append(pendingSnapshots, snapshot)
-					}
-				}
+			log.Info(fmt.Sprintf("[GetPendingVolumeSnapshots] Found pending volumesnapshot %s/%s.", snapshot.Namespace, snapshot.Name))
+			log.Debug(fmt.Sprintf("[GetPendingVolumeSnapshots] Volumesnapshot: %+v", snapshot))
+
+			if snapshot.Spec.Source.PersistentVolumeClaimName == nil {
+				continue
+			}
+
+			pvc := &corev1.PersistentVolumeClaim{}
+			err := clusterWideClient.Get(ctx, client.ObjectKey{Namespace: snapshot.Namespace, Name: *snapshot.Spec.Source.PersistentVolumeClaimName}, pvc)
+			if err != nil {
+				err = fmt.Errorf("[GetPendingVolumeSnapshots] Failed get pvc %s/%s for snapshot %s/%s: %v", snapshot.Namespace, *snapshot.Spec.Source.PersistentVolumeClaimName, snapshot.Namespace, snapshot.Name, err)
+				return nil, err
+			}
+			log.Info(fmt.Sprintf("[GetPendingVolumeSnapshots] Found PVC %s/%s for volumesnapshot %s/%s.", pvc.Namespace, pvc.Name, snapshot.Namespace, snapshot.Name))
+			log.Debug(fmt.Sprintf("[GetPendingVolumeSnapshots] PVC: %+v", pvc))
+
+			if pvc.Annotations["volume.kubernetes.io/storage-provisioner"] == provisioner {
+				log.Debug(fmt.Sprintf("[GetPendingVolumeSnapshots] PVC %s/%s has NFS storage provisioner. Append volumesnapshot %s/%s to pendingSnapshots.", pvc.Namespace, pvc.Name, snapshot.Namespace, snapshot.Name))
+				pendingSnapshots = append(pendingSnapshots, snapshot)
 			}
 		}
 	}
@@ -501,7 +509,7 @@ func GetPendingPersistentVolumeClaims(ctx context.Context, clusterWideClient cli
 				log.Info(fmt.Sprintf("[GetPendingPersistentVolumeClaims] Found pending PVC %s/%s.", pvc.Namespace, pvc.Name))
 				log.Debug(fmt.Sprintf("[GetPendingPersistentVolumeClaims] PVC: %+v", pvc))
 
-				if pvc.Annotations != nil && pvc.Annotations["volume.kubernetes.io/storage-provisioner"] == provisioner {
+				if pvc.Annotations["volume.kubernetes.io/storage-provisioner"] == provisioner {
 					log.Info(fmt.Sprintf("[GetPendingPersistentVolumeClaims] PVC %s/%s has NFS storage provisioner. Append PVC %s/%s to pendingPVCs.", pvc.Namespace, pvc.Name, pvc.Namespace, pvc.Name))
 					pendingPVCs = append(pendingPVCs, pvc)
 				}
@@ -548,7 +556,15 @@ func IsCSIControllerRemovable(ctx context.Context, clusterWideClient client.Read
 	return true, nil
 }
 
-func ReconcileModulePods(ctx context.Context, cl client.Client, clusterWideClient client.Reader, log logger.Logger, moduleNamespace string, nodeSelector map[string]string, modulePodSelectorList []map[string]string) error {
+func ReconcileModulePods(
+	ctx context.Context,
+	cl client.Client,
+	clusterWideClient client.Reader,
+	log logger.Logger,
+	moduleNamespace string,
+	nodeSelector map[string]string,
+	modulePodSelectorList []map[string]string,
+) error {
 	modulePods := &corev1.PodList{}
 	err := cl.List(ctx, modulePods, client.InNamespace(moduleNamespace))
 	if err != nil {
@@ -572,13 +588,14 @@ func ReconcileModulePods(ctx context.Context, cl client.Client, clusterWideClien
 	log.Info(fmt.Sprintf("[ReconcileModulePods] csi-nfs node names: %v", csiNFSNodeNames))
 	log.Debug(fmt.Sprintf("[ReconcileModulePods] csi-nfs node names map: %+v", csiNFSNodeNamesMap))
 
-	csiControllerPods := []corev1.Pod{}
-	for _, pod := range modulePods.Items {
+	csiControllerPods := []*corev1.Pod{}
+	for i := 0; i < len(modulePods.Items); i++ {
+		pod := &modulePods.Items[i]
 		podMatchSelector := false
 		log.Debug(fmt.Sprintf("[ReconcileModulePods] Reconcile pod %s/%s. Pod assigned to node: %s", pod.Namespace, pod.Name, pod.Spec.NodeName))
 		log.Trace(fmt.Sprintf("[ReconcileModulePods] Pod: %+v", pod))
 		if pod.Spec.NodeName == "" {
-			log.Debug(fmt.Sprintf("[ReconcileModulePods] Skip pod %s/%s. NodeName is nil.", pod.Namespace, pod.Name))
+			log.Debug(fmt.Sprintf("[ReconcileModulePods] Skip pod %s/%s. NodeName is empty.", pod.Namespace, pod.Name))
 			continue
 		}
 
@@ -595,52 +612,55 @@ func ReconcileModulePods(ctx context.Context, cl client.Client, clusterWideClien
 			continue
 		}
 
-		_, ok := csiNFSNodeNamesMap[pod.Spec.NodeName]
-		if !ok {
-			if isPodMatchLabels(pod, csiControllerLabel) {
-				log.Debug(fmt.Sprintf("[ReconcileModulePods] Add pod %s/%s to csi-controller pods.", pod.Namespace, pod.Name))
-				csiControllerPods = append(csiControllerPods, pod)
-			} else {
-				log.Info(fmt.Sprintf("[ReconcileModulePods] Remove pod %s/%s because it is assigned to node %s that not in csi-nfs nodes: %v.", pod.Namespace, pod.Name, pod.Spec.NodeName, csiNFSNodeNames))
-				err := cl.Delete(ctx, &pod)
-				if err != nil {
-					log.Error(err, fmt.Sprintf("[ReconcileModulePods] Failed delete pod %s/%s.", pod.Namespace, pod.Name))
-					return err
-				}
+		if _, ok := csiNFSNodeNamesMap[pod.Spec.NodeName]; ok {
+			continue
+		}
+
+		if isPodMatchLabels(pod, csiControllerLabel) {
+			log.Debug(fmt.Sprintf("[ReconcileModulePods] Add pod %s/%s to csi-controller pods.", pod.Namespace, pod.Name))
+			csiControllerPods = append(csiControllerPods, pod)
+		} else {
+			log.Info(fmt.Sprintf("[ReconcileModulePods] Remove pod %s/%s because it is assigned to node %s that not in csi-nfs nodes: %v.", pod.Namespace, pod.Name, pod.Spec.NodeName, csiNFSNodeNames))
+			if err := cl.Delete(ctx, pod); err != nil {
+				log.Error(err, fmt.Sprintf("[ReconcileModulePods] Failed delete pod %s/%s.", pod.Namespace, pod.Name))
+				return err
 			}
 		}
 	}
 
-	if len(csiControllerPods) > 0 {
-		csiControllerPodNames := []string{}
+	if len(csiControllerPods) == 0 {
+		log.Debug("[ReconcileModulePods] Successfully reconciled module pods.")
+		return nil
+	}
+
+	csiControllerPodNames := []string{}
+	for _, pod := range csiControllerPods {
+		csiControllerPodNames = append(csiControllerPodNames, fmt.Sprintf("%s/%s on node %s", pod.Namespace, pod.Name, pod.Spec.NodeName))
+	}
+	log.Warning(fmt.Sprintf("[ReconcileModulePods] Found %d csi-controller pods that assigned to nodes not in csi-nfs nodes: %v.", len(csiControllerPods), csiNFSNodeNames))
+	log.Info(fmt.Sprintf("[ReconcileModulePods] csi-controller pods: %v", csiControllerPodNames))
+
+	namespaceList := &corev1.NamespaceList{}
+	err = cl.List(ctx, namespaceList)
+	if err != nil {
+		log.Error(err, "[ReconcileModulePods] Failed get namespaces.")
+		return err
+	}
+	log.Debug(fmt.Sprintf("[ReconcileModulePods] Found %d namespaces.", len(namespaceList.Items)))
+
+	csiControllerRemovable, err := IsCSIControllerRemovable(ctx, clusterWideClient, log, NFSStorageClassProvisioner, namespaceList)
+	if err != nil {
+		log.Error(err, "[ReconcileModulePods] Failed check if can remove csi-nfs controller node.")
+		return err
+	}
+	if csiControllerRemovable {
+		log.Warning("[ReconcileModulePods] Found csi-controller pods that assigned to nodes not in csi-nfs nodes. Remove csi-nfs controller pods.")
 		for _, pod := range csiControllerPods {
-			csiControllerPodNames = append(csiControllerPodNames, fmt.Sprintf("%s/%s on node %s", pod.Namespace, pod.Name, pod.Spec.NodeName))
-		}
-		log.Warning(fmt.Sprintf("[ReconcileModulePods] Found %d csi-controller pods that assigned to nodes not in csi-nfs nodes: %v.", len(csiControllerPods), csiNFSNodeNames))
-		log.Info(fmt.Sprintf("[ReconcileModulePods] csi-controller pods: %v", csiControllerPodNames))
-
-		namespaceList := &corev1.NamespaceList{}
-		err = cl.List(ctx, namespaceList)
-		if err != nil {
-			log.Error(err, "[ReconcileModulePods] Failed get namespaces.")
-			return err
-		}
-		log.Debug(fmt.Sprintf("[ReconcileModulePods] Found %d namespaces.", len(namespaceList.Items)))
-
-		csiControllerRemovable, err := IsCSIControllerRemovable(ctx, clusterWideClient, log, NFSStorageClassProvisioner, namespaceList)
-		if err != nil {
-			log.Error(err, "[ReconcileModulePods] Failed check if can remove csi-nfs controller node.")
-			return err
-		}
-		if csiControllerRemovable {
-			log.Warning("[ReconcileModulePods] Found csi-controller pods that assigned to nodes not in csi-nfs nodes. Remove csi-nfs controller pods.")
-			for _, pod := range csiControllerPods {
-				log.Info(fmt.Sprintf("[ReconcileModulePods] Remove csi-controller pod %s/%s.", pod.Namespace, pod.Name))
-				err := cl.Delete(ctx, &pod)
-				if err != nil {
-					log.Error(err, "[ReconcileModulePods] Failed remove csi-nfs controller node.")
-					return err
-				}
+			log.Info(fmt.Sprintf("[ReconcileModulePods] Remove csi-controller pod %s/%s.", pod.Namespace, pod.Name))
+			err := cl.Delete(ctx, pod)
+			if err != nil {
+				log.Error(err, "[ReconcileModulePods] Failed remove csi-nfs controller node.")
+				return err
 			}
 		}
 	}
@@ -650,7 +670,7 @@ func ReconcileModulePods(ctx context.Context, cl client.Client, clusterWideClien
 	return nil
 }
 
-func isPodMatchLabels(pod corev1.Pod, labelsMap map[string]string) bool {
+func isPodMatchLabels(pod *corev1.Pod, labelsMap map[string]string) bool {
 	selector := labels.SelectorFromSet(labelsMap)
 	return selector.Matches(labels.Set(pod.Labels))
 }
