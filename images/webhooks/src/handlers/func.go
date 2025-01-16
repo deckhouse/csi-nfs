@@ -18,6 +18,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 
@@ -40,7 +41,6 @@ import (
 	controllerruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
-	mc "webhooks/api"
 )
 
 func NewKubeClient(kubeconfigPath string) (client.Client, error) {
@@ -62,7 +62,6 @@ func NewKubeClient(kubeconfigPath string) (client.Client, error) {
 	var (
 		resourcesSchemeFuncs = []func(*apiruntime.Scheme) error{
 			v1alpha3.AddToScheme,
-			mc.AddToScheme,
 			cn.AddToScheme,
 			clientgoscheme.AddToScheme,
 			extv1.AddToScheme,
@@ -124,4 +123,35 @@ func GetValidatingWebhookHandler(validationFunc func(ctx context.Context, _ *mod
 	mutationWebhookHandler, err := kwhhttp.HandlerFor(kwhhttp.HandlerConfig{Webhook: mutationWebhook, Logger: logger})
 
 	return mutationWebhookHandler, err
+}
+
+// see images/controller/src/pkg/controller/nfs_storage_class_watcher_func.go
+func validateNFSStorageClass(nfsModuleConfig *cn.ModuleConfig, nsc *cn.NFSStorageClass) error {
+	var logPostfix = "Such a combination of parameters is not allowed"
+
+	if nsc.Spec.Connection.NFSVersion == "3" {
+		if value, ok := nfsModuleConfig.Spec.Settings["v3support"]; !ok {
+			return fmt.Errorf(
+				"ModuleConfig: %s (the v3support parameter is missing); NFSStorageClass: %s (nfsVersion is set to 3); %s",
+				nfsModuleConfig.Name, nsc.Name, logPostfix,
+			)
+		} else if value == false {
+			return fmt.Errorf(
+				"ModuleConfig: %s (the v3support parameter is disabled); NFSStorageClass: %s (nfsVersion is set to 3); %s",
+				nfsModuleConfig.Name, nsc.Name, logPostfix,
+			)
+		}
+	}
+
+	return nil
+}
+
+func validateModuleConfig(mc *cn.ModuleConfig, nscList *cn.NFSStorageClassList) error {
+	for _, nsc := range nscList.Items {
+		if err := validateNFSStorageClass(mc, &nsc); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
