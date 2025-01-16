@@ -10,7 +10,7 @@ import (
 func TestPrioritize(t *testing.T) {
 	t.Run("test prioritize", func(t *testing.T) {
 		nodeNames := []string{"node1", "node2", "node3"}
-		log, err := logger.NewLogger("debug")
+		log, err := logger.NewLogger(logger.InfoLevel)
 		if err != nil {
 			t.Errorf("failed to create logger: %v", err)
 		}
