@@ -27,6 +27,9 @@ import (
 	"syscall"
 	"time"
 
+	"csi-nfs-scheduler-extender/pkg/kubutils"
+	"csi-nfs-scheduler-extender/pkg/logger"
+	"csi-nfs-scheduler-extender/pkg/scheduler"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -35,10 +38,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/yaml"
-
-	"csi-nfs-scheduler-extender/pkg/kubutils"
-	"csi-nfs-scheduler-extender/pkg/logger"
-	"csi-nfs-scheduler-extender/pkg/scheduler"
 )
 
 const (

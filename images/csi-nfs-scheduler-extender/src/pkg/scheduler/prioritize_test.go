@@ -1,9 +1,9 @@
 package scheduler
 
 import (
-	"csi-nfs-scheduler-extender/pkg/logger"
 	"testing"
 
+	"csi-nfs-scheduler-extender/pkg/logger"
 	"github.com/stretchr/testify/assert"
 )
 

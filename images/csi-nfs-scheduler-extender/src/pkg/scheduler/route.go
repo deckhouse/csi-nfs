@@ -22,7 +22,6 @@ import (
 	"net/http"
 
 	"csi-nfs-scheduler-extender/pkg/logger"
-
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 

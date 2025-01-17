@@ -23,13 +23,12 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"slices"
-
-	corev1 "k8s.io/api/core/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"csi-nfs-scheduler-extender/pkg/consts"
 	"csi-nfs-scheduler-extender/pkg/logger"
+	corev1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"slices"
 )
 
 func (s *scheduler) filter(w http.ResponseWriter, r *http.Request) {
