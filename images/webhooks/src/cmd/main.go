@@ -53,6 +53,7 @@ const (
 	port           = ":8443"
 	NSCValidatorID = "NSCValidator"
 	SCValidatorID  = "SCValidator"
+	MCValidatorID  = "MCValidator"
 )
 
 func main() {
@@ -74,9 +75,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	mcValidatingWebhookHandler, err := handlers.GetValidatingWebhookHandler(handlers.MCValidate, MCValidatorID, &cn.ModuleConfig{}, logger)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error creating mcValidatingWebhookHandler: %s", err)
+		os.Exit(1)
+	}
+
 	mux := http.NewServeMux()
 	mux.Handle("/sc-validate", scValidatingWebhookHandler)
 	mux.Handle("/nsc-validate", nscValidatingWebhookHandler)
+	mux.Handle("/mc-validate", mcValidatingWebhookHandler)
 	mux.HandleFunc("/healthz", httpHandlerHealthz)
 
 	logger.Infof("Listening on %s", port)

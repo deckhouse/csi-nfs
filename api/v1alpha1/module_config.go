@@ -18,7 +18,6 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -36,10 +35,6 @@ var (
 	}
 )
 
-var _ runtime.Object = (*ModuleConfig)(nil)
-
-// +genclient
-// +genclient:nonNamespaced
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
@@ -80,12 +75,14 @@ func (v SettingsValues) DeepCopyInto(out *SettingsValues) {
 	}
 }
 
+// +k8s:deepcopy-gen=true
 type ModuleConfigSpec struct {
 	Version  int            `json:"version,omitempty"`
 	Settings SettingsValues `json:"settings,omitempty"`
 	Enabled  *bool          `json:"enabled,omitempty"`
 }
 
+// +k8s:deepcopy-gen=true
 type ModuleConfigStatus struct {
 	Version string `json:"version"`
 	Message string `json:"message"`
@@ -100,15 +97,4 @@ type ModuleConfigList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []ModuleConfig `json:"items"`
-}
-
-type moduleConfigKind struct{}
-
-func (in *ModuleConfigStatus) GetObjectKind() schema.ObjectKind {
-	return &moduleConfigKind{}
-}
-
-func (f *moduleConfigKind) SetGroupVersionKind(_ schema.GroupVersionKind) {}
-func (f *moduleConfigKind) GroupVersionKind() schema.GroupVersionKind {
-	return ModuleConfigGVK
 }

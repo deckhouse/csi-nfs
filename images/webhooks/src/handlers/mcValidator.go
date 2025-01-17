@@ -8,22 +8,17 @@ import (
 	"github.com/slok/kubewebhook/v2/pkg/model"
 	kwhvalidating "github.com/slok/kubewebhook/v2/pkg/webhook/validating"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 )
 
-const (
-	csiNfsModuleName = "csi-nfs"
-)
-
-func NSCValidate(ctx context.Context, arReview *model.AdmissionReview, obj metav1.Object) (*kwhvalidating.ValidatorResult, error) {
-	nsc, ok := obj.(*cn.NFSStorageClass)
+func MCValidate(ctx context.Context, arReview *model.AdmissionReview, obj metav1.Object) (*kwhvalidating.ValidatorResult, error) {
+	nfsModuleConfig, ok := obj.(*cn.ModuleConfig)
 	if !ok {
 		// If not a storage class just continue the validation chain(if there is one) and do nothing.
 		return &kwhvalidating.ValidatorResult{}, nil
 	}
 
-	if nsc.ObjectMeta.DeletionTimestamp != nil || arReview.Operation == "delete" {
+	if nfsModuleConfig.ObjectMeta.DeletionTimestamp != nil || arReview.Operation == "delete" {
 		return &kwhvalidating.ValidatorResult{Valid: true}, nil
 	}
 
@@ -32,13 +27,13 @@ func NSCValidate(ctx context.Context, arReview *model.AdmissionReview, obj metav
 		klog.Fatal(err) // pod restarting
 	}
 
-	nfsModuleConfig := &cn.ModuleConfig{}
-	err = cl.Get(ctx, types.NamespacedName{Name: csiNfsModuleName, Namespace: ""}, nfsModuleConfig)
+	nscList := &cn.NFSStorageClassList{}
+	err = cl.List(ctx, nscList)
 	if err != nil {
 		klog.Fatal(err)
 	}
 
-	if err := validateNFSStorageClass(nfsModuleConfig, nsc); err != nil {
+	if err := validateModuleConfig(nfsModuleConfig, nscList); err != nil {
 		klog.Error(err)
 		return &kwhvalidating.ValidatorResult{
 			Valid:   false,
