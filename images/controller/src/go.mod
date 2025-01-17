@@ -3,7 +3,7 @@ module d8-controller
 go 1.23.4
 
 require (
-	github.com/deckhouse/csi-nfs/api v0.0.0-20250114120436-92edf4aa86c9
+	github.com/deckhouse/csi-nfs/api v0.0.0-20250116103144-d23aedd591a3
 	github.com/go-logr/logr v1.4.2
 	github.com/onsi/ginkgo/v2 v2.22.2
 	github.com/onsi/gomega v1.36.2
