@@ -363,6 +363,8 @@ func GetPodsMapWithNFSVolume(ctx context.Context, clusterWideClient client.Reade
 			pod := &pods.Items[i]
 
 			log.Debug(fmt.Sprintf("[GetPodsMapWithNFSVolume] Check pod %s/%s.", pod.Namespace, pod.Name))
+			log.Debug(fmt.Sprintf("[GetPodsMapWithNFSVolume] Pod volumes: %+v", pod.Spec.Volumes))
+			log.Trace(fmt.Sprintf("[GetPodsMapWithNFSVolume] Pod: %+v", pod))
 
 			for j := 0; j < len(pod.Spec.Volumes); i++ {
 				volume := &pod.Spec.Volumes[i]

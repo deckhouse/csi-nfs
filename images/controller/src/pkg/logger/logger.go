@@ -61,9 +61,11 @@ func NewLogger(level Verbosity) (*Logger, error) {
 		return nil, err
 	}
 
-	log := textlogger.NewLogger(
-		textlogger.NewConfig(textlogger.Verbosity(levelInt)),
+	config := textlogger.NewConfig(
+		textlogger.Verbosity(levelInt),
 	)
+
+	log := textlogger.NewLogger(config).WithCallDepth(1)
 
 	return &Logger{log: log}, nil
 }
