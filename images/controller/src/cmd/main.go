@@ -22,10 +22,6 @@ import (
 	"os"
 	goruntime "runtime"
 
-	"d8-controller/pkg/config"
-	"d8-controller/pkg/controller"
-	"d8-controller/pkg/kubutils"
-	"d8-controller/pkg/logger"
 	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	snapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumesnapshot/v1"
 	v1 "k8s.io/api/core/v1"
@@ -37,6 +33,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+
+	"d8-controller/pkg/config"
+	"d8-controller/pkg/controller"
+	"d8-controller/pkg/kubutils"
+	"d8-controller/pkg/logger"
 )
 
 var (

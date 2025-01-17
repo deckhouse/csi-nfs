@@ -20,8 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	"d8-controller/pkg/controller"
-	"d8-controller/pkg/logger"
 	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -30,6 +28,9 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"d8-controller/pkg/controller"
+	"d8-controller/pkg/logger"
 )
 
 const (

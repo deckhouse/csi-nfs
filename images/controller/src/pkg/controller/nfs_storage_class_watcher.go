@@ -23,8 +23,6 @@ import (
 	"reflect"
 	"time"
 
-	"d8-controller/pkg/config"
-	"d8-controller/pkg/logger"
 	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/storage/v1"
@@ -38,6 +36,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	"d8-controller/pkg/config"
+	"d8-controller/pkg/logger"
 )
 
 const (
@@ -130,12 +131,12 @@ func RunNFSStorageClassWatcherController(
 	}
 
 	err = c.Watch(source.Kind(mgr.GetCache(), &v1alpha1.NFSStorageClass{}, handler.TypedFuncs[*v1alpha1.NFSStorageClass, reconcile.Request]{
-		CreateFunc: func(ctx context.Context, e event.TypedCreateEvent[*v1alpha1.NFSStorageClass], q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+		CreateFunc: func(_ context.Context, e event.TypedCreateEvent[*v1alpha1.NFSStorageClass], q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 			log.Info(fmt.Sprintf("[CreateFunc] get event for NFSStorageClass %q. Add to the queue", e.Object.GetName()))
 			request := reconcile.Request{NamespacedName: types.NamespacedName{Namespace: e.Object.GetNamespace(), Name: e.Object.GetName()}}
 			q.Add(request)
 		},
-		UpdateFunc: func(ctx context.Context, e event.TypedUpdateEvent[*v1alpha1.NFSStorageClass], q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+		UpdateFunc: func(_ context.Context, e event.TypedUpdateEvent[*v1alpha1.NFSStorageClass], q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 			log.Info(fmt.Sprintf("[UpdateFunc] get event for NFSStorageClass %q. Check if it should be reconciled", e.ObjectNew.GetName()))
 
 			if reflect.DeepEqual(e.ObjectOld.Spec, e.ObjectNew.Spec) && e.ObjectNew.DeletionTimestamp == nil {

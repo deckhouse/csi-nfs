@@ -21,9 +21,6 @@ import (
 	"fmt"
 	"time"
 
-	"d8-controller/pkg/config"
-	"d8-controller/pkg/logger"
-
 	snapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumesnapshot/v1"
 	"gopkg.in/yaml.v3"
 	coordinationv1 "k8s.io/api/coordination/v1"
@@ -37,6 +34,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	"d8-controller/pkg/config"
+	"d8-controller/pkg/logger"
 )
 
 const (
