@@ -19,6 +19,7 @@ package logger
 import (
 	"flag"
 	"fmt"
+	"strconv"
 
 	"github.com/go-logr/logr"
 	"k8s.io/klog/v2"
@@ -55,7 +56,14 @@ func NewLogger(level Verbosity) (*Logger, error) {
 	}
 	flag.Parse()
 
-	log := textlogger.NewLogger(&textlogger.Config{})
+	levelInt, err := strconv.Atoi(string(level))
+	if err != nil {
+		return nil, err
+	}
+
+	log := textlogger.NewLogger(
+		textlogger.NewConfig(textlogger.Verbosity(levelInt)),
+	)
 
 	return &Logger{log: log}, nil
 }
