@@ -101,6 +101,20 @@ func RunNFSStorageClassWatcherController(
 				return reconcile.Result{}, nil
 			}
 
+			if nsc.DeletionTimestamp == nil {
+				nfsModuleConfig := &v1alpha1.ModuleConfig{}
+				err := cl.Get(ctx, types.NamespacedName{Name: cfg.CsiNfsModuleName, Namespace: ""}, nfsModuleConfig)
+				if err != nil {
+					log.Error(err, fmt.Sprintf("[NFSStorageClassReconciler] unable to get ModuleConfig, name: %s", cfg.CsiNfsModuleName))
+					return reconcile.Result{}, err
+				}
+
+				if err := validateNFSStorageClass(nfsModuleConfig, nsc); err != nil {
+					log.Error(err, "[NFSStorageClassReconciler] invalid NFSStorageClass")
+					return reconcile.Result{}, err
+				}
+			}
+
 			scList := &v1.StorageClassList{}
 			err = cl.List(ctx, scList)
 			if err != nil {

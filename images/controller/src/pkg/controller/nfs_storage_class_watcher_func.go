@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	"d8-controller/pkg/logger"
+
 	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/storage/v1"
@@ -363,42 +364,40 @@ func shouldReconcileStorageClassByUpdateFunc(log logger.Logger, scList *v1.Stora
 	}
 
 	for _, oldSC := range scList.Items {
-		if oldSC.Name != nsc.Name {
-			continue
-		}
+		if oldSC.Name == nsc.Name {
+			if !slices.Contains(allowedProvisioners, oldSC.Provisioner) {
+				return false, fmt.Errorf(
+					"a storage class %s with provisioner % s does not belong to allowed provisioners: %v",
+					oldSC.Name,
+					oldSC.Provisioner,
+					allowedProvisioners,
+				)
+			}
+			newSC, err := updateStorageClass(nsc, &oldSC, controllerNamespace)
+			if err != nil {
+				return false, err
+			}
 
-		if !slices.Contains(allowedProvisioners, oldSC.Provisioner) {
-			return false, fmt.Errorf(
-				"a storage class %s with provisioner % s does not belong to allowed provisioners: %v",
-				oldSC.Name,
-				oldSC.Provisioner,
-				allowedProvisioners,
-			)
-		}
+			diff, err := GetSCDiff(&oldSC, newSC)
+			if err != nil {
+				return false, err
+			}
 
-		newSC, err := updateStorageClass(nsc, &oldSC, controllerNamespace)
-		if err != nil {
-			return false, err
-		}
+			if diff != "" {
+				log.Debug(fmt.Sprintf("[shouldReconcileStorageClassByUpdateFunc] a storage class %s should be updated. Diff: %s", oldSC.Name, diff))
+				return true, nil
+			}
 
-		diff, err := GetSCDiff(&oldSC, newSC)
-		if err != nil {
-			return false, err
-		}
+			if nsc.Status != nil && nsc.Status.Phase == FailedStatusPhase {
+				return true, nil
+			}
 
-		if diff != "" {
-			log.Debug(fmt.Sprintf("[shouldReconcileStorageClassByUpdateFunc] a storage class %s should be updated. Diff: %s", oldSC.Name, diff))
-			return true, nil
+			return false, nil
 		}
-
-		if nsc.Status != nil && nsc.Status.Phase == FailedStatusPhase {
-			return true, nil
-		}
-
-		return false, nil
 	}
 
-	return false, fmt.Errorf("a storage class %s does not exist", nsc.Name)
+	err := fmt.Errorf("a storage class %s does not exist", nsc.Name)
+	return false, err
 }
 
 func shouldReconcileByDeleteFunc(obj metav1.Object) bool {
@@ -731,4 +730,29 @@ func updateStorageClass(nsc *v1alpha1.NFSStorageClass, oldSC *v1.StorageClass, c
 	}
 
 	return newSC, nil
+}
+
+// see images/webhooks/src/handlers/func.go
+func validateNFSStorageClass(nfsModuleConfig *v1alpha1.ModuleConfig, nsc *v1alpha1.NFSStorageClass) error {
+	var logPostfix = "Such a combination of parameters is not allowed"
+
+	if nsc.Spec.Connection.NFSVersion == "3" {
+		if value, ok := nfsModuleConfig.Spec.Settings["v3support"]; !ok {
+			return fmt.Errorf(
+				"ModuleConfig: %s (the v3support parameter is missing); NFSStorageClass: %s (nfsVersion is set to 3); %s",
+				nfsModuleConfig.Name,
+				nsc.Name,
+				logPostfix,
+			)
+		} else if value == false {
+			return fmt.Errorf(
+				"ModuleConfig: %s (the v3support parameter is disabled); NFSStorageClass: %s (nfsVersion is set to 3); %s",
+				nfsModuleConfig.Name,
+				nsc.Name,
+				logPostfix,
+			)
+		}
+	}
+
+	return nil
 }

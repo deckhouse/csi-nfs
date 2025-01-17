@@ -133,12 +133,16 @@ func validateNFSStorageClass(nfsModuleConfig *cn.ModuleConfig, nsc *cn.NFSStorag
 		if value, ok := nfsModuleConfig.Spec.Settings["v3support"]; !ok {
 			return fmt.Errorf(
 				"ModuleConfig: %s (the v3support parameter is missing); NFSStorageClass: %s (nfsVersion is set to 3); %s",
-				nfsModuleConfig.Name, nsc.Name, logPostfix,
+				nfsModuleConfig.Name,
+				nsc.Name,
+				logPostfix,
 			)
 		} else if value == false {
 			return fmt.Errorf(
 				"ModuleConfig: %s (the v3support parameter is disabled); NFSStorageClass: %s (nfsVersion is set to 3); %s",
-				nfsModuleConfig.Name, nsc.Name, logPostfix,
+				nfsModuleConfig.Name,
+				nsc.Name,
+				logPostfix,
 			)
 		}
 	}
