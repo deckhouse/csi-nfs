@@ -62,7 +62,6 @@ func (s *scheduler) prioritize(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 	}
 	s.log.Debug("[prioritize] ends serving")
-
 }
 
 func scoreNodes(
