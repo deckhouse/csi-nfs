@@ -22,11 +22,14 @@ import (
 	"testing"
 
 	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
+	snapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumesnapshot/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/apps/v1"
+	coordinationv1 "k8s.io/api/coordination/v1"
 	sv1 "k8s.io/api/storage/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -45,6 +48,8 @@ func NewFakeClient() client.Client {
 		extv1.AddToScheme,
 		v1.AddToScheme,
 		sv1.AddToScheme,
+		coordinationv1.AddToScheme,
+		snapshotv1.AddToScheme,
 	}
 	scheme := apiruntime.NewScheme()
 	for _, f := range resourcesSchemeFuncs {
