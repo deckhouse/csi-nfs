@@ -160,7 +160,7 @@ func ReconcileNodeSelector(
 	log.Info(fmt.Sprintf("[reconcileNodeSelector] Nodes to remove: %v", nodeNamesToRemove))
 	log.Trace(fmt.Sprintf("[reconcileNodeSelector] Nodes: %+v", nodesToRemove.Items))
 
-	controllerNodeName, err := GetCCSIControllerNodeName(ctx, cl, log, namespace, csiNFSExternalSnapshotterLeaseName)
+	controllerNodeName, err := GetCCSIControllerNodeName(ctx, cl, namespace, csiNFSExternalSnapshotterLeaseName)
 	if err != nil {
 		err = fmt.Errorf("[reconcileNodeSelector] Failed get csi-nfs controller node name: %w", err)
 		return err
@@ -432,7 +432,7 @@ func RemoveLabelsIfNeeded(log logger.Logger, originalLabels, labelsToRemove map[
 	return originalLabels, removed
 }
 
-func GetCCSIControllerNodeName(ctx context.Context, cl client.Client, log logger.Logger, namespace, leaseName string) (string, error) {
+func GetCCSIControllerNodeName(ctx context.Context, cl client.Client, namespace, leaseName string) (string, error) {
 	lease := &coordinationv1.Lease{}
 	err := cl.Get(ctx, client.ObjectKey{Namespace: namespace, Name: leaseName}, lease)
 	if err != nil {

@@ -11,7 +11,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"d8-controller/pkg/controller"
@@ -131,7 +131,7 @@ nodeSelector:
 			lease := &coordinationv1.Lease{
 				ObjectMeta: metav1.ObjectMeta{Name: "external-snapshotter-leader-nfs-csi-k8s-io", Namespace: testNamespace},
 				Spec: coordinationv1.LeaseSpec{
-					HolderIdentity: pointer.String("nodeCtrl"),
+					HolderIdentity: ptr.To("nodeCtrl"),
 				},
 			}
 			Expect(cl.Create(ctx, lease)).To(Succeed())
@@ -183,7 +183,7 @@ nodeSelector:
 			lease := &coordinationv1.Lease{
 				ObjectMeta: metav1.ObjectMeta{Name: "external-snapshotter-leader-nfs-csi-k8s-io", Namespace: testNamespace},
 				Spec: coordinationv1.LeaseSpec{
-					HolderIdentity: pointer.String("nodeCtrl"),
+					HolderIdentity: ptr.To("nodeCtrl"),
 				},
 			}
 			Expect(cl.Create(ctx, lease)).To(Succeed())
@@ -299,7 +299,7 @@ nodeSelector:
 		// 			lease := &coordinationv1.Lease{
 		// 				ObjectMeta: metav1.ObjectMeta{Name: "external-snapshotter-leader-nfs-csi-k8s-io", Namespace: testNamespace},
 		// 				Spec: coordinationv1.LeaseSpec{
-		// 					HolderIdentity: pointer.String("nodeCtrl"),
+		// 					HolderIdentity: ptr.To("nodeCtrl"),
 		// 				},
 		// 			}
 		// 			Expect(cl.Create(ctx, lease)).To(Succeed())
@@ -512,7 +512,7 @@ nodeSelector:
 		// 			lease := &coordinationv1.Lease{
 		// 				ObjectMeta: metav1.ObjectMeta{Name: "external-snapshotter-leader-nfs-csi-k8s-io", Namespace: testNamespace},
 		// 				Spec: coordinationv1.LeaseSpec{
-		// 					HolderIdentity: pointer.String("node4a"),
+		// 					HolderIdentity: ptr.To("node4a"),
 		// 				},
 		// 			}
 		// 			Expect(cl.Create(ctx, lease)).To(Succeed())
@@ -593,7 +593,7 @@ func makeModulePod(name, namespace, nodeName string, lbls map[string]string) *co
 	}
 }
 
-func makePodWithPVC(name, namespace, nodeName, pvcName, provisioner string) *corev1.Pod {
+func makePodWithPVC(name, namespace, nodeName, pvcName, _ string) *corev1.Pod {
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -648,7 +648,7 @@ func prepareControllerNodeWithSnapshot(
 	lease := &coordinationv1.Lease{
 		ObjectMeta: metav1.ObjectMeta{Name: "external-snapshotter-leader-nfs-csi-k8s-io", Namespace: ns},
 		Spec: coordinationv1.LeaseSpec{
-			HolderIdentity: pointer.String(nodeName),
+			HolderIdentity: ptr.To(nodeName),
 		},
 	}
 	Expect(cl.Create(ctx, lease)).To(Succeed())
@@ -660,11 +660,11 @@ func prepareControllerNodeWithSnapshot(
 		},
 		Spec: snapshotv1.VolumeSnapshotSpec{
 			Source: snapshotv1.VolumeSnapshotSource{
-				PersistentVolumeClaimName: pointer.String("some-pvc"),
+				PersistentVolumeClaimName: ptr.To("some-pvc"),
 			},
 		},
 		Status: &snapshotv1.VolumeSnapshotStatus{
-			ReadyToUse: pointer.Bool(false),
+			ReadyToUse: ptr.To(bool(false)),
 		},
 	}
 	Expect(cl.Create(ctx, vs)).To(Succeed())
@@ -688,7 +688,7 @@ func prepareControllerNodeWithPendingPVC(
 	lease := &coordinationv1.Lease{
 		ObjectMeta: metav1.ObjectMeta{Name: "external-snapshotter-leader-nfs-csi-k8s-io", Namespace: ns},
 		Spec: coordinationv1.LeaseSpec{
-			HolderIdentity: pointer.String(nodeName),
+			HolderIdentity: ptr.To(nodeName),
 		},
 	}
 	Expect(cl.Create(ctx, lease)).To(Succeed())
@@ -701,7 +701,7 @@ func prepareControllerNodeWithPendingPVC(
 func preparePendingPVC(
 	ctx context.Context,
 	cl client.Client,
-	ns, pvcName, nodeName, nfsProvisioner string,
+	ns, pvcName, _, nfsProvisioner string,
 ) {
 	pvc := makePVC(pvcName, ns, nfsProvisioner, corev1.ClaimPending)
 	Expect(cl.Create(ctx, pvc)).To(Succeed())
