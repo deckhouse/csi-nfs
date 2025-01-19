@@ -403,7 +403,7 @@ nodeSelector:
 					ctx, cl, clusterWideCl, log, testNamespace,
 					map[string]string{nfsNodeSelectorKey: ""},
 					[]map[string]string{
-						{"app": "csi-nfs-controller"},
+						{"app": "csi-controller"},
 						{"app": "csi-nfs-node"},
 					},
 				)

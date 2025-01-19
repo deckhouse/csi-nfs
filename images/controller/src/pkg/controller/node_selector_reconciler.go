@@ -50,7 +50,7 @@ var (
 	csiControllerLabel                 = map[string]string{"app": "csi-controller"}
 	csiNFSExternalSnapshotterLeaseName = "external-snapshotter-leader-nfs-csi-k8s-io"
 	modulePodSelectorList              = []map[string]string{
-		{"app": "csi-nfs-controller"},
+		csiControllerLabel,
 		{"app": "csi-nfs-node"},
 	}
 )
@@ -593,7 +593,7 @@ func ReconcileModulePods(
 	for i := 0; i < len(modulePods.Items); i++ {
 		pod := &modulePods.Items[i]
 		podMatchSelector := false
-		log.Debug(fmt.Sprintf("[ReconcileModulePods] Reconcile pod %s/%s. Pod assigned to node: %s", pod.Namespace, pod.Name, pod.Spec.NodeName))
+		log.Debug(fmt.Sprintf("[ReconcileModulePods] Reconcile pod %s/%s. Pod assigned to node: %s. And has labels: %+v", pod.Namespace, pod.Name, pod.Spec.NodeName, pod.Labels))
 		log.Trace(fmt.Sprintf("[ReconcileModulePods] Pod: %+v", pod))
 		if pod.Spec.NodeName == "" {
 			log.Debug(fmt.Sprintf("[ReconcileModulePods] Skip pod %s/%s. NodeName is empty.", pod.Namespace, pod.Name))
@@ -601,6 +601,7 @@ func ReconcileModulePods(
 		}
 
 		for _, selector := range modulePodSelectorList {
+			log.Debug(fmt.Sprintf("[ReconcileModulePods] Check pod %s/%s with labels %+v match selector %+v.", pod.Namespace, pod.Name, pod.Labels, selector))
 			if isPodMatchLabels(pod, selector) {
 				log.Debug(fmt.Sprintf("[ReconcileModulePods] Pod %s/%s match selector %+v.", pod.Namespace, pod.Name, selector))
 				podMatchSelector = true
@@ -614,6 +615,7 @@ func ReconcileModulePods(
 		}
 
 		if _, ok := csiNFSNodeNamesMap[pod.Spec.NodeName]; ok {
+			log.Debug(fmt.Sprintf("[ReconcileModulePods] Pod %s/%s assigned to node %s that in csi-nfs nodes: %v.", pod.Namespace, pod.Name, pod.Spec.NodeName, csiNFSNodeNames))
 			continue
 		}
 
