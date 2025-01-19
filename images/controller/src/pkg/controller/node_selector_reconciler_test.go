@@ -458,170 +458,174 @@ nodeSelector:
 				Expect(errGet).NotTo(HaveOccurred(), "Pod should remain because it's on a proper node with the label")
 			})
 		})
+
+		Context("Integration tests (both ReconcileNodeSelector and ReconcileModulePods)", func() {
+
+			It("Simple integration: Adding label to correct nodes, removing from incorrect, removing Pod from unlabelled node", func() {
+				cfgYAML := `
+nodeSelector:
+  myrole: "nfs"
+`
+				secret := &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      configSecretName,
+						Namespace: testNamespace,
+					},
+					Data: map[string][]byte{"config": []byte(cfgYAML)},
+				}
+				Expect(cl.Create(ctx, secret)).To(Succeed())
+
+				// nodeA, nodeB - match the selector (myrole=nfs)
+				nodeA := makeNode("nodeA", map[string]string{"myrole": "nfs"})
+				nodeB := makeNode("nodeB", map[string]string{"myrole": "nfs"})
+				Expect(cl.Create(ctx, nodeA)).To(Succeed())
+				Expect(cl.Create(ctx, nodeB)).To(Succeed())
+
+				// nodeC - does not match
+				nodeC := makeNode("nodeC", nil)
+				Expect(cl.Create(ctx, nodeC)).To(Succeed())
+
+				// Pod csi-nfs-node on nodeC (which does not match user selector)
+				podC := makeModulePod("csi-nodeC", testNamespace, "nodeC", map[string]string{"app": "csi-nfs-node"})
+				Expect(cl.Create(ctx, podC)).To(Succeed())
+
+				// 1) Run ReconcileNodeSelector
+				Expect(controller.ReconcileNodeSelector(ctx, cl, clusterWideCl, log, testNamespace, configSecretName)).To(Succeed())
+
+				// nodeA / nodeB should get the label
+				checkA := &corev1.Node{}
+				Expect(cl.Get(ctx, client.ObjectKey{Name: "nodeA"}, checkA)).To(Succeed())
+				Expect(checkA.Labels).To(HaveKey(nfsNodeSelectorKey))
+
+				checkB := &corev1.Node{}
+				Expect(cl.Get(ctx, client.ObjectKey{Name: "nodeB"}, checkB)).To(Succeed())
+				Expect(checkB.Labels).To(HaveKey(nfsNodeSelectorKey))
+
+				checkC := &corev1.Node{}
+				Expect(cl.Get(ctx, client.ObjectKey{Name: "nodeC"}, checkC)).To(Succeed())
+				Expect(checkC.Labels).NotTo(HaveKey(nfsNodeSelectorKey))
+
+				// 2) Run ReconcileModulePods
+				Expect(controller.ReconcileModulePods(
+					ctx, cl, clusterWideCl, log, testNamespace,
+					map[string]string{nfsNodeSelectorKey: ""},
+					[]map[string]string{
+						{"app": "csi-nfs-controller"},
+						{"app": "csi-nfs-node"},
+					},
+				)).To(Succeed())
+
+				// Pod on nodeC should be deleted
+				errGetPodC := cl.Get(ctx, client.ObjectKey{Name: podC.Name, Namespace: testNamespace}, &corev1.Pod{})
+				Expect(k8serrors.IsNotFound(errGetPodC)).To(BeTrue(), "Pod on nodeC must be removed")
+			})
+
+			It("Expanded integration with 4 groups of nodes (1) keep label, (2) add label, (3) remove label + remove csi-nfs-node Pod, (4) cannot remove label due to block", func() {
+				cfgYAML := `
+nodeSelector:
+  myrole: "nfs"
+`
+				secret := &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      configSecretName,
+						Namespace: testNamespace,
+					},
+					Data: map[string][]byte{"config": []byte(cfgYAML)},
+				}
+				Expect(cl.Create(ctx, secret)).To(Succeed())
+
+				// Group 1: matching user selector, already have nfs label
+				node1a := makeNode("node1a", map[string]string{"myrole": "nfs", nfsNodeSelectorKey: ""})
+				node1b := makeNode("node1b", map[string]string{"myrole": "nfs", nfsNodeSelectorKey: ""})
+				Expect(cl.Create(ctx, node1a)).To(Succeed())
+				Expect(cl.Create(ctx, node1b)).To(Succeed())
+
+				// Group 2: matching user selector, do not have nfs label
+				node2a := makeNode("node2a", map[string]string{"myrole": "nfs"})
+				node2b := makeNode("node2b", map[string]string{"myrole": "nfs"})
+				Expect(cl.Create(ctx, node2a)).To(Succeed())
+				Expect(cl.Create(ctx, node2b)).To(Succeed())
+
+				// Group 3: not matching selector, have label, no blocking -> label will be removed
+				node3a := makeNode("node3a", map[string]string{nfsNodeSelectorKey: ""})
+				node3b := makeNode("node3b", map[string]string{nfsNodeSelectorKey: ""})
+				Expect(cl.Create(ctx, node3a)).To(Succeed())
+				Expect(cl.Create(ctx, node3b)).To(Succeed())
+
+				pod3aNFS := makeModulePod("csi-nfs-node3a", testNamespace, "node3a", map[string]string{"app": "csi-nfs-node"})
+				Expect(cl.Create(ctx, pod3aNFS)).To(Succeed())
+
+				// a pod with a different provisioner
+				otherPod3a := makePodWithPVC("pod-other3a", testNamespace, "node3a", "pvc-other3a", "other.csi.k8s.io")
+				Expect(cl.Create(ctx, otherPod3a)).To(Succeed())
+				otherPVC3a := makePVC("pvc-other3a", testNamespace, "other.csi.k8s.io", v1.ClaimBound)
+				Expect(cl.Create(ctx, otherPVC3a)).To(Succeed())
+
+				// Group 4: not matching, have label, have blocking factors -> label not removed
+				node4a := makeNode("node4a", map[string]string{nfsNodeSelectorKey: ""})
+				Expect(cl.Create(ctx, node4a)).To(Succeed())
+
+				lease := &coordinationv1.Lease{
+					ObjectMeta: metav1.ObjectMeta{Name: "external-snapshotter-leader-nfs-csi-k8s-io", Namespace: testNamespace},
+					Spec: coordinationv1.LeaseSpec{
+						HolderIdentity: ptr.To("node4a"),
+					},
+				}
+				Expect(cl.Create(ctx, lease)).To(Succeed())
+
+				pvcBlock4a := makePVC("pvc-block4a", testNamespace, provisionerNFS, v1.ClaimPending)
+				Expect(cl.Create(ctx, pvcBlock4a)).To(Succeed())
+
+				// 1) ReconcileNodeSelector
+				Expect(controller.ReconcileNodeSelector(ctx, cl, clusterWideCl, log, testNamespace, configSecretName)).To(Succeed())
+
+				// Verify results
+				// Group 1: label remains
+				recheck1a := &corev1.Node{}
+				Expect(cl.Get(ctx, client.ObjectKey{Name: "node1a"}, recheck1a)).To(Succeed())
+				Expect(recheck1a.Labels).To(HaveKey(nfsNodeSelectorKey))
+
+				// Group 2: label is added
+				recheck2a := &corev1.Node{}
+				Expect(cl.Get(ctx, client.ObjectKey{Name: "node2a"}, recheck2a)).To(Succeed())
+				Expect(recheck2a.Labels).To(HaveKey(nfsNodeSelectorKey))
+
+				// Group 3: label is removed
+				recheck3a := &corev1.Node{}
+				Expect(cl.Get(ctx, client.ObjectKey{Name: "node3a"}, recheck3a)).To(Succeed())
+				Expect(recheck3a.Labels).NotTo(HaveKey(nfsNodeSelectorKey))
+
+				// Group 4: label stays
+				recheck4a := &corev1.Node{}
+				Expect(cl.Get(ctx, client.ObjectKey{Name: "node4a"}, recheck4a)).To(Succeed())
+				Expect(recheck4a.Labels).To(HaveKey(nfsNodeSelectorKey))
+
+				// 2) ReconcileModulePods
+				Expect(controller.ReconcileModulePods(
+					ctx, cl, clusterWideCl, log, testNamespace,
+					map[string]string{nfsNodeSelectorKey: ""},
+					[]map[string]string{
+						{"app": "csi-nfs-controller"},
+						{"app": "csi-nfs-node"},
+					},
+				)).To(Succeed())
+
+				// Group 3 node's csi-nfs-node Pod must be deleted
+				errPod3a := cl.Get(ctx, client.ObjectKey{Name: "csi-nfs-node3a", Namespace: testNamespace}, &corev1.Pod{})
+				Expect(k8serrors.IsNotFound(errPod3a)).To(BeTrue(), "csi-nfs-node Pod on group 3 node must be deleted")
+
+				// The other pod with different CSI provisioner remains
+				errOtherPod3a := cl.Get(ctx, client.ObjectKey{Name: "pod-other3a", Namespace: testNamespace}, &corev1.Pod{})
+				Expect(errOtherPod3a).NotTo(HaveOccurred(), "Non-nfs Pod should not be deleted")
+
+				// Group 4 node's label remains and pods (if any) are not deleted due to block
+				recheck4a = &corev1.Node{}
+				Expect(cl.Get(ctx, client.ObjectKey{Name: "node4a"}, recheck4a)).To(Succeed())
+				Expect(recheck4a.Labels).To(HaveKey(nfsNodeSelectorKey))
+
+			})
+		})
 	})
-
-	// 		Context("Integration tests (both ReconcileNodeSelector and ReconcileModulePods)", func() {
-
-	// 			It("Simple integration: Adding label to correct nodes, removing from incorrect, removing Pod from unlabelled node", func() {
-	// 				cfgYAML := `
-	// 	nodeSelector:
-	// 	  myrole: "nfs"
-	// 	`
-	// 				secret := &corev1.Secret{
-	// 					ObjectMeta: metav1.ObjectMeta{
-	// 						Name:      configSecretName,
-	// 						Namespace: testNamespace,
-	// 					},
-	// 					Data: map[string][]byte{"config": []byte(cfgYAML)},
-	// 				}
-	// 				Expect(cl.Create(ctx, secret)).To(Succeed())
-
-	// 				// nodeA, nodeB - match the selector (myrole=nfs)
-	// 				nodeA := makeNode("nodeA", map[string]string{"myrole": "nfs"})
-	// 				nodeB := makeNode("nodeB", map[string]string{"myrole": "nfs"})
-	// 				Expect(cl.Create(ctx, nodeA)).To(Succeed())
-	// 				Expect(cl.Create(ctx, nodeB)).To(Succeed())
-
-	// 				// nodeC - does not match
-	// 				nodeC := makeNode("nodeC", nil)
-	// 				Expect(cl.Create(ctx, nodeC)).To(Succeed())
-
-	// 				// Pod csi-nfs-node on nodeC (which does not match user selector)
-	// 				podC := makeModulePod("csi-nodeC", testNamespace, "nodeC", map[string]string{"app": "csi-nfs-node"})
-	// 				Expect(cl.Create(ctx, podC)).To(Succeed())
-
-	// 				// 1) Run ReconcileNodeSelector
-	// 				Expect(controller.ReconcileNodeSelector(ctx, cl, clusterWideCl, log, testNamespace, configSecretName)).To(Succeed())
-
-	// 				// nodeA / nodeB should get the label
-	// 				checkA := &corev1.Node{}
-	// 				Expect(cl.Get(ctx, client.ObjectKey{Name: "nodeA"}, checkA)).To(Succeed())
-	// 				Expect(checkA.Labels).To(HaveKey(nfsNodeSelectorKey))
-
-	// 				checkB := &corev1.Node{}
-	// 				Expect(cl.Get(ctx, client.ObjectKey{Name: "nodeB"}, checkB)).To(Succeed())
-	// 				Expect(checkB.Labels).To(HaveKey(nfsNodeSelectorKey))
-
-	// 				checkC := &corev1.Node{}
-	// 				Expect(cl.Get(ctx, client.ObjectKey{Name: "nodeC"}, checkC)).To(Succeed())
-	// 				Expect(checkC.Labels).NotTo(HaveKey(nfsNodeSelectorKey))
-
-	// 				// 2) Run ReconcileModulePods
-	// 				Expect(controller.ReconcileModulePods(
-	// 					ctx, cl, clusterWideCl, log, testNamespace,
-	// 					map[string]string{nfsNodeSelectorKey: ""},
-	// 					[]map[string]string{
-	// 						{"app": "csi-nfs-controller"},
-	// 						{"app": "csi-nfs-node"},
-	// 					},
-	// 				)).To(Succeed())
-
-	// 				// Pod on nodeC should be deleted
-	// 				errGetPodC := cl.Get(ctx, client.ObjectKey{Name: podC.Name, Namespace: testNamespace}, &corev1.Pod{})
-	// 				Expect(k8serrors.IsNotFound(errGetPodC)).To(BeTrue(), "Pod on nodeC must be removed")
-	// 			})
-
-	// 			It("Expanded integration with 4 groups of nodes (1) keep label, (2) add label, (3) remove label + remove csi-nfs-node Pod, (4) cannot remove label due to block", func() {
-	// 				cfgYAML := `
-	// 	nodeSelector:
-	// 	  myrole: "nfs"
-	// 	`
-	// 				secret := &corev1.Secret{
-	// 					ObjectMeta: metav1.ObjectMeta{
-	// 						Name:      configSecretName,
-	// 						Namespace: testNamespace,
-	// 					},
-	// 					Data: map[string][]byte{"config": []byte(cfgYAML)},
-	// 				}
-	// 				Expect(cl.Create(ctx, secret)).To(Succeed())
-
-	// 				// Group 1: matching user selector, already have nfs label
-	// 				node1a := makeNode("node1a", map[string]string{"myrole": "nfs", nfsNodeSelectorKey: ""})
-	// 				node1b := makeNode("node1b", map[string]string{"myrole": "nfs", nfsNodeSelectorKey: ""})
-	// 				Expect(cl.Create(ctx, node1a)).To(Succeed())
-	// 				Expect(cl.Create(ctx, node1b)).To(Succeed())
-
-	// 				// Group 2: matching user selector, do not have nfs label
-	// 				node2a := makeNode("node2a", map[string]string{"myrole": "nfs"})
-	// 				node2b := makeNode("node2b", map[string]string{"myrole": "nfs"})
-	// 				Expect(cl.Create(ctx, node2a)).To(Succeed())
-	// 				Expect(cl.Create(ctx, node2b)).To(Succeed())
-
-	// 				// Group 3: not matching selector, have label, no blocking -> label will be removed
-	// 				node3a := makeNode("node3a", map[string]string{nfsNodeSelectorKey: ""})
-	// 				node3b := makeNode("node3b", map[string]string{nfsNodeSelectorKey: ""})
-	// 				Expect(cl.Create(ctx, node3a)).To(Succeed())
-	// 				Expect(cl.Create(ctx, node3b)).To(Succeed())
-
-	// 				pod3aNFS := makeModulePod("csi-nfs-node3a", testNamespace, "node3a", map[string]string{"app": "csi-nfs-node"})
-	// 				Expect(cl.Create(ctx, pod3aNFS)).To(Succeed())
-
-	// 				// a pod with a different provisioner
-	// 				otherPod3a := makePodWithPVC("pod-other3a", testNamespace, "node3a", "pvc-other3a", "other.csi.k8s.io")
-	// 				Expect(cl.Create(ctx, otherPod3a)).To(Succeed())
-	// 				otherPVC3a := makePVC("pvc-other3a", testNamespace, "other.csi.k8s.io", v1.ClaimBound)
-	// 				Expect(cl.Create(ctx, otherPVC3a)).To(Succeed())
-
-	// 				// Group 4: not matching, have label, have blocking factors -> label not removed
-	// 				node4a := makeNode("node4a", map[string]string{nfsNodeSelectorKey: ""})
-	// 				Expect(cl.Create(ctx, node4a)).To(Succeed())
-
-	// 				lease := &coordinationv1.Lease{
-	// 					ObjectMeta: metav1.ObjectMeta{Name: "external-snapshotter-leader-nfs-csi-k8s-io", Namespace: testNamespace},
-	// 					Spec: coordinationv1.LeaseSpec{
-	// 						HolderIdentity: ptr.To("node4a"),
-	// 					},
-	// 				}
-	// 				Expect(cl.Create(ctx, lease)).To(Succeed())
-
-	// 				pvcBlock4a := makePVC("pvc-block4a", testNamespace, provisionerNFS, v1.ClaimPending)
-	// 				Expect(cl.Create(ctx, pvcBlock4a)).To(Succeed())
-
-	// 				// 1) ReconcileNodeSelector
-	// 				Expect(controller.ReconcileNodeSelector(ctx, cl, clusterWideCl, log, testNamespace, configSecretName)).To(Succeed())
-
-	// 				// Verify results
-	// 				// Group 1: label remains
-	// 				recheck1a := &corev1.Node{}
-	// 				Expect(cl.Get(ctx, client.ObjectKey{Name: "node1a"}, recheck1a)).To(Succeed())
-	// 				Expect(recheck1a.Labels).To(HaveKey(nfsNodeSelectorKey))
-
-	// 				// Group 2: label is added
-	// 				recheck2a := &corev1.Node{}
-	// 				Expect(cl.Get(ctx, client.ObjectKey{Name: "node2a"}, recheck2a)).To(Succeed())
-	// 				Expect(recheck2a.Labels).To(HaveKey(nfsNodeSelectorKey))
-
-	// 				// Group 3: label is removed
-	// 				recheck3a := &corev1.Node{}
-	// 				Expect(cl.Get(ctx, client.ObjectKey{Name: "node3a"}, recheck3a)).To(Succeed())
-	// 				Expect(recheck3a.Labels).NotTo(HaveKey(nfsNodeSelectorKey))
-
-	// 				// Group 4: label stays
-	// 				recheck4a := &corev1.Node{}
-	// 				Expect(cl.Get(ctx, client.ObjectKey{Name: "node4a"}, recheck4a)).To(Succeed())
-	// 				Expect(recheck4a.Labels).To(HaveKey(nfsNodeSelectorKey))
-
-	// 				// 2) ReconcileModulePods
-	// 				Expect(controller.ReconcileModulePods(
-	// 					ctx, cl, clusterWideCl, log, testNamespace,
-	// 					map[string]string{nfsNodeSelectorKey: ""},
-	// 					[]map[string]string{
-	// 						{"app": "csi-nfs-controller"},
-	// 						{"app": "csi-nfs-node"},
-	// 					},
-	// 				)).To(Succeed())
-
-	// 				// Group 3 node's csi-nfs-node Pod must be deleted
-	// 				errPod3a := cl.Get(ctx, client.ObjectKey{Name: "csi-nfs-node3a", Namespace: testNamespace}, &corev1.Pod{})
-	// 				Expect(k8serrors.IsNotFound(errPod3a)).To(BeTrue(), "csi-nfs-node Pod on group 3 node must be deleted")
-
-	// 				// The other pod with different CSI provisioner remains
-	// 				errOtherPod3a := cl.Get(ctx, client.ObjectKey{Name: "pod-other3a", Namespace: testNamespace}, &corev1.Pod{})
-	// 				Expect(errOtherPod3a).NotTo(HaveOccurred(), "Non-nfs Pod should not be deleted")
-
-	// 				// Group 4 node's label remains and pods (if any) are not deleted due to block
-	// 			})
-	// })
 })
 
 //-------------------------------------------------------------------------------
