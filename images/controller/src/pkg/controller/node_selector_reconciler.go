@@ -474,7 +474,7 @@ func GetPendingVolumeSnapshots(ctx context.Context, clusterWideClient client.Rea
 			}
 
 			pvc := &corev1.PersistentVolumeClaim{}
-			err := clusterWideClient.Get(ctx, client.ObjectKey{Namespace: snapshot.Namespace, Name: *snapshot.Spec.Source.PersistentVolumeClaimName}, pvc)
+			err = clusterWideClient.Get(ctx, client.ObjectKey{Namespace: snapshot.Namespace, Name: *snapshot.Spec.Source.PersistentVolumeClaimName}, pvc)
 			if err != nil {
 				err = fmt.Errorf("[GetPendingVolumeSnapshots] Failed get pvc %s/%s for snapshot %s/%s: %v", snapshot.Namespace, *snapshot.Spec.Source.PersistentVolumeClaimName, snapshot.Namespace, snapshot.Name, err)
 				return nil, err
@@ -575,7 +575,7 @@ func ReconcileModulePods(
 
 	csiNFSNodes, err := GetKubernetesNodesBySelector(ctx, cl, nodeSelector)
 	if err != nil {
-		err = fmt.Errorf("[ReconcileModulePods] Failed get nodes from Kubernetes by selector: %v: %w", nodeSelector, err)
+		err = fmt.Errorf("[ReconcileModulePods] Failed get nodes from Kubernetes by selector: %+v: %w", nodeSelector, err)
 		return err
 	}
 	log.Trace(fmt.Sprintf("[ReconcileModulePods] csi-nfs nodes: %+v", csiNFSNodes.Items))
@@ -602,7 +602,7 @@ func ReconcileModulePods(
 
 		for _, selector := range modulePodSelectorList {
 			if isPodMatchLabels(pod, selector) {
-				log.Debug(fmt.Sprintf("[ReconcileModulePods] Pod %s/%s match selector %v.", pod.Namespace, pod.Name, selector))
+				log.Debug(fmt.Sprintf("[ReconcileModulePods] Pod %s/%s match selector %+v.", pod.Namespace, pod.Name, selector))
 				podMatchSelector = true
 				break
 			}
