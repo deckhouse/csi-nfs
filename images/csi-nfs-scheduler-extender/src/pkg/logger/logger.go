@@ -1,12 +1,9 @@
 /*
 Copyright 2024 Flant JSC
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
     http://www.apache.org/licenses/LICENSE-2.0
-
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,12 +14,10 @@ limitations under the License.
 package logger
 
 import (
-	"flag"
 	"fmt"
 	"strconv"
 
 	"github.com/go-logr/logr"
-	"k8s.io/klog/v2"
 	"k8s.io/klog/v2/textlogger"
 )
 
@@ -32,6 +27,7 @@ const (
 	InfoLevel    Verbosity = "2"
 	DebugLevel   Verbosity = "3"
 	TraceLevel   Verbosity = "4"
+	CacheLevel   Verbosity = "5"
 )
 
 const (
@@ -39,6 +35,7 @@ const (
 	infoLvl
 	debugLvl
 	traceLvl
+	cacheLvl
 )
 
 type (
@@ -50,22 +47,12 @@ type Logger struct {
 }
 
 func NewLogger(level Verbosity) (*Logger, error) {
-	klog.InitFlags(nil)
-	if err := flag.Set("v", string(level)); err != nil {
-		return nil, err
-	}
-	flag.Parse()
-
-	levelInt, err := strconv.Atoi(string(level))
+	v, err := strconv.Atoi(string(level))
 	if err != nil {
 		return nil, err
 	}
 
-	config := textlogger.NewConfig(
-		textlogger.Verbosity(levelInt),
-	)
-
-	log := textlogger.NewLogger(config).WithCallDepth(1)
+	log := textlogger.NewLogger(textlogger.NewConfig(textlogger.Verbosity(v))).WithCallDepth(1)
 
 	return &Logger{log: log}, nil
 }
@@ -92,4 +79,8 @@ func (l Logger) Debug(message string, keysAndValues ...interface{}) {
 
 func (l Logger) Trace(message string, keysAndValues ...interface{}) {
 	l.log.V(traceLvl).Info(fmt.Sprintf("TRACE %s", message), keysAndValues...)
+}
+
+func (l Logger) Cache(message string, keysAndValues ...interface{}) {
+	l.log.V(cacheLvl).Info(fmt.Sprintf("CACHE %s", message), keysAndValues...)
 }

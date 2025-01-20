@@ -24,6 +24,15 @@ spec:
     # See the License for the specific language governing permissions and
     # limitations under the License.
 
+    kubeconfig="/etc/kubernetes/kubelet.conf"
+    is_csi_nfs_node=$(bb-kubectl --kubeconfig $kubeconfig  get node "$(hostname)" -o json | jq -c '.metadata.labels | contains({"storage.deckhouse.io/csi-nfs-node":""})')
+    bb-log-info "is_csi_nfs_node: "$is_csi_nfs_node
+
+    if [ "$is_csi_nfs_node" == "false" ]; then
+      bb-log-info "This node is not a CSI NFS node. Skipping installation rpcbind and nfs-utils."
+      exit 0
+    fi
+
     bb-apt-install "nfs-common" "rpcbind"
     
     # This is dirty hack for statd, because it can't be enabled via systemd in newer distributive (Bashible performs a full cycle at every node reboot, so statd will be started)

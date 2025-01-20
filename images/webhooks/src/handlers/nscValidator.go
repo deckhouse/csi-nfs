@@ -3,7 +3,6 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	mc "webhooks/api"
 
 	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	"github.com/slok/kubewebhook/v2/pkg/model"
@@ -12,6 +11,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	mc "webhooks/api"
 )
 
 const (

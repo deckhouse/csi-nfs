@@ -13,6 +13,8 @@ linters-settings:
     sections:
       - standard
       - default
+      - prefix(d8-controller)
+      - prefix(webhooks)
 
 linters:
   disable-all: true
