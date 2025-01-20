@@ -3,6 +3,8 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	mc "webhooks/api"
+
 	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	"github.com/slok/kubewebhook/v2/pkg/model"
 	kwhvalidating "github.com/slok/kubewebhook/v2/pkg/webhook/validating"
@@ -10,7 +12,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	mc "webhooks/api"
 )
 
 const (
@@ -72,6 +73,7 @@ func NSCValidate(ctx context.Context, arReview *model.AdmissionReview, obj metav
 				"settings": map[string]interface{}{
 					"v3support": true,
 				},
+				"version": "1",
 			},
 		})
 		if err != nil {
@@ -89,6 +91,7 @@ func NSCValidate(ctx context.Context, arReview *model.AdmissionReview, obj metav
 				"settings": map[string]interface{}{
 					"v3support": false,
 				},
+				"version": "1",
 			},
 		})
 		if err != nil {
