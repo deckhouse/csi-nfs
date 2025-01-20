@@ -74,7 +74,7 @@ func NSCValidate(ctx context.Context, arReview *model.AdmissionReview, obj metav
 				"settings": map[string]interface{}{
 					"v3support": true,
 				},
-				"version": "1",
+				"version": 1,
 			},
 		})
 		if err != nil {
@@ -92,7 +92,7 @@ func NSCValidate(ctx context.Context, arReview *model.AdmissionReview, obj metav
 				"settings": map[string]interface{}{
 					"v3support": false,
 				},
-				"version": "1",
+				"version": 1,
 			},
 		})
 		if err != nil {
