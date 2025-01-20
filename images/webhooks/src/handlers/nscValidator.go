@@ -35,6 +35,9 @@ func NSCValidate(ctx context.Context, arReview *model.AdmissionReview, obj metav
 
 	listClasses := &cn.NFSStorageClassList{}
 	err = cl.List(ctx, listClasses)
+	if err != nil {
+		klog.Fatal(err)
+	}
 
 	if nsc.ObjectMeta.DeletionTimestamp == nil && arReview.Operation != "delete" && nsc.Spec.Connection.NFSVersion == "3" {
 		v3presents = true
