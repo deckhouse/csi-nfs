@@ -21,14 +21,18 @@ import (
 )
 
 func KubernetesDefaultConfigCreate() (*rest.Config, error) {
-	// todo validate empty
+	config, err := rest.InClusterConfig()
+	if err == nil {
+		return config, nil
+	}
+
 	clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
 		clientcmd.NewDefaultClientConfigLoadingRules(),
 		&clientcmd.ConfigOverrides{},
 	)
 
 	// Get a config to talk to API server
-	config, err := clientConfig.ClientConfig()
+	config, err = clientConfig.ClientConfig()
 	if err != nil {
 		return nil, fmt.Errorf("config kubernetes error %w", err)
 	}

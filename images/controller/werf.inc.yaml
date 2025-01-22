@@ -32,12 +32,43 @@ shell:
   setup:
     - cd /src/images/{{ $.ImageName }}/src/cmd
     - export CGO_ENABLED=0 GOOS=linux GOARCH=amd64
-    - go build -ldflags="-s -w" -tags {{ .MODULE_EDITION }} -o /controller
+    - go build -ldflags="-s -w" -tags {{ $.Root.MODULE_EDITION }} -o /controller
     - chmod +x /controller
 
 ---
-image: {{ $.ImageName }}
+image: {{ $.ImageName }}-distroless-artifact
+from: {{ $.Root.BASE_ALT_P11 }}
+final: false
+shell:
+  beforeInstall:
+    - apt-get update
+    - apt-get install -y openssl libtirpc
+    - {{ $.Root.ALT_CLEANUP_CMD }}
+  install:
+    - mkdir -p /relocate/bin /relocate/sbin /relocate/etc /relocate/var/lib/ssl /relocate/usr/bin /relocate/usr/sbin /relocate/usr/share
+    - cp -pr /tmp /relocate
+    - cp -pr /etc/passwd /etc/group /etc/hostname /etc/hosts /etc/shadow /etc/protocols /etc/services /etc/nsswitch.conf /etc/netconfig /relocate/etc
+    - cp -pr /usr/share/ca-certificates /relocate/usr/share
+    - cp -pr /usr/share/zoneinfo /relocate/usr/share
+    - cp -pr /var/lib/ssl/cert.pem /relocate/var/lib/ssl
+    - cp -pr /var/lib/ssl/certs /relocate/var/lib/ssl
+    - echo "deckhouse:x:{{ $.Root.DECKHOUSE_UID_GID }}:{{ $.Root.DECKHOUSE_UID_GID }}:deckhouse:/:/sbin/nologin" >> /relocate/etc/passwd
+    - echo "deckhouse:x:{{ $.Root.DECKHOUSE_UID_GID }}:" >> /relocate/etc/group
+    - echo "deckhouse:!::0:::::" >> /relocate/etc/shadow
+
+---
+image: {{ $.ImageName }}-distroless
 from: {{ $.Root.BASE_SCRATCH }}
+final: false
+import:
+  - image: {{ $.ImageName }}-distroless-artifact
+    add: /relocate
+    to: /
+    before: setup
+
+---
+image: {{ $.ImageName }}
+fromImage: {{ $.ImageName }}-distroless
 import:
   - image: {{ $.ImageName }}-golang-artifact
     add: /controller
@@ -45,3 +76,4 @@ import:
     before: setup
 docker:
   ENTRYPOINT: ["/controller"]
+  USER: deckhouse:deckhouse

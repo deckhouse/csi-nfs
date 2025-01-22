@@ -170,6 +170,7 @@
 {{- $_ := set $csiControllerConfig "controllerImage" $csiControllerImage }}
 {{- $_ := set $csiControllerConfig "snapshotterEnabled" true }}
 {{- $_ := set $csiControllerConfig "resizerEnabled" true }}
+# We need to run as root to be able to mount NFS volumes during provisioning
 {{- $_ := set $csiControllerConfig "runAsRootUser" true }}
 {{- $_ := set $csiControllerConfig "provisionerTimeout" "1200s" }}
 {{- $_ := set $csiControllerConfig "snapshotterTimeout" "1200s" }}

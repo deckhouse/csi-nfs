@@ -34,20 +34,17 @@ shell:
 image: {{ $.ImageName }}-binaries-artifact
 from: {{ $.Root.BASE_ALT_P11 }}
 final: false
-
 import:
   - image: {{ $.ImageName }}-src-artifact
     add: /src
     to: /src
     before: install
-
 git:
   - add: /tools/dev_images/additional_tools/alt/binary_replace.sh
     to: /binary_replace.sh
     stageDependencies:
       beforeSetup:
         - '**/*'
-
 shell:
   beforeInstall:
     - apt-get update
@@ -70,6 +67,7 @@ shell:
     - make install DESTDIR=/nfs-utils
   beforeSetup:
     - cp -av /nfs-utils/usr/lib/* /usr/lib/
+    - chmod +x /binary_replace.sh
     - |
       /binary_replace.sh \
       -i "/nfs-utils/sbin/* /nfs-utils/usr/bin/* /nfs-utils/usr/sbin/* /lib64/libnss_files.so.2 /lib64/libnss_dns.so.2 /bin/cp /bin/mount /bin/umount" \
@@ -88,13 +86,11 @@ shell:
 image: {{ $.ImageName }}-golang-artifact
 from: {{ $.Root.BASE_GOLANG_1_23 }}
 final: false
-
 import:
   - image: {{ $.ImageName }}-src-artifact
     add: /src
     to: /src
     before: install
-
 mount:
   - fromPath: ~/go-pkg-cache
     to: /go/pkg
@@ -112,7 +108,6 @@ shell:
 image: {{ $.ImageName }}-distroless-artifact
 from: {{ $.Root.BASE_ALT_P11 }}
 final: false
-
 shell:
   beforeInstall:
     - apt-get update
@@ -134,7 +129,6 @@ shell:
 image: {{ $.ImageName }}-distroless
 from: {{ $.Root.BASE_SCRATCH }}
 final: false
-
 import:
   - image: {{ $.ImageName }}-distroless-artifact
     add: /relocate
@@ -144,7 +138,6 @@ import:
 ---
 image: {{ $.ImageName }}
 fromImage: {{ $.ImageName }}-distroless
-
 import:
   - image: {{ $.ImageName }}-golang-artifact
     add: /nfsplugin
@@ -156,3 +149,4 @@ import:
     before: setup
 docker:
   ENTRYPOINT: ["/nfsplugin"]
+  USER: deckhouse:deckhouse
