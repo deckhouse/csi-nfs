@@ -4,7 +4,7 @@
 {{- $_ := set . "BASE_ALT_P11" "registry.deckhouse.io/base_images/alt:p11@sha256:e47d84424485d3674240cb2f67d3a1801b37d327e6d1eb8cc8d01be8ed3b34f3" }}
 
 # Edition module settings
-{{- $_ := set . "MODULE_EDITION" (env "MODULE_EDITION" "EE") }}
+{{- $_ := set . "MODULE_EDITION" (env "MODULE_EDITION" "CE") }}
 
 # component versions
 {{- $versions := dict }}
