@@ -22,10 +22,12 @@ import (
 	"os"
 	goruntime "runtime"
 
+	"d8-controller/internal"
 	"d8-controller/pkg/config"
 	"d8-controller/pkg/controller"
 	"d8-controller/pkg/kubutils"
 	"d8-controller/pkg/logger"
+
 	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 	sv1 "k8s.io/api/storage/v1"
@@ -60,6 +62,8 @@ func main() {
 
 	log.Info(fmt.Sprintf("[main] Go Version:%s ", goruntime.Version()))
 	log.Info(fmt.Sprintf("[main] OS/Arch:Go OS/Arch:%s/%s ", goruntime.GOOS, goruntime.GOARCH))
+
+	log.Info(fmt.Sprintf("[main] FeatureTLSEnabled:%v", internal.FeatureTLSEnabled))
 
 	log.Info("[main] CfgParams has been successfully created")
 	log.Info(fmt.Sprintf("[main] %s = %s", config.LogLevelEnvName, cfgParams.Loglevel))

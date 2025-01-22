@@ -32,7 +32,7 @@ shell:
   setup:
     - cd /src/images/{{ $.ImageName }}/src/cmd
     - export CGO_ENABLED=0 GOOS=linux GOARCH=amd64
-    - go build -ldflags="-s -w" -o /controller
+    - go build -ldflags="-s -w" -tags {{ .MODULE_EDITION }} -o /controller
     - chmod +x /controller
 
 ---

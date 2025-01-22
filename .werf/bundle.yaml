@@ -1,8 +1,8 @@
 # Bundle image, stored in your.registry.io/modules/<module-name>:<semver>
 ---
 image: bundle
-from: registry.deckhouse.io/base_images/scratch@sha256:b054705fcc9f2205777d80a558d920c0b4209efdc3163c22b5bfcb5dda1db5fc
-fromCacheVersion: "2024-09-22.1"
+#from: registry.deckhouse.io/base_images/scratch@sha256:b054705fcc9f2205777d80a558d920c0b4209efdc3163c22b5bfcb5dda1db5fc
+from: {{ $.Root.BASE_SCRATCH }}
 import:
 # Rendering .werf/images-digests.yaml is required!
 - image: images-digests
@@ -13,6 +13,11 @@ import:
 - image: python-dependencies
   add: /lib/python/dist
   to: /lib/python/dist
+  after: setup
+# Rendering .werf/choise-edition.yaml is required!
+- image: choise-edition
+  add: /openapi
+  to: /openapi
   after: setup
 git:
 - add: /
@@ -26,6 +31,5 @@ git:
   - hooks
   - monitoring
   - module.yaml
-  - openapi
   - templates
   - Chart.yaml

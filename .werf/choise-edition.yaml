@@ -1,0 +1,14 @@
+# TODO comment here
+---
+image: choise-edition
+from: registry.deckhouse.io/base_images/alpine:3.16.3
+git:
+  - add: /
+    to: /
+    includePaths:
+      - openapi
+shell:
+  setup:
+    - cd /openapi
+    - cp -v values_{{ .MODULE_EDITION }}.yaml values.yaml
+    - rm -rf values_*.yaml

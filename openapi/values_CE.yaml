@@ -6,6 +6,9 @@ properties:
     type: object
     default: {}
     properties:
+      edition:
+        type: string
+        default: CE
       pythonVersions:
         type: array
         default: []
