@@ -27,7 +27,6 @@ import (
 	"d8-controller/pkg/controller"
 	"d8-controller/pkg/kubutils"
 	"d8-controller/pkg/logger"
-
 	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 	sv1 "k8s.io/api/storage/v1"
