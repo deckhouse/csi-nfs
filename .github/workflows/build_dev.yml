@@ -13,12 +13,12 @@ env:
 
 on:
   #pull_request:
-  #push:
-  #  branches:
-  #    - main
-  # make this job as dependency for trivy_image_check workflow
+  # call from trivy_image_check.yaml, which in turn call from pull_request
   # https://stackoverflow.com/a/71489231
   workflow_call:
+  push:
+    branches:
+      - main
 
 defaults:
   run:
