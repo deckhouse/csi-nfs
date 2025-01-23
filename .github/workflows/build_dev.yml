@@ -18,14 +18,14 @@ on:
       - main
 
 jobs:
-    dump_contexts_to_log:
-    runs-on: [self-hosted, regular, selectel]
-    steps:
-      - name: Dump GitHub.event context
-        env:
-          GITHUB_CONTEXT_EVENT: ${{ toJson(github.event) }}
-        run: echo "$GITHUB_CONTEXT_EVENT"
-        shell: bash
+  dump_contexts_to_log:
+  runs-on: [self-hosted, regular, selectel]
+  steps:
+    - name: Dump GitHub.event context
+      env:
+        GITHUB_CONTEXT_EVENT: ${{ toJson(github.event) }}
+      run: echo "$GITHUB_CONTEXT_EVENT"
+      shell: bash
 
   dev_setup_build:
     runs-on: [self-hosted, regular, selectel]
