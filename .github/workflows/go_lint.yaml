@@ -30,13 +30,8 @@ jobs:
       - name: Run Go lint
         run: |
           # TODO use github actions/download-artifact and actions/upload-artifact
-          if [ -f .github/MODULE_EDITION.env.tmp ];then
-            source .github/MODULE_EDITION.env.tmp
-            rm -f .github/MODULE_EDITION.env.tmp
-          else
-            echo "Can`t find file .github/MODULE_EDITION.env.tmp. Export MODULE_EDITION=EE".
-            export MODULE_EDITION=EE
-          fi
+          cat .github/env.runtime
+          source .github/env.runtime
 
           basedir=$(pwd)
           failed='false'

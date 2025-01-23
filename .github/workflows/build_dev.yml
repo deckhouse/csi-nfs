@@ -87,7 +87,7 @@ jobs:
       # TODO use github actions/download-artifact and actions/upload-artifact
       - name: Save variables for dependent workflow
         run: |
-          echo "MODULE_EDITION=$MODULE_EDITION" > .github/MODULE_EDITION.env.tmp
+          echo "MODULE_EDITION=$MODULE_EDITION" | tee -a .github/env.runtime
 
       - uses: actions/checkout@v4
       - uses: deckhouse/modules-actions/setup@v1
