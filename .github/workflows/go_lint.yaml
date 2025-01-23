@@ -33,7 +33,7 @@ jobs:
             cd $dir
             # check all editions
             for edition in EE CE ;do
-              golangci-lint run --build-tags $MODULE_EDITION
+              golangci-lint run --build-tags $edition
               if [ $? -ne 0 ]; then
                 echo "Linter failed in $dir"
                 failed='true'
