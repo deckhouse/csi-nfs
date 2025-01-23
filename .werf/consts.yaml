@@ -5,8 +5,8 @@
 {{- $_ := set . "BASE_ALPINE_3_16" "registry.deckhouse.io/base_images/alpine:3.16.3" }}
 {{- $_ := set . "BASE_ALPINE_3_20" "registry.deckhouse.io/base_images/alpine:3.20.3@sha256:41628df7c9b935d248f64542634e7a843f9bc7f2252d7f878e77f7b79a947466" }}
 
-# Edition module settings
-{{- $_ := set . "MODULE_EDITION" (env "MODULE_EDITION" "CE") }}
+# Edition module settings, default EE
+{{- $_ := set . "MODULE_EDITION" (env "MODULE_EDITION" "EE") }}
 
 # component versions
 {{- $versions := dict }}

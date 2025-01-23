@@ -20,10 +20,53 @@ on:
   # https://stackoverflow.com/a/71489231
   workflow_call:
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
+  set_edition:
+    runs-on: ubuntu-latest
+    name: Set edition
+    needs: check_label
+    outputs:
+      module_edition: ${{ steps.set-vars.outputs.MODULE_EDITION }}
+    steps:
+      - name: Get Pull Request Labels
+        id: get-labels
+        uses: actions/github-script@v7
+        with:
+          script: |
+            if (context.eventName === "pull_request" || context.eventName === "pull_request_target" ) {
+              const prNumber = context.payload.pull_request.number;
+              const { data: labels } = await github.rest.issues.listLabelsOnIssue({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+              });
+              return labels.map(label => label.name);
+            } else {
+              return [];
+            }
+          result-encoding: string
+
+      - name: Set vars
+        id: set-vars
+        run: |
+          # Slect edition for build, default EE
+          echo 11111
+          echo "${{ steps.get-labels.outputs.result }}"
+          echo 11111
+          #if echo "${{ steps.get-labels.outputs.result }}" | grep -q "edition/ce"; then
+          #  echo "MODULE_EDITION=CE" >> "$GITHUB_OUTPUT"
+          #else
+          #  echo "MODULE_EDITION=EE" >> "$GITHUB_OUTPUT"
+          #fi
+
   dev_setup_build:
     runs-on: [self-hosted, regular, selectel]
     name: Build and Push images
+    needs: [set_edition]
     steps:
       - name: Set vars for PR
         if: ${{ github.ref_name != 'main' }}
@@ -37,7 +80,6 @@ jobs:
           else
             echo "MODULE_EDITION=EE" >> "$GITHUB_ENV"
           fi
-        shell: bash
       - name: Set vars for main
         if: ${{ github.ref_name == 'main' }}
         run: |
@@ -45,7 +87,6 @@ jobs:
 
           # Slect edition for build, default EE
           echo "MODULE_EDITION=EE" >> "$GITHUB_ENV"
-        shell: bash
       - name: Print vars
         run: |
           echo MODULES_REGISTRY=$MODULES_REGISTRY
@@ -54,7 +95,6 @@ jobs:
           echo MODULES_MODULE_SOURCE=$MODULES_MODULE_SOURCE
           echo MODULES_MODULE_TAG=$MODULES_MODULE_TAG
           echo MODULE_EDITION=$MODULE_EDITION
-        shell: bash
 
       - uses: actions/checkout@v4
       - uses: deckhouse/modules-actions/setup@v1
