@@ -84,12 +84,6 @@ jobs:
           echo MODULES_MODULE_TAG=$MODULES_MODULE_TAG
           echo MODULE_EDITION=$MODULE_EDITION
 
-      # TODO use github actions/download-artifact and actions/upload-artifact
-      - name: Save variables for dependent workflow
-        run: |
-          #echo "MODULE_EDITION=$MODULE_EDITION" | tee -a .github/env.runtime
-          ls -l .github
-
       - uses: actions/checkout@v4
       - uses: deckhouse/modules-actions/setup@v1
       - uses: deckhouse/modules-actions/build@v1
