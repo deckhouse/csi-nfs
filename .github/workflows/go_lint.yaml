@@ -7,9 +7,13 @@ on:
       - main
 
 jobs:
+  build_dev:
+    uses: ./.github/workflows/build_dev.yml
+    secrets: inherit
   test:
     name: Go linter for images
     runs-on: [self-hosted, regular]
+    needs: [build_dev]
 
     steps:
       - name: Checkout repository
@@ -25,13 +29,22 @@ jobs:
 
       - name: Run Go lint
         run: |
+          # TODO use github actions/download-artifact and actions/upload-artifact
+          if [ -f .github/MODULE_EDITION.env.tmp ];then
+            source .github/MODULE_EDITION.env.tmp
+            rm -f .github/MODULE_EDITION.env.tmp
+          else
+            echo "Can`t find file .github/MODULE_EDITION.env.tmp. Export MODULE_EDITION=EE".
+            export MODULE_EDITION=EE
+          fi
+
           basedir=$(pwd)
           failed='false'
           for dir in $(find images -type d); do
             if ls $dir/go.mod &> /dev/null; then
               echo "Running linter in $dir"
               cd $dir
-              golangci-lint run
+              golangci-lint run --build-tags $MODULE_EDITION
               if [ $? -ne 0 ]; then
                 echo "Linter failed in $dir"
                 failed='true'
