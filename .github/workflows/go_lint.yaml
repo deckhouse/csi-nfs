@@ -10,7 +10,6 @@ jobs:
   test:
     name: Go linter for images
     runs-on: [self-hosted, regular]
-    needs: [build_dev]
 
     steps:
       - name: Checkout repository
