@@ -53,39 +53,28 @@ jobs:
         id: set-vars
         run: |
           # Slect edition for build, default EE
-          echo 11111
-          echo "${{ steps.get-labels.outputs.result }}"
-          echo 11111
-          #if echo "${{ steps.get-labels.outputs.result }}" | grep -q "edition/ce"; then
-          #  echo "MODULE_EDITION=CE" >> "$GITHUB_OUTPUT"
-          #else
-          #  echo "MODULE_EDITION=EE" >> "$GITHUB_OUTPUT"
-          #fi
+          if echo "${{ steps.get-labels.outputs.result }}" | grep -q "edition/ce"; then
+            echo "MODULE_EDITION=CE" >> "$GITHUB_OUTPUT"
+          else
+            echo "MODULE_EDITION=EE" >> "$GITHUB_OUTPUT"
+          fi
 
   dev_setup_build:
     runs-on: [self-hosted, regular, selectel]
     name: Build and Push images
     needs: [set_edition]
+    env:
+      MODULE_EDITION: ${{needs.set-vars.outputs.module_edition}}
     steps:
       - name: Set vars for PR
         if: ${{ github.ref_name != 'main' }}
         run: |
           MODULES_MODULE_TAG="$(echo pr${{ github.ref_name }} | sed 's/\/.*//g')"
           echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_ENV"
-
-          # Slect edition for build, default EE
-          if echo "${{ toJson(github.event.pull_request.labels) }}" | grep -q "edition/ce"; then
-            echo "MODULE_EDITION=CE" >> "$GITHUB_ENV"
-          else
-            echo "MODULE_EDITION=EE" >> "$GITHUB_ENV"
-          fi
       - name: Set vars for main
         if: ${{ github.ref_name == 'main' }}
         run: |
           echo "MODULES_MODULE_TAG=${{ github.ref_name }}" >> "$GITHUB_ENV"
-
-          # Slect edition for build, default EE
-          echo "MODULE_EDITION=EE" >> "$GITHUB_ENV"
       - name: Print vars
         run: |
           echo MODULES_REGISTRY=$MODULES_REGISTRY
