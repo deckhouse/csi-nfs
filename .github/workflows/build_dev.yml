@@ -64,7 +64,7 @@ jobs:
     name: Build and Push images
     needs: [set_edition]
     env:
-      MODULE_EDITION: ${{needs.set-vars.outputs.module_edition}}
+      MODULE_EDITION: ${{needs.set_edition.outputs.module_edition}}
     steps:
       - name: Set vars for PR
         if: ${{ github.ref_name != 'main' }}
