@@ -1,7 +1,7 @@
 # TODO comment here
 ---
 image: choise-edition
-from: registry.deckhouse.io/base_images/alpine:3.16.3
+from: {{ $.BASE_ALPINE_3_20 }}
 git:
   - add: /
     to: /
