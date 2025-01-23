@@ -28,7 +28,6 @@ jobs:
   set_edition:
     runs-on: ubuntu-latest
     name: Set edition
-    needs: check_label
     outputs:
       module_edition: ${{ steps.set-vars.outputs.MODULE_EDITION }}
     steps:
