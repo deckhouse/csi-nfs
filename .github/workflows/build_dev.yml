@@ -23,7 +23,7 @@ jobs:
     steps:
       - name: Dump GitHub.event context
         env:
-          GITHUB_CONTEXT_EVENT: ${{ toJson(github.event) }}
+          GITHUB_CONTEXT_EVENT: ${{ toJson(github.event.pull_request) }}
         run: echo "$GITHUB_CONTEXT_EVENT"
         shell: bash
 
