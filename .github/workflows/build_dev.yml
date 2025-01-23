@@ -16,33 +16,35 @@ on:
   push:
     branches:
       - main
+  # make this job as dependency for trivy_image_check workflow
+  # https://stackoverflow.com/a/71489231
+  workflow_call:
 
 jobs:
-  dump_contexts_to_log:
-    runs-on: [self-hosted, regular, selectel]
-    steps:
-      - name: Dump GitHub.event context
-        env:
-          GITHUB_CONTEXT_EVENT: ${{ toJson(github.event.pull_request) }}
-        run: echo "$GITHUB_CONTEXT_EVENT"
-        shell: bash
-
   dev_setup_build:
     runs-on: [self-hosted, regular, selectel]
     name: Build and Push images
-    needs:
-      - dump_contexts_to_log
     steps:
       - name: Set vars for PR
         if: ${{ github.ref_name != 'main' }}
         run: |
           MODULES_MODULE_TAG="$(echo pr${{ github.ref_name }} | sed 's/\/.*//g')"
           echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_ENV"
+
+          # Slect edition for build, default EE
+          if echo "${{ toJson(github.event.pull_request.labels) }}" | grep -q "edition/ce"; then
+            echo "MODULE_EDITION=CE" >> "$GITHUB_ENV"
+          else
+            echo "MODULE_EDITION=EE" >> "$GITHUB_ENV"
+          fi
         shell: bash
       - name: Set vars for main
         if: ${{ github.ref_name == 'main' }}
         run: |
           echo "MODULES_MODULE_TAG=${{ github.ref_name }}" >> "$GITHUB_ENV"
+
+          # Slect edition for build, default EE
+          echo "MODULE_EDITION=EE" >> "$GITHUB_ENV"
         shell: bash
       - name: Print vars
         run: |
@@ -51,6 +53,7 @@ jobs:
           echo MODULES_MODULE_NAME=$MODULES_MODULE_NAME
           echo MODULES_MODULE_SOURCE=$MODULES_MODULE_SOURCE
           echo MODULES_MODULE_TAG=$MODULES_MODULE_TAG
+          echo MODULE_EDITION=$MODULE_EDITION
         shell: bash
 
       - uses: actions/checkout@v4
