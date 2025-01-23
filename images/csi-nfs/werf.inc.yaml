@@ -37,6 +37,7 @@ shell:
     - rm -rf /src/nfs-utils/.git
 
 ---
+{{- $csiBinaries := "/nfs-utils/sbin/* /nfs-utils/usr/bin/* /nfs-utils/usr/sbin/* /lib64/libnss_files.so.2 /lib64/libnss_dns.so.2 /bin/cp /bin/mount /bin/umount" }}
 image: {{ $.ImageName }}-binaries-artifact
 from: {{ $.Root.BASE_ALT_P11 }}
 final: false
@@ -74,10 +75,7 @@ shell:
   beforeSetup:
     - cp -av /nfs-utils/usr/lib/* /usr/lib/
     - chmod +x /binary_replace.sh
-    - |
-      /binary_replace.sh \
-      -i "/nfs-utils/sbin/* /nfs-utils/usr/bin/* /nfs-utils/usr/sbin/* /lib64/libnss_files.so.2 /lib64/libnss_dns.so.2 /bin/cp /bin/mount /bin/umount" \
-      -o /relocate
+    - /binary_replace.sh -i "{{ $csiBinaries }}" -o /relocate
   setup:
     - rm -rf /relocate/nfs-utils
     - cp -av /nfs-utils/sbin     /relocate
