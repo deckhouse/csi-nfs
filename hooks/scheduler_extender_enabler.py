@@ -18,14 +18,9 @@
 # import yaml
 # from deckhouse import hook
 from deckhouse import hook
-from typing import Callable
-
-import yaml
-import hashlib
 
 from lib.hooks.hook import Hook
 from lib.module import values as module_values
-import common
 
 
 config = """

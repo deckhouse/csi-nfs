@@ -135,6 +135,7 @@ spec:
                   properties:
                     nodeSelector:
                       type: object
+                      minProperties: 1
                       description: |
                         Node selector to specify rules for selecting nodes where Persistent Volumes (PVs) created by this StorageClass are allowed to connect. Combines simple label matches and advanced matching expressions.
                         If this parameter is omitted, NFS shares can be mounted on any node in the cluster running the `Linux` OS.
