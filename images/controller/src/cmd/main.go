@@ -113,10 +113,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if _, err = controller.RunNodeSelectorReconciler(mgr, *cfgParams, *log); err != nil {
-		log.Error(err, fmt.Sprintf("[main] unable to run %s", controller.NodeSelectorReconcilerName))
-		os.Exit(1)
-	}
+	controller.RunNodeSelectorReconciler(ctx, mgr, *cfgParams, *log)
 
 	if err = mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		log.Error(err, "[main] unable to mgr.AddHealthzCheck")

@@ -21,19 +21,16 @@ import (
 	"fmt"
 	"time"
 
+	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	snapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumesnapshot/v1"
-	"gopkg.in/yaml.v3"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"d8-controller/pkg/config"
 	"d8-controller/pkg/logger"
@@ -47,90 +44,78 @@ const (
 var (
 	nfsNodeLabels                      = map[string]string{NFSNodeLabelKey: ""}
 	nfsNodeSelector                    = map[string]string{NFSNodeLabelKey: ""}
-	csiControllerLabel                 = map[string]string{"app": "csi-controller"}
+	CSIControllerLabel                 = map[string]string{"app": "csi-controller"}
 	csiNFSExternalSnapshotterLeaseName = "external-snapshotter-leader-nfs-csi-k8s-io"
 	modulePodSelectorList              = []map[string]string{
-		csiControllerLabel,
+		CSIControllerLabel,
 		{"app": "csi-nfs-node"},
+	}
+	DefaultNodeSelector = &metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			"kubernetes.io/os": "linux",
+		},
 	}
 )
 
-func RunNodeSelectorReconciler(
-	mgr manager.Manager,
-	cfg config.Options,
-	log logger.Logger,
-) (controller.Controller, error) {
+func RunNodeSelectorReconciler(ctx context.Context, mgr manager.Manager, cfg config.Options, log logger.Logger) {
 	cl := mgr.GetClient()
 
 	clusterWideClient := mgr.GetAPIReader()
+	go func() {
+		ticker := time.NewTicker(cfg.RequeueNodeSelectorInterval * time.Second)
+		defer ticker.Stop()
 
-	c, err := controller.New(NodeSelectorReconcilerName, mgr, controller.Options{
-		Reconciler: reconcile.Func(func(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
-			if request.Name != cfg.ConfigSecretName {
-				return reconcile.Result{}, nil
+		for {
+			select {
+			case <-ctx.Done():
+				log.Info("Context cancelled. Stopping NodeSelectorReconciler.")
+				return
+			case <-ticker.C:
+				log.Info("Start reconcile of NFS node selectors.")
+				err := ReconcileNodeSelector(ctx, cl, clusterWideClient, log, cfg.ControllerNamespace)
+				if err != nil {
+					log.Error(err, "Failed reconcile of NFS node selectors.")
+				}
+				log.Info("END reconcile of NFS node selectors.")
+
+				log.Info("Start reconcile of module pods.")
+				err = ReconcileModulePods(ctx, cl, clusterWideClient, log, cfg.ControllerNamespace, nfsNodeSelector, modulePodSelectorList)
+				if err != nil {
+					log.Error(err, "Failed reconcile of module pods.")
+				}
+				log.Info("END reconcile of module pods.")
 			}
 
-			log.Info(fmt.Sprintf("Start reconcile of NFS node selectors. Get config secret: %s/%s", request.Namespace, request.Name))
-			err := ReconcileNodeSelector(ctx, cl, clusterWideClient, log, request.Namespace, request.Name)
-			if err != nil {
-				log.Error(err, "Failed reconcile of NFS node selectors.")
-			}
-			log.Info("END reconcile of NFS node selectors.")
+		}
+	}()
 
-			log.Info("Start reconcile of module pods.")
-			err = ReconcileModulePods(ctx, cl, clusterWideClient, log, cfg.ControllerNamespace, nfsNodeSelector, modulePodSelectorList)
-			if err != nil {
-				log.Error(err, "Failed reconcile of module pods.")
-			}
-			log.Info("END reconcile of module pods.")
-
-			return reconcile.Result{
-				RequeueAfter: cfg.RequeueNodeSelectorInterval * time.Second,
-			}, nil
-		}),
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	err = c.Watch(source.Kind(mgr.GetCache(), &corev1.Secret{}, &handler.TypedEnqueueRequestForObject[*corev1.Secret]{}))
-
-	return c, err
+	// return err
 }
 
-func ReconcileNodeSelector(
-	ctx context.Context,
-	cl client.Client,
-	clusterWideClient client.Reader,
-	log logger.Logger,
-	namespace, configSecretName string,
-) error {
-	configSecret := &corev1.Secret{}
-	err := cl.Get(ctx, client.ObjectKey{Namespace: namespace, Name: configSecretName}, configSecret)
+func ReconcileNodeSelector(ctx context.Context, cl client.Client, clusterWideClient client.Reader, log logger.Logger, namespace string) error {
+	userNodeSelectorList, err := GetNodeSelectorFromNFSStorageClasses(ctx, cl, log)
 	if err != nil {
-		err = fmt.Errorf("[reconcileNodeSelector] Failed get secret: %s/%s: %w", namespace, configSecretName, err)
+		err = fmt.Errorf("[reconcileNodeSelector] Failed get user node selector list: %w", err)
+		return err
+	}
+	log.Debug(fmt.Sprintf("[reconcileNodeSelector] User node selector list: %+v", userNodeSelectorList))
+
+	selectedNodes, err := GetNodesBySelectorList(ctx, cl, log, userNodeSelectorList)
+	if err != nil {
+		err = fmt.Errorf("[reconcileNodeSelector] Failed get nodes by user node selector list: %+v: %w", userNodeSelectorList, err)
 		return err
 	}
 
-	configNodeSelector, err := GetNodeSelectorFromConfig(*configSecret)
-	if err != nil {
-		err = fmt.Errorf("[reconcileNodeSelector] Failed get node selector from secret: %s/%s: %w", namespace, configSecretName, err)
-		return err
-	}
+	if len(selectedNodes.Items) != 0 {
+		selectedNodeNames := []string{}
+		for _, node := range selectedNodes.Items {
+			selectedNodeNames = append(selectedNodeNames, node.Name)
+		}
+		log.Info(fmt.Sprintf("[reconcileNodeSelector] Found %d nodes: %v; by user node selector list: %+v.", len(selectedNodes.Items), selectedNodeNames, userNodeSelectorList))
+		log.Trace(fmt.Sprintf("[reconcileNodeSelector] Nodes: %+v", selectedNodes.Items))
 
-	selectedKubernetesNodes, err := GetKubernetesNodesBySelector(ctx, cl, configNodeSelector)
-	if err != nil {
-		err = fmt.Errorf("[reconcileNodeSelector] Failed get nodes from Kubernetes by selector: %v: %w", configNodeSelector, err)
-		return err
-	}
-
-	if len(selectedKubernetesNodes.Items) != 0 {
-		log.Info(fmt.Sprintf("[reconcileNodeSelector] Found %d nodes by selector: %v.", len(selectedKubernetesNodes.Items), configNodeSelector))
-		log.Trace(fmt.Sprintf("[reconcileNodeSelector] Nodes: %+v", selectedKubernetesNodes.Items))
-
-		for _, node := range selectedKubernetesNodes.Items {
-			log.Info(fmt.Sprintf("[reconcileNodeSelector] Process label for node: %s", node.Name))
+		for _, node := range selectedNodes.Items {
+			log.Info(fmt.Sprintf("[reconcileNodeSelector] Process labels for node: %s", node.Name))
 			err := AddLabelsToNode(ctx, cl, log, node, nfsNodeLabels)
 			if err != nil {
 				err = fmt.Errorf("[reconcileNodeSelector] Failed add labels %+v to node: %s: %w", nfsNodeLabels, node.Name, err)
@@ -139,13 +124,13 @@ func ReconcileNodeSelector(
 		}
 	}
 
-	csiNFSNodes, err := GetKubernetesNodesBySelector(ctx, cl, nfsNodeSelector)
+	csiNFSNodes, err := GetNodesBySelector(ctx, cl, nfsNodeSelector)
 	if err != nil {
 		err = fmt.Errorf("[reconcileNodeSelector] Failed get nodes from Kubernetes by selector: %v: %w", nfsNodeSelector, err)
 		return err
 	}
 
-	nodesToRemove := DiffNodeLists(csiNFSNodes, selectedKubernetesNodes)
+	nodesToRemove := DiffNodeLists(csiNFSNodes, selectedNodes)
 
 	if len(nodesToRemove.Items) == 0 {
 		log.Info("[reconcileNodeSelector] Successfully reconciled NFS node selectors.")
@@ -156,11 +141,11 @@ func ReconcileNodeSelector(
 	for _, node := range nodesToRemove.Items {
 		nodeNamesToRemove = append(nodeNamesToRemove, node.Name)
 	}
-	log.Warning(fmt.Sprintf("[reconcileNodeSelector] Found nodes that not in selected nodes by user defined selector %v. Remove csi-nfs node label %v from them", configNodeSelector, nfsNodeLabels))
+	log.Warning(fmt.Sprintf("[reconcileNodeSelector] Found nodes that not in selected nodes by user defined node selector list %+v. Remove csi-nfs node label %v from them", userNodeSelectorList, nfsNodeLabels))
 	log.Info(fmt.Sprintf("[reconcileNodeSelector] Nodes to remove: %v", nodeNamesToRemove))
 	log.Trace(fmt.Sprintf("[reconcileNodeSelector] Nodes: %+v", nodesToRemove.Items))
 
-	controllerNodeName, err := GetCCSIControllerNodeName(ctx, cl, namespace, csiNFSExternalSnapshotterLeaseName)
+	controllerNodeName, err := GetCCSIControllerNodeName(ctx, cl, namespace, csiNFSExternalSnapshotterLeaseName, CSIControllerLabel)
 	if err != nil {
 		err = fmt.Errorf("[reconcileNodeSelector] Failed get csi-nfs controller node name: %w", err)
 		return err
@@ -224,17 +209,69 @@ func ReconcileNodeSelector(
 	return nil
 }
 
-func GetNodeSelectorFromConfig(secret corev1.Secret) (map[string]string, error) {
-	var secretConfig config.CSINFSControllerConfig
-	err := yaml.Unmarshal(secret.Data["config"], &secretConfig)
+func GetNodeSelectorFromNFSStorageClasses(ctx context.Context, cl client.Client, log logger.Logger) ([]*metav1.LabelSelector, error) {
+	nfsStorageClasses := &v1alpha1.NFSStorageClassList{}
+	err := cl.List(ctx, nfsStorageClasses)
 	if err != nil {
+		err = fmt.Errorf("[GetNodeSelectorFromNFSStorageClasses] Failed get NFSStorageClasses: %w", err)
 		return nil, err
 	}
-	nodeSelector := secretConfig.NodeSelector
-	return nodeSelector, err
+
+	log.Trace(fmt.Sprintf("[GetNodeSelectorFromNFSStorageClasses] Found %d NFSStorageClasses: %+v", len(nfsStorageClasses.Items), nfsStorageClasses.Items))
+	nodeSelectorList := []*metav1.LabelSelector{}
+	for _, nfsStorageClass := range nfsStorageClasses.Items {
+		log.Debug(fmt.Sprintf("[GetNodeSelectorFromNFSStorageClasses] Process NFSStorageClass %s.", nfsStorageClass.Name))
+		if nfsStorageClass.Spec.WorkloadNodes == nil || nfsStorageClass.Spec.WorkloadNodes.NodeSelector == nil {
+			log.Debug(fmt.Sprintf("[GetNodeSelectorFromNFSStorageClasses] NFSStorageClass %s has not NodeSelector. Return default NodeSelector %+v.", nfsStorageClass.Name, DefaultNodeSelector))
+			return []*metav1.LabelSelector{DefaultNodeSelector}, nil
+		}
+		log.Debug(fmt.Sprintf("[GetNodeSelectorFromNFSStorageClasses] Add NodeSelector %+v from NFSStorageClass %s.", nfsStorageClass.Spec.WorkloadNodes.NodeSelector, nfsStorageClass.Name))
+		nodeSelectorList = append(nodeSelectorList, nfsStorageClass.Spec.WorkloadNodes.NodeSelector)
+	}
+
+	// TODO: make unique nodeSelectorList
+	return nodeSelectorList, nil
 }
 
-func GetKubernetesNodesBySelector(ctx context.Context, cl client.Client, nodeSelector map[string]string) (*corev1.NodeList, error) {
+func GetNodesBySelectorList(ctx context.Context, cl client.Client, log logger.Logger, nodeSelectorList []*metav1.LabelSelector) (*corev1.NodeList, error) {
+	allSelectedNodes := &corev1.NodeList{}
+	allSelectedNodesMap := map[string]corev1.Node{}
+
+	for _, nodeSelector := range nodeSelectorList {
+		log.Trace(fmt.Sprintf("[GetNodesBySelectorList] Process node selector: %+v", nodeSelector))
+		selector, err := metav1.LabelSelectorAsSelector(nodeSelector)
+		if err != nil {
+			err = fmt.Errorf("[GetNodesBySelectorList] Failed convert selector %+v to labels.Selector: %w", nodeSelector, err)
+			return nil, err
+		}
+		log.Trace(fmt.Sprintf("[GetNodesBySelectorList] Successfully convert selector %+v to labels.Selector: %+v", nodeSelector, selector))
+
+		selectedNodes := &corev1.NodeList{}
+		err = cl.List(ctx, selectedNodes, &client.ListOptions{LabelSelector: selector})
+		if err != nil {
+			err = fmt.Errorf("[GetNodesBySelectorList] Failed get nodes from Kubernetes by labels.Selector: %+v: %w", nodeSelector, err)
+			return nil, err
+		}
+
+		log.Debug(fmt.Sprintf("[GetNodesBySelectorList] Found %d nodes: by selector: %+v.", len(selectedNodes.Items), nodeSelector))
+		log.Trace(fmt.Sprintf("[GetNodesBySelectorList] Nodes: %+v", selectedNodes.Items))
+
+		nodeNames := []string{}
+		for _, node := range selectedNodes.Items {
+			log.Debug(fmt.Sprintf("[GetNodesBySelectorList] Process node: %s", node.Name))
+			nodeNames = append(nodeNames, node.Name)
+			if _, ok := allSelectedNodesMap[node.Name]; !ok {
+				log.Debug(fmt.Sprintf("[GetNodesBySelectorList] Add node %s to allSelectedNodes.", node.Name))
+				allSelectedNodesMap[node.Name] = node
+				allSelectedNodes.Items = append(allSelectedNodes.Items, node)
+			}
+		}
+	}
+
+	return allSelectedNodes, nil
+}
+
+func GetNodesBySelector(ctx context.Context, cl client.Client, nodeSelector map[string]string) (*corev1.NodeList, error) {
 	selectedK8sNodes := &corev1.NodeList{}
 	err := cl.List(ctx, selectedK8sNodes, client.MatchingLabels(nodeSelector))
 	return selectedK8sNodes, err
@@ -244,6 +281,7 @@ func AddLabelsToNode(ctx context.Context, cl client.Client, log logger.Logger, n
 	log.Debug(fmt.Sprintf("[AddLabelsToNode] node labels: %+v", node.Labels))
 	_, added := AddLabelsIfNeeded(log, node.Labels, labels)
 	if !added {
+		log.Debug(fmt.Sprintf("[AddLabelsToNode] Node %s already has labels %v. Skip add labels to node.", node.Name, labels))
 		return nil
 	}
 	log.Info(fmt.Sprintf("[AddLabelsToNode] Node %s has not labels %v. Add labels to node.", node.Name, labels))
@@ -432,9 +470,20 @@ func RemoveLabelsIfNeeded(log logger.Logger, originalLabels, labelsToRemove map[
 	return originalLabels, removed
 }
 
-func GetCCSIControllerNodeName(ctx context.Context, cl client.Client, namespace, leaseName string) (string, error) {
+func GetCCSIControllerNodeName(ctx context.Context, cl client.Client, namespace, leaseName string, csiControllerLabel map[string]string) (string, error) {
+	csiControllerPodList := &corev1.PodList{}
+	err := cl.List(ctx, csiControllerPodList, client.InNamespace(namespace), client.MatchingLabels(csiControllerLabel))
+	if err != nil {
+		err = fmt.Errorf("[GetCCSIControllerNodeName] Failed get csi controller pod: %w", err)
+		return "", err
+	}
+
+	if len(csiControllerPodList.Items) == 0 {
+		return "", nil
+	}
+
 	lease := &coordinationv1.Lease{}
-	err := cl.Get(ctx, client.ObjectKey{Namespace: namespace, Name: leaseName}, lease)
+	err = cl.Get(ctx, client.ObjectKey{Namespace: namespace, Name: leaseName}, lease)
 	if err != nil {
 		err = fmt.Errorf("[GetCCSIControllerNodeName] Failed get lease: %s/%s: %w", namespace, leaseName, err)
 		return "", err
@@ -573,7 +622,7 @@ func ReconcileModulePods(
 		return err
 	}
 
-	csiNFSNodes, err := GetKubernetesNodesBySelector(ctx, cl, nodeSelector)
+	csiNFSNodes, err := GetNodesBySelector(ctx, cl, nodeSelector)
 	if err != nil {
 		err = fmt.Errorf("[ReconcileModulePods] Failed get nodes from Kubernetes by selector: %+v: %w", nodeSelector, err)
 		return err
@@ -619,7 +668,7 @@ func ReconcileModulePods(
 			continue
 		}
 
-		if isPodMatchLabels(pod, csiControllerLabel) {
+		if isPodMatchLabels(pod, CSIControllerLabel) {
 			log.Debug(fmt.Sprintf("[ReconcileModulePods] Add pod %s/%s to csi-controller pods.", pod.Namespace, pod.Name))
 			csiControllerPods = append(csiControllerPods, pod)
 		} else {
