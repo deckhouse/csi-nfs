@@ -24,6 +24,8 @@ kubernetes:
 - name: nfs-storage-classes
   apiVersion: storage.deckhouse.io/v1alpha1
   kind: NFSStorageClass
+  includeSnapshotsFrom:
+    - nfs-storage-classes
   executeHookOnEvent: [ "Added", "Modified", "Deleted" ]
   executeHookOnSynchronization: true
   keepFullObjectsInMemory: false
@@ -36,7 +38,8 @@ settings:
 
 def main(ctx: hook.Context):
     print("Scheduler extender enabler hook started")
-    print(ctx)
+    nscs = ctx.snapshots.get("nfs-storage-classes", [])
+    print(f"get nfs-storage-classes: {nscs}")
     
 
 if __name__ == "__main__":
