@@ -43,12 +43,13 @@ const (
 
 var (
 	nfsNodeLabels                      = map[string]string{NFSNodeLabelKey: ""}
-	nfsNodeSelector                    = map[string]string{NFSNodeLabelKey: ""}
+	NFSNodeSelector                    = map[string]string{NFSNodeLabelKey: ""}
 	CSIControllerLabel                 = map[string]string{"app": "csi-controller"}
+	CSINodeLabel                       = map[string]string{"app": "csi-nfs"}
 	csiNFSExternalSnapshotterLeaseName = "external-snapshotter-leader-nfs-csi-k8s-io"
-	modulePodSelectorList              = []map[string]string{
+	ModulePodSelectorList              = []map[string]string{
 		CSIControllerLabel,
-		{"app": "csi-nfs-node"},
+		CSINodeLabel,
 	}
 	DefaultNodeSelector = &metav1.LabelSelector{
 		MatchLabels: map[string]string{
@@ -79,7 +80,7 @@ func RunNodeSelectorReconciler(ctx context.Context, mgr manager.Manager, cfg con
 				log.Info("END reconcile of NFS node selectors.")
 
 				log.Info("Start reconcile of module pods.")
-				err = ReconcileModulePods(ctx, cl, clusterWideClient, log, cfg.ControllerNamespace, nfsNodeSelector, modulePodSelectorList)
+				err = ReconcileModulePods(ctx, cl, clusterWideClient, log, cfg.ControllerNamespace, NFSNodeSelector, ModulePodSelectorList)
 				if err != nil {
 					log.Error(err, "Failed reconcile of module pods.")
 				}
@@ -88,8 +89,6 @@ func RunNodeSelectorReconciler(ctx context.Context, mgr manager.Manager, cfg con
 
 		}
 	}()
-
-	// return err
 }
 
 func ReconcileNodeSelector(ctx context.Context, cl client.Client, clusterWideClient client.Reader, log logger.Logger, namespace string) error {
@@ -124,9 +123,9 @@ func ReconcileNodeSelector(ctx context.Context, cl client.Client, clusterWideCli
 		}
 	}
 
-	csiNFSNodes, err := GetNodesBySelector(ctx, cl, nfsNodeSelector)
+	csiNFSNodes, err := GetNodesBySelector(ctx, cl, NFSNodeSelector)
 	if err != nil {
-		err = fmt.Errorf("[reconcileNodeSelector] Failed get nodes from Kubernetes by selector: %v: %w", nfsNodeSelector, err)
+		err = fmt.Errorf("[reconcileNodeSelector] Failed get nodes from Kubernetes by selector: %v: %w", NFSNodeSelector, err)
 		return err
 	}
 

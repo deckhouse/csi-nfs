@@ -3,7 +3,6 @@ package controller_test
 import (
 	"context"
 
-	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	snapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumesnapshot/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -11,6 +10,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -28,7 +28,6 @@ var _ = Describe(controller.NodeSelectorReconcilerName, func() {
 		controllerNamespace string
 		testNamespace       string
 		nfsSCConfig         NFSStorageClassConfig
-		// configSecretName string
 
 		nfsNodeSelectorKey = "storage.deckhouse.io/csi-nfs-node"
 		provisionerNFS     = controller.NFSStorageClassProvisioner
@@ -60,72 +59,96 @@ var _ = Describe(controller.NodeSelectorReconcilerName, func() {
 		Expect(cl.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: testNamespace}})).To(Succeed())
 	})
 
-	Context("ReconcileNodeSelector()", func() {
-
-		It("Scenario 1: NFSStorageClass is missing, some nodes have the csi-nfs label, some do not -> csi-nfs label should be removed from all nodes", func() {
-			// create some nodes with and without the label
+	Context("ReconcileNodeSelector() + ReconcileModulePods() Integration", func() {
+		It("Scenario 1: NFSStorageClass is missing, some nodes have the csi-nfs label, also csi-nfs-node pods -> label/pods removed", func() {
 			prepareNode(ctx, cl, "node-with-label", map[string]string{nfsNodeSelectorKey: "", "test-label": "value"})
 			prepareNode(ctx, cl, "node-without-label", nil)
 
+			// csi-nfs-node Pod on node-with-label
+			prepareModulePod(ctx, cl, "csi-nfs-node-pod", controllerNamespace, "node-with-label", controller.CSINodeLabel)
+
+			// ReconcileNodeSelector
 			err := controller.ReconcileNodeSelector(ctx, cl, clusterWideCl, log, controllerNamespace)
 			Expect(err).NotTo(HaveOccurred())
 
 			checkNodeLabels(ctx, cl, "node-with-label", map[string]string{"test-label": "value"})
 			checkNodeLabels(ctx, cl, "node-without-label", nil)
+
+			// ReconcileModulePods
+			err = controller.ReconcileModulePods(ctx, cl, clusterWideCl, log, controllerNamespace, controller.NFSNodeSelector, controller.ModulePodSelectorList)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Pod removed
+			recheckPod := &corev1.Pod{}
+			errGet := cl.Get(ctx, client.ObjectKey{Name: "csi-nfs-node-pod", Namespace: controllerNamespace}, recheckPod)
+			Expect(errGet).To(HaveOccurred())
+			Expect(k8serrors.IsNotFound(errGet)).To(BeTrue())
 		})
 
-		It("Scenario 2: NFSStorageClass exists without nodeSelector; all nodes does not have the csi-nfs label -> csi-nfs label should be added to linux nodes", func() {
-			// create NFSStorageClass
+		// Scenario 2
+		It("Scenario 2: NFSStorageClass exists without nodeSelector; csi-nfs label is added to linux nodes; csi-nfs-node pods remain", func() {
 			nsc := generateNFSStorageClass(nfsSCConfig)
 			Expect(cl.Create(ctx, nsc)).To(Succeed())
-			recheckNSC := &v1alpha1.NFSStorageClass{}
-			Expect(cl.Get(ctx, client.ObjectKey{Name: nfsSCConfig.Name}, recheckNSC)).To(Succeed())
-			Expect(recheckNSC.Spec.WorkloadNodes).To(BeNil())
 
-			// create some nodes without the label
 			prepareNode(ctx, cl, "node-without-label-1", map[string]string{"kubernetes.io/os": "linux", "test-label": "value"})
 			prepareNode(ctx, cl, "node-without-label-2", nil)
 			prepareNode(ctx, cl, "node-without-label-3", map[string]string{"kubernetes.io/os": "linux", "test-label": "value"})
 
+			prepareModulePod(ctx, cl, "csi-nfs-node-1", controllerNamespace, "node-without-label-1", controller.CSINodeLabel)
+
+			// ReconcileNodeSelector
 			err := controller.ReconcileNodeSelector(ctx, cl, clusterWideCl, log, controllerNamespace)
 			Expect(err).NotTo(HaveOccurred())
 
 			checkNodeLabels(ctx, cl, "node-without-label-1", map[string]string{"kubernetes.io/os": "linux", "test-label": "value", nfsNodeSelectorKey: ""})
 			checkNodeLabels(ctx, cl, "node-without-label-2", nil)
 			checkNodeLabels(ctx, cl, "node-without-label-3", map[string]string{"kubernetes.io/os": "linux", "test-label": "value", nfsNodeSelectorKey: ""})
+
+			// ReconcileModulePods
+			err = controller.ReconcileModulePods(ctx, cl, clusterWideCl, log, controllerNamespace, controller.NFSNodeSelector, controller.ModulePodSelectorList)
+			Expect(err).NotTo(HaveOccurred())
+
+			// csi-nfs-node-1 Pod remains
+			errGet := cl.Get(ctx, client.ObjectKey{Name: "csi-nfs-node-1", Namespace: controllerNamespace}, &corev1.Pod{})
+			Expect(errGet).NotTo(HaveOccurred())
 		})
 
-		It("Scenario 3: NFSStorageClass exists with MatchLabels nodeSelector; all nodes does not have the csi-nfs label -> csi-nfs label should be added to nodes matching the selector", func() {
-			// create NFSStorageClass
+		// Scenario 3
+		It("Scenario 3: NFSStorageClass with MatchLabels -> label added to matching nodes, csi-nfs pods removed from non-labeled", func() {
 			nfsSCConfig.nodeSelector = metav1.LabelSelector{
 				MatchLabels: map[string]string{"project": "test-1"},
 			}
 			nsc := generateNFSStorageClass(nfsSCConfig)
 			Expect(cl.Create(ctx, nsc)).To(Succeed())
-			recheckNSC := &v1alpha1.NFSStorageClass{}
-			Expect(cl.Get(ctx, client.ObjectKey{Name: nfsSCConfig.Name}, recheckNSC)).To(Succeed())
-			Expect(recheckNSC.Spec.WorkloadNodes.NodeSelector).To(Equal(&nfsSCConfig.nodeSelector))
 
-			// create some nodes without the csi-nfs label that match the selector
 			prepareNode(ctx, cl, "matching-node-without-label-1", map[string]string{"project": "test-1", "test-label": "value"})
-			prepareNode(ctx, cl, "matching-node-without-label-2", map[string]string{"project": "test-1"})
+			prepareNode(ctx, cl, "non-matching-node-without-label-1", map[string]string{"project": "test-2"})
 
-			// create some nodes without the csi-nfs label that do not match the selector
-			prepareNode(ctx, cl, "non-matching-node-without-label-1", map[string]string{"project": "test-2", "test-label": "value"})
-			prepareNode(ctx, cl, "non-matching-node-without-label-2", map[string]string{"project": "test-2"})
+			prepareModulePod(ctx, cl, "csi-nfs-node-match", controllerNamespace, "matching-node-without-label-1", controller.CSINodeLabel)
+			prepareModulePod(ctx, cl, "csi-nfs-node-nonmatch", controllerNamespace, "non-matching-node-without-label-1", controller.CSINodeLabel)
 
 			err := controller.ReconcileNodeSelector(ctx, cl, clusterWideCl, log, controllerNamespace)
 			Expect(err).NotTo(HaveOccurred())
 
 			checkNodeLabels(ctx, cl, "matching-node-without-label-1", map[string]string{"project": "test-1", "test-label": "value", nfsNodeSelectorKey: ""})
-			checkNodeLabels(ctx, cl, "matching-node-without-label-2", map[string]string{"project": "test-1", nfsNodeSelectorKey: ""})
+			checkNodeLabels(ctx, cl, "non-matching-node-without-label-1", map[string]string{"project": "test-2"})
 
-			checkNodeLabels(ctx, cl, "non-matching-node-without-label-1", map[string]string{"project": "test-2", "test-label": "value"})
-			checkNodeLabels(ctx, cl, "non-matching-node-without-label-2", map[string]string{"project": "test-2"})
+			// ReconcileModulePods
+			err = controller.ReconcileModulePods(ctx, cl, clusterWideCl, log, controllerNamespace, controller.NFSNodeSelector, controller.ModulePodSelectorList)
+			Expect(err).NotTo(HaveOccurred())
+
+			// remains
+			errGet := cl.Get(ctx, client.ObjectKey{Name: "csi-nfs-node-match", Namespace: controllerNamespace}, &corev1.Pod{})
+			Expect(errGet).NotTo(HaveOccurred())
+
+			// removed
+			errGet2 := cl.Get(ctx, client.ObjectKey{Name: "csi-nfs-node-nonmatch", Namespace: controllerNamespace}, &corev1.Pod{})
+			Expect(errGet2).To(HaveOccurred())
+			Expect(k8serrors.IsNotFound(errGet2)).To(BeTrue())
 		})
 
-		It("Scenario 4: NFSStorageClass exists with MatchExpressions nodeSelector; all nodes does not have the csi-nfs label -> csi-nfs label should be added to nodes matching the selector", func() {
-			// create NFSStorageClass
+		// Scenario 4
+		It("Scenario 4: NFSStorageClass with MatchExpressions -> label is added to matching nodes, csi-nfs pods removed on unlabeled", func() {
 			nfsSCConfig.nodeSelector = metav1.LabelSelector{
 				MatchExpressions: []metav1.LabelSelectorRequirement{
 					{
@@ -137,36 +160,41 @@ var _ = Describe(controller.NodeSelectorReconcilerName, func() {
 			}
 			nsc := generateNFSStorageClass(nfsSCConfig)
 			Expect(cl.Create(ctx, nsc)).To(Succeed())
-			recheckNSC := &v1alpha1.NFSStorageClass{}
-			Expect(cl.Get(ctx, client.ObjectKey{Name: nfsSCConfig.Name}, recheckNSC)).To(Succeed())
-			Expect(recheckNSC.Spec.WorkloadNodes.NodeSelector).To(Equal(&nfsSCConfig.nodeSelector))
 
-			// create some nodes without the csi-nfs label that match the selector
-			prepareNode(ctx, cl, "matching-node-without-label-1", map[string]string{"project": "test-1", "test-label": "value"})
-			prepareNode(ctx, cl, "matching-node-without-label-2", map[string]string{"project": "test-2"})
-			prepareNode(ctx, cl, "matching-node-without-label-3", map[string]string{"project": "test-1"})
-			prepareNode(ctx, cl, "matching-node-without-label-4", map[string]string{"project": "test-2", "test-label": "value"})
+			// matching vs. non-matching
+			prepareNode(ctx, cl, "matching-node-without-label-4-1", map[string]string{"project": "test-1"})
+			prepareNode(ctx, cl, "matching-node-without-label-4-2", map[string]string{"project": "test-2", "role": "something"})
+			prepareNode(ctx, cl, "non-matching-node-without-label-4", map[string]string{"project": "test-3"})
 
-			// create some nodes without the csi-nfs label that do not match the selector
-			prepareNode(ctx, cl, "non-matching-node-without-label-1", map[string]string{"project": "test-3", "test-label": "value"})
-			prepareNode(ctx, cl, "non-matching-node-without-label-2", map[string]string{"project": "test-3"})
-			prepareNode(ctx, cl, "non-matching-node-without-label-3", map[string]string{"project": "test-4", "test-label": "value"})
+			// pods
+			prepareModulePod(ctx, cl, "csi-nfs-node-4-match1", controllerNamespace, "matching-node-without-label-4-1", controller.CSINodeLabel)
+			prepareModulePod(ctx, cl, "csi-nfs-node-4-match2", controllerNamespace, "matching-node-without-label-4-2", controller.CSINodeLabel)
+			prepareModulePod(ctx, cl, "csi-nfs-node-4-nonmatch", controllerNamespace, "non-matching-node-without-label-4", controller.CSINodeLabel)
 
 			err := controller.ReconcileNodeSelector(ctx, cl, clusterWideCl, log, controllerNamespace)
 			Expect(err).NotTo(HaveOccurred())
 
-			checkNodeLabels(ctx, cl, "matching-node-without-label-1", map[string]string{"project": "test-1", "test-label": "value", nfsNodeSelectorKey: ""})
-			checkNodeLabels(ctx, cl, "matching-node-without-label-2", map[string]string{"project": "test-2", nfsNodeSelectorKey: ""})
-			checkNodeLabels(ctx, cl, "matching-node-without-label-3", map[string]string{"project": "test-1", nfsNodeSelectorKey: ""})
-			checkNodeLabels(ctx, cl, "matching-node-without-label-4", map[string]string{"project": "test-2", "test-label": "value", nfsNodeSelectorKey: ""})
+			checkNodeLabels(ctx, cl, "matching-node-without-label-4-1", map[string]string{"project": "test-1", nfsNodeSelectorKey: ""})
+			checkNodeLabels(ctx, cl, "matching-node-without-label-4-2", map[string]string{"project": "test-2", "role": "something", nfsNodeSelectorKey: ""})
+			checkNodeLabels(ctx, cl, "non-matching-node-without-label-4", map[string]string{"project": "test-3"})
 
-			checkNodeLabels(ctx, cl, "non-matching-node-without-label-1", map[string]string{"project": "test-3", "test-label": "value"})
-			checkNodeLabels(ctx, cl, "non-matching-node-without-label-2", map[string]string{"project": "test-3"})
-			checkNodeLabels(ctx, cl, "non-matching-node-without-label-3", map[string]string{"project": "test-4", "test-label": "value"})
+			err = controller.ReconcileModulePods(ctx, cl, clusterWideCl, log, controllerNamespace, controller.NFSNodeSelector, controller.ModulePodSelectorList)
+			Expect(err).NotTo(HaveOccurred())
+
+			// remain
+			errGetMatch1 := cl.Get(ctx, client.ObjectKey{Name: "csi-nfs-node-4-match1", Namespace: controllerNamespace}, &corev1.Pod{})
+			Expect(errGetMatch1).NotTo(HaveOccurred())
+			errGetMatch2 := cl.Get(ctx, client.ObjectKey{Name: "csi-nfs-node-4-match2", Namespace: controllerNamespace}, &corev1.Pod{})
+			Expect(errGetMatch2).NotTo(HaveOccurred())
+
+			// removed
+			errGetNon := cl.Get(ctx, client.ObjectKey{Name: "csi-nfs-node-4-nonmatch", Namespace: controllerNamespace}, &corev1.Pod{})
+			Expect(errGetNon).To(HaveOccurred())
+			Expect(k8serrors.IsNotFound(errGetNon)).To(BeTrue())
 		})
 
-		It("Scenario 5: NFSStorageClass exists with MatchExpressions and MatchLabels nodeSelector; all nodes does not have the csi-nfs label -> csi-nfs label should be added to nodes matching the selector", func() {
-			// create NFSStorageClass
+		// Scenario 5
+		It("Scenario 5: NFSStorageClass with both MatchExpressions & MatchLabels -> label added to strictly matching nodes, csi-nfs pods removed otherwise", func() {
 			nfsSCConfig.nodeSelector = metav1.LabelSelector{
 				MatchLabels: map[string]string{"project": "test-1"},
 				MatchExpressions: []metav1.LabelSelectorRequirement{
@@ -179,38 +207,44 @@ var _ = Describe(controller.NodeSelectorReconcilerName, func() {
 			}
 			nsc := generateNFSStorageClass(nfsSCConfig)
 			Expect(cl.Create(ctx, nsc)).To(Succeed())
-			recheckNSC := &v1alpha1.NFSStorageClass{}
-			Expect(cl.Get(ctx, client.ObjectKey{Name: nfsSCConfig.Name}, recheckNSC)).To(Succeed())
-			Expect(recheckNSC.Spec.WorkloadNodes.NodeSelector).To(Equal(&nfsSCConfig.nodeSelector))
 
-			// create some nodes without the csi-nfs label that match the selector
-			prepareNode(ctx, cl, "matching-node-without-label-1", map[string]string{"project": "test-1", "role": "nfs", "test-label": "value"})
-			prepareNode(ctx, cl, "matching-node-without-label-2", map[string]string{"project": "test-1", "role": "storage"})
-			prepareNode(ctx, cl, "matching-node-without-label-3", map[string]string{"project": "test-1", "role": "nfs"})
+			// matching node
+			prepareNode(ctx, cl, "matching-node-5", map[string]string{"project": "test-1", "role": "nfs"})
+			// partial match or mismatch
+			prepareNode(ctx, cl, "non-match-node-5a", map[string]string{"project": "test-2", "role": "nfs"})
+			prepareNode(ctx, cl, "non-match-node-5b", map[string]string{"project": "test-1", "role": "worker"})
 
-			// create some nodes without the csi-nfs label that do not match the selector
-			prepareNode(ctx, cl, "non-matching-node-without-label-1", map[string]string{"project": "test-2", "role": "nfs", "test-label": "value"})
-			prepareNode(ctx, cl, "non-matching-node-without-label-2", map[string]string{"project": "test-2", "role": "storage"})
-			prepareNode(ctx, cl, "non-matching-node-without-label-3", map[string]string{"project": "test-2", "role": "nfs"})
-			prepareNode(ctx, cl, "non-matching-node-without-label-4", map[string]string{"project": "test-1", "role": "worker"})
-			prepareNode(ctx, cl, "non-matching-node-without-label-5", map[string]string{"project": "test-1"})
+			// pods
+			prepareModulePod(ctx, cl, "csi-nfs-node-5-match", controllerNamespace, "matching-node-5", controller.CSINodeLabel)
+			prepareModulePod(ctx, cl, "csi-nfs-node-5a", controllerNamespace, "non-match-node-5a", controller.CSINodeLabel)
+			prepareModulePod(ctx, cl, "csi-nfs-node-5b", controllerNamespace, "non-match-node-5b", controller.CSINodeLabel)
 
 			err := controller.ReconcileNodeSelector(ctx, cl, clusterWideCl, log, controllerNamespace)
 			Expect(err).NotTo(HaveOccurred())
 
-			checkNodeLabels(ctx, cl, "matching-node-without-label-1", map[string]string{"project": "test-1", "role": "nfs", "test-label": "value", nfsNodeSelectorKey: ""})
-			checkNodeLabels(ctx, cl, "matching-node-without-label-2", map[string]string{"project": "test-1", "role": "storage", nfsNodeSelectorKey: ""})
-			checkNodeLabels(ctx, cl, "matching-node-without-label-3", map[string]string{"project": "test-1", "role": "nfs", nfsNodeSelectorKey: ""})
+			checkNodeLabels(ctx, cl, "matching-node-5", map[string]string{"project": "test-1", "role": "nfs", nfsNodeSelectorKey: ""})
+			checkNodeLabels(ctx, cl, "non-match-node-5a", map[string]string{"project": "test-2", "role": "nfs"})
+			checkNodeLabels(ctx, cl, "non-match-node-5b", map[string]string{"project": "test-1", "role": "worker"})
 
-			checkNodeLabels(ctx, cl, "non-matching-node-without-label-1", map[string]string{"project": "test-2", "role": "nfs", "test-label": "value"})
-			checkNodeLabels(ctx, cl, "non-matching-node-without-label-2", map[string]string{"project": "test-2", "role": "storage"})
-			checkNodeLabels(ctx, cl, "non-matching-node-without-label-3", map[string]string{"project": "test-2", "role": "nfs"})
-			checkNodeLabels(ctx, cl, "non-matching-node-without-label-4", map[string]string{"project": "test-1", "role": "worker"})
-			checkNodeLabels(ctx, cl, "non-matching-node-without-label-5", map[string]string{"project": "test-1"})
+			err = controller.ReconcileModulePods(ctx, cl, clusterWideCl, log, controllerNamespace, controller.NFSNodeSelector, controller.ModulePodSelectorList)
+			Expect(err).NotTo(HaveOccurred())
+
+			// remains
+			errGetMatch := cl.Get(ctx, client.ObjectKey{Name: "csi-nfs-node-5-match", Namespace: controllerNamespace}, &corev1.Pod{})
+			Expect(errGetMatch).NotTo(HaveOccurred())
+
+			// removed
+			errGet5a := cl.Get(ctx, client.ObjectKey{Name: "csi-nfs-node-5a", Namespace: controllerNamespace}, &corev1.Pod{})
+			Expect(errGet5a).To(HaveOccurred())
+			Expect(k8serrors.IsNotFound(errGet5a)).To(BeTrue())
+			errGet5b := cl.Get(ctx, client.ObjectKey{Name: "csi-nfs-node-5b", Namespace: controllerNamespace}, &corev1.Pod{})
+			Expect(errGet5b).To(HaveOccurred())
+			Expect(k8serrors.IsNotFound(errGet5b)).To(BeTrue())
 		})
 
-		It("Scenario 6: Several NFSStorageClasses exist with different nodeSelectors and one without; all nodes does not have the csi-nfs label -> csi-nfs label should be added to nodes matching kubernetes.io/os=linux label", func() {
-			// create NFSStorageClasses
+		// Scenario 6
+		It("Scenario 6: Several NFSStorageClasses exist; label combos, csi-nfs pods removed from unlabeled", func() {
+			// SC #1
 			nfsSCConfig1 := nfsSCConfig
 			nfsSCConfig1.Name = "test-nfs-sc-1"
 			nfsSCConfig1.nodeSelector = metav1.LabelSelector{
@@ -218,85 +252,8 @@ var _ = Describe(controller.NodeSelectorReconcilerName, func() {
 			}
 			nsc1 := generateNFSStorageClass(nfsSCConfig1)
 			Expect(cl.Create(ctx, nsc1)).To(Succeed())
-			recheckNSC1 := &v1alpha1.NFSStorageClass{}
-			Expect(cl.Get(ctx, client.ObjectKey{Name: nfsSCConfig1.Name}, recheckNSC1)).To(Succeed())
-			Expect(recheckNSC1.Spec.WorkloadNodes.NodeSelector).To(Equal(&nfsSCConfig1.nodeSelector))
 
-			nfsSCConfig2 := nfsSCConfig
-			nfsSCConfig2.Name = "test-nfs-sc-2"
-			nfsSCConfig2.nodeSelector = metav1.LabelSelector{
-				MatchLabels: map[string]string{"project": "test-1"},
-				MatchExpressions: []metav1.LabelSelectorRequirement{
-					{
-						Key:      "role",
-						Operator: metav1.LabelSelectorOpIn,
-						Values:   []string{"nfs", "storage"},
-					},
-				},
-			}
-			nsc2 := generateNFSStorageClass(nfsSCConfig2)
-			Expect(cl.Create(ctx, nsc2)).To(Succeed())
-			recheckNSC2 := &v1alpha1.NFSStorageClass{}
-			Expect(cl.Get(ctx, client.ObjectKey{Name: nfsSCConfig2.Name}, recheckNSC2)).To(Succeed())
-			Expect(recheckNSC2.Spec.WorkloadNodes.NodeSelector).To(Equal(&nfsSCConfig2.nodeSelector))
-
-			nfsSCConfig3 := nfsSCConfig
-			nfsSCConfig3.Name = "test-nfs-sc-3"
-			nsc3 := generateNFSStorageClass(nfsSCConfig3)
-			Expect(cl.Create(ctx, nsc3)).To(Succeed())
-			recheckNSC3 := &v1alpha1.NFSStorageClass{}
-			Expect(cl.Get(ctx, client.ObjectKey{Name: nfsSCConfig3.Name}, recheckNSC3)).To(Succeed())
-			Expect(recheckNSC3.Spec.WorkloadNodes).To(BeNil())
-
-			// create some nodes without the csi-nfs label that match at least one selector
-			prepareNode(ctx, cl, "matching-node-without-label-1", map[string]string{"kubernetes.io/os": "linux", "project": "test-1", "role": "nfs", "test-label": "value"})
-			prepareNode(ctx, cl, "matching-node-without-label-2", map[string]string{"kubernetes.io/os": "linux", "project": "test-1", "role": "storage"})
-			prepareNode(ctx, cl, "matching-node-without-label-3", map[string]string{"kubernetes.io/os": "linux", "project": "test-1", "role": "nfs"})
-			prepareNode(ctx, cl, "matching-node-without-label-4", map[string]string{"kubernetes.io/os": "linux", "project": "test-1", "role": "worker"})
-			prepareNode(ctx, cl, "matching-node-without-label-5", map[string]string{"kubernetes.io/os": "linux", "project": "test-1"})
-			prepareNode(ctx, cl, "matching-node-without-label-6", map[string]string{"kubernetes.io/os": "linux", "project": "test-1", "role": "nfs", "test-label": "value"})
-
-			// create some nodes without the csi-nfs label that do not match any selector
-			prepareNode(ctx, cl, "non-matching-node-without-label-1", map[string]string{"kubernetes.io/os": "linux", "project": "test-3", "role": "worker", "test-label": "value"})
-			prepareNode(ctx, cl, "non-matching-node-without-label-2", map[string]string{"kubernetes.io/os": "linux", "project": "test-3"})
-			prepareNode(ctx, cl, "non-matching-node-without-label-3", map[string]string{"kubernetes.io/os": "linux", "test-label": "value"})
-			prepareNode(ctx, cl, "non-matching-node-without-label-4", map[string]string{"kubernetes.io/os": "linux"})
-
-			err := controller.ReconcileNodeSelector(ctx, cl, clusterWideCl, log, controllerNamespace)
-			Expect(err).NotTo(HaveOccurred())
-
-			checkNodeLabels(ctx, cl, "matching-node-without-label-1", map[string]string{"kubernetes.io/os": "linux", "project": "test-1", "role": "nfs", "test-label": "value", nfsNodeSelectorKey: ""})
-			checkNodeLabels(ctx, cl, "matching-node-without-label-2", map[string]string{"kubernetes.io/os": "linux", "project": "test-1", "role": "storage", nfsNodeSelectorKey: ""})
-			checkNodeLabels(ctx, cl, "matching-node-without-label-3", map[string]string{"kubernetes.io/os": "linux", "project": "test-1", "role": "nfs", nfsNodeSelectorKey: ""})
-			checkNodeLabels(ctx, cl, "matching-node-without-label-4", map[string]string{"kubernetes.io/os": "linux", "project": "test-1", "role": "worker", nfsNodeSelectorKey: ""})
-			checkNodeLabels(ctx, cl, "matching-node-without-label-5", map[string]string{"kubernetes.io/os": "linux", "project": "test-1", nfsNodeSelectorKey: ""})
-			checkNodeLabels(ctx, cl, "matching-node-without-label-6", map[string]string{"kubernetes.io/os": "linux", "project": "test-1", "role": "nfs", "test-label": "value", nfsNodeSelectorKey: ""})
-			checkNodeLabels(ctx, cl, "non-matching-node-without-label-1", map[string]string{"kubernetes.io/os": "linux", "project": "test-3", "role": "worker", "test-label": "value", nfsNodeSelectorKey: ""})
-			checkNodeLabels(ctx, cl, "non-matching-node-without-label-2", map[string]string{"kubernetes.io/os": "linux", "project": "test-3", nfsNodeSelectorKey: ""})
-			checkNodeLabels(ctx, cl, "non-matching-node-without-label-3", map[string]string{"kubernetes.io/os": "linux", "test-label": "value", nfsNodeSelectorKey: ""})
-			checkNodeLabels(ctx, cl, "non-matching-node-without-label-4", map[string]string{"kubernetes.io/os": "linux", nfsNodeSelectorKey: ""})
-		})
-
-		It("Scenario 7: Several NFSStorageClasses exist with different nodeSelectors; some nodes have the csi-nfs label, some do not -> csi-nfs label should be removed from nodes that do not match any selector and added to nodes that match at least one selector", func() {
-			// create NFSStorageClasses
-			nfsSCConfig1 := nfsSCConfig
-			nfsSCConfig1.Name = "test-nfs-sc-1"
-			nfsSCConfig1.nodeSelector = metav1.LabelSelector{
-				MatchLabels: map[string]string{"project": "test-1"},
-				MatchExpressions: []metav1.LabelSelectorRequirement{
-					{
-						Key:      "role",
-						Operator: metav1.LabelSelectorOpIn,
-						Values:   []string{"nfs", "storage"},
-					},
-				},
-			}
-			nsc1 := generateNFSStorageClass(nfsSCConfig1)
-			Expect(cl.Create(ctx, nsc1)).To(Succeed())
-			recheckNSC1 := &v1alpha1.NFSStorageClass{}
-			Expect(cl.Get(ctx, client.ObjectKey{Name: nfsSCConfig1.Name}, recheckNSC1)).To(Succeed())
-			Expect(recheckNSC1.Spec.WorkloadNodes.NodeSelector).To(Equal(&nfsSCConfig1.nodeSelector))
-
+			// SC #2
 			nfsSCConfig2 := nfsSCConfig
 			nfsSCConfig2.Name = "test-nfs-sc-2"
 			nfsSCConfig2.nodeSelector = metav1.LabelSelector{
@@ -304,340 +261,311 @@ var _ = Describe(controller.NodeSelectorReconcilerName, func() {
 			}
 			nsc2 := generateNFSStorageClass(nfsSCConfig2)
 			Expect(cl.Create(ctx, nsc2)).To(Succeed())
-			recheckNSC2 := &v1alpha1.NFSStorageClass{}
-			Expect(cl.Get(ctx, client.ObjectKey{Name: nfsSCConfig2.Name}, recheckNSC2)).To(Succeed())
-			Expect(recheckNSC2.Spec.WorkloadNodes.NodeSelector).To(Equal(&nfsSCConfig2.nodeSelector))
 
-			// create some nodes with the csi-nfs label that match at least one selector
-			prepareNode(ctx, cl, "matching-node-with-label-1", map[string]string{"project": "test-1", "role": "nfs", "test-label": "value", nfsNodeSelectorKey: ""})
-			prepareNode(ctx, cl, "matching-node-with-label-2", map[string]string{"project": "test-2", "test-label": "value", nfsNodeSelectorKey: ""})
+			// SC #3 no selector
+			nfsSCConfig3 := nfsSCConfig
+			nfsSCConfig3.Name = "test-nfs-sc-3"
+			nsc3 := generateNFSStorageClass(nfsSCConfig3)
+			Expect(cl.Create(ctx, nsc3)).To(Succeed())
 
-			// create some nodes with the csi-nfs label that do not match any selector
-			prepareNode(ctx, cl, "non-matching-node-with-label-1", map[string]string{"project": "test-3", "role": "worker", "test-label": "value", nfsNodeSelectorKey: ""})
-			prepareNode(ctx, cl, "non-matching-node-with-label-2", map[string]string{"project": "test-1", "role": "dev", "test-label": "value", nfsNodeSelectorKey: ""})
+			// Nodes
+			prepareNode(ctx, cl, "matching-node-6-1", map[string]string{"kubernetes.io/os": "linux", "project": "test-1"})
+			prepareNode(ctx, cl, "matching-node-6-2", map[string]string{"kubernetes.io/os": "linux", "project": "test-2"})
+			prepareNode(ctx, cl, "matching-node-6-3", map[string]string{"kubernetes.io/os": "linux"}) // default SC #3
+			prepareNode(ctx, cl, "non-matching-node-6", map[string]string{"project": "test-3"})
 
-			// create some nodes without the csi-nfs label that match at least one selector
-			prepareNode(ctx, cl, "matching-node-without-label-1", map[string]string{"project": "test-1", "role": "nfs", "test-label": "value"})
-			prepareNode(ctx, cl, "matching-node-without-label-2", map[string]string{"project": "test-2", "test-label": "value"})
-
-			// create some nodes without the csi-nfs label that do not match any selector
-			prepareNode(ctx, cl, "non-matching-node-without-label-1", map[string]string{"project": "test-3", "role": "worker", "test-label": "value"})
-			prepareNode(ctx, cl, "non-matching-node-without-label-2", map[string]string{"project": "test-1", "role": "dev", "test-label": "value"})
+			// Pods
+			prepareModulePod(ctx, cl, "csi-nfs-node-6-match1", controllerNamespace, "matching-node-6-1", controller.CSINodeLabel)
+			prepareModulePod(ctx, cl, "csi-nfs-node-6-match2", controllerNamespace, "matching-node-6-2", controller.CSINodeLabel)
+			prepareModulePod(ctx, cl, "csi-nfs-node-6-match3", controllerNamespace, "matching-node-6-3", controller.CSINodeLabel)
+			prepareModulePod(ctx, cl, "csi-nfs-node-6-nonmatch", controllerNamespace, "non-matching-node-6", controller.CSINodeLabel)
 
 			err := controller.ReconcileNodeSelector(ctx, cl, clusterWideCl, log, controllerNamespace)
 			Expect(err).NotTo(HaveOccurred())
 
-			checkNodeLabels(ctx, cl, "matching-node-with-label-1", map[string]string{"project": "test-1", "role": "nfs", "test-label": "value", nfsNodeSelectorKey: ""})
-			checkNodeLabels(ctx, cl, "matching-node-with-label-2", map[string]string{"project": "test-2", "test-label": "value", nfsNodeSelectorKey: ""})
+			checkNodeLabels(ctx, cl, "matching-node-6-1", map[string]string{"kubernetes.io/os": "linux", "project": "test-1", nfsNodeSelectorKey: ""})
+			checkNodeLabels(ctx, cl, "matching-node-6-2", map[string]string{"kubernetes.io/os": "linux", "project": "test-2", nfsNodeSelectorKey: ""})
+			checkNodeLabels(ctx, cl, "matching-node-6-3", map[string]string{"kubernetes.io/os": "linux", nfsNodeSelectorKey: ""})
+			checkNodeLabels(ctx, cl, "non-matching-node-6", map[string]string{"project": "test-3"})
 
-			checkNodeLabels(ctx, cl, "non-matching-node-with-label-1", map[string]string{"project": "test-3", "role": "worker", "test-label": "value"})
-			checkNodeLabels(ctx, cl, "non-matching-node-with-label-2", map[string]string{"project": "test-1", "role": "dev", "test-label": "value"})
+			err = controller.ReconcileModulePods(ctx, cl, clusterWideCl, log, controllerNamespace, controller.NFSNodeSelector, controller.ModulePodSelectorList)
+			Expect(err).NotTo(HaveOccurred())
 
-			checkNodeLabels(ctx, cl, "matching-node-without-label-1", map[string]string{"project": "test-1", "role": "nfs", "test-label": "value", nfsNodeSelectorKey: ""})
-			checkNodeLabels(ctx, cl, "matching-node-without-label-2", map[string]string{"project": "test-2", "test-label": "value", nfsNodeSelectorKey: ""})
+			// remain
+			errGetM1 := cl.Get(ctx, client.ObjectKey{Name: "csi-nfs-node-6-match1", Namespace: controllerNamespace}, &corev1.Pod{})
+			Expect(errGetM1).NotTo(HaveOccurred())
+			errGetM2 := cl.Get(ctx, client.ObjectKey{Name: "csi-nfs-node-6-match2", Namespace: controllerNamespace}, &corev1.Pod{})
+			Expect(errGetM2).NotTo(HaveOccurred())
+			errGetM3 := cl.Get(ctx, client.ObjectKey{Name: "csi-nfs-node-6-match3", Namespace: controllerNamespace}, &corev1.Pod{})
+			Expect(errGetM3).NotTo(HaveOccurred())
 
-			checkNodeLabels(ctx, cl, "non-matching-node-without-label-1", map[string]string{"project": "test-3", "role": "worker", "test-label": "value"})
-			checkNodeLabels(ctx, cl, "non-matching-node-without-label-2", map[string]string{"project": "test-1", "role": "dev", "test-label": "value"})
+			// removed
+			errGetNM := cl.Get(ctx, client.ObjectKey{Name: "csi-nfs-node-6-nonmatch", Namespace: controllerNamespace}, &corev1.Pod{})
+			Expect(errGetNM).To(HaveOccurred())
+			Expect(k8serrors.IsNotFound(errGetNM)).To(BeTrue())
 		})
 
-		Context("Scenario 9: Removing the csi-nfs label from controller node with various conditions", func() {
-			It("9.1: Has pending VolumeSnapshot and csi-controller pod exists -> csi-nfs label should not be removed from controller node", func() {
-				// create NFSStorageClass
-				nfsSCConfig.nodeSelector = metav1.LabelSelector{
-					MatchLabels: map[string]string{"project": "test-1"},
-				}
-				nsc := generateNFSStorageClass(nfsSCConfig)
-				Expect(cl.Create(ctx, nsc)).To(Succeed())
-				recheckNSC := &v1alpha1.NFSStorageClass{}
-				Expect(cl.Get(ctx, client.ObjectKey{Name: nfsSCConfig.Name}, recheckNSC)).To(Succeed())
-				Expect(recheckNSC.Spec.WorkloadNodes.NodeSelector).To(Equal(&nfsSCConfig.nodeSelector))
-
-				// create controller node with the csi-nfs label, pending VolumeSnapshot and csi-controller pod
-				prepareNode(ctx, cl, "controller-node", map[string]string{"kubernetes.io/os": "linux", "fake-role": "fake", nfsNodeSelectorKey: ""})
-				makeNodeAsController(ctx, cl, "controller-node", controllerNamespace)
-				prepareVolumeSnapshot(ctx, cl, testNamespace, "vs-1", provisionerNFS, ptr.To(bool(false)))
-				prepareModulePod(ctx, cl, "csi-controller", controllerNamespace, "controller-node", controller.CSIControllerLabel)
-
-				// create some matching nodes without the csi-nfs label
-				prepareNode(ctx, cl, "matching-node-without-label-1", map[string]string{"project": "test-1", "test-label": "value"})
-				prepareNode(ctx, cl, "matching-node-without-label-2", map[string]string{"project": "test-1"})
-
-				// create some matching nodes with the csi-nfs label
-				prepareNode(ctx, cl, "matching-node-with-label-1", map[string]string{"project": "test-1", "test-label": "value", nfsNodeSelectorKey: ""})
-				prepareNode(ctx, cl, "matching-node-with-label-2", map[string]string{"project": "test-1", nfsNodeSelectorKey: ""})
-
-				// create some non-matching nodes without the csi-nfs label
-				prepareNode(ctx, cl, "non-matching-node-without-label-1", map[string]string{"project": "test-2", "test-label": "value"})
-				prepareNode(ctx, cl, "non-matching-node-without-label-2", map[string]string{"project": "test-2"})
-
-				// create some non-matching nodes with the csi-nfs label
-				prepareNode(ctx, cl, "non-matching-node-with-label-1", map[string]string{"project": "test-3", "test-label": "value", nfsNodeSelectorKey: ""})
-				prepareNode(ctx, cl, "non-matching-node-with-label-2", map[string]string{"test-label": "value", nfsNodeSelectorKey: ""})
-
-				err := controller.ReconcileNodeSelector(ctx, cl, clusterWideCl, log, controllerNamespace)
-				Expect(err).NotTo(HaveOccurred())
-
-				checkNodeLabels(ctx, cl, "matching-node-without-label-1", map[string]string{"project": "test-1", "test-label": "value", nfsNodeSelectorKey: ""})
-				checkNodeLabels(ctx, cl, "matching-node-without-label-2", map[string]string{"project": "test-1", nfsNodeSelectorKey: ""})
-
-				checkNodeLabels(ctx, cl, "matching-node-with-label-1", map[string]string{"project": "test-1", "test-label": "value", nfsNodeSelectorKey: ""})
-				checkNodeLabels(ctx, cl, "matching-node-with-label-2", map[string]string{"project": "test-1", nfsNodeSelectorKey: ""})
-
-				checkNodeLabels(ctx, cl, "non-matching-node-without-label-1", map[string]string{"project": "test-2", "test-label": "value"})
-				checkNodeLabels(ctx, cl, "non-matching-node-without-label-2", map[string]string{"project": "test-2"})
-
-				checkNodeLabels(ctx, cl, "non-matching-node-with-label-1", map[string]string{"project": "test-3", "test-label": "value"})
-				checkNodeLabels(ctx, cl, "non-matching-node-with-label-2", map[string]string{"test-label": "value"})
-
-				checkNodeLabels(ctx, cl, "controller-node", map[string]string{"kubernetes.io/os": "linux", "fake-role": "fake", nfsNodeSelectorKey: ""})
-			})
-
-			It("9.2: Has pending VolumeSnapshot and csi-controller pod does not exist -> csi-nfs label should be removed from controller node", func() {
-				// create NFSStorageClass
-				nfsSCConfig.nodeSelector = metav1.LabelSelector{
-					MatchLabels: map[string]string{"project": "test-1"},
-				}
-				nsc := generateNFSStorageClass(nfsSCConfig)
-				Expect(cl.Create(ctx, nsc)).To(Succeed())
-				recheckNSC := &v1alpha1.NFSStorageClass{}
-				Expect(cl.Get(ctx, client.ObjectKey{Name: nfsSCConfig.Name}, recheckNSC)).To(Succeed())
-				Expect(recheckNSC.Spec.WorkloadNodes.NodeSelector).To(Equal(&nfsSCConfig.nodeSelector))
-
-				// create controller node with the csi-nfs label and pending VolumeSnapshot
-				prepareNode(ctx, cl, "controller-node", map[string]string{"kubernetes.io/os": "linux", "fake-role": "fake", nfsNodeSelectorKey: ""})
-				makeNodeAsController(ctx, cl, "controller-node", controllerNamespace)
-				prepareVolumeSnapshot(ctx, cl, testNamespace, "vs-1", provisionerNFS, ptr.To(bool(false)))
-				// NOTE: csi-controller pod does not exist
-
-				// create some matching nodes without the csi-nfs label
-				prepareNode(ctx, cl, "matching-node-without-label-1", map[string]string{"project": "test-1", "test-label": "value"})
-				prepareNode(ctx, cl, "matching-node-without-label-2", map[string]string{"project": "test-1"})
-
-				// create some matching nodes with the csi-nfs label
-				prepareNode(ctx, cl, "matching-node-with-label-1", map[string]string{"project": "test-1", "test-label": "value", nfsNodeSelectorKey: ""})
-				prepareNode(ctx, cl, "matching-node-with-label-2", map[string]string{"project": "test-1", nfsNodeSelectorKey: ""})
-
-				// create some non-matching nodes without the csi-nfs label
-				prepareNode(ctx, cl, "non-matching-node-without-label-1", map[string]string{"project": "test-2", "test-label": "value"})
-				prepareNode(ctx, cl, "non-matching-node-without-label-2", map[string]string{"project": "test-2"})
-
-				// create non-matching node with the csi-nfs label
-				prepareNode(ctx, cl, "non-matching-node-with-label-1", map[string]string{"project": "test-3", "test-label": "value", nfsNodeSelectorKey: ""})
-
-				err := controller.ReconcileNodeSelector(ctx, cl, clusterWideCl, log, controllerNamespace)
-				Expect(err).NotTo(HaveOccurred())
-
-				checkNodeLabels(ctx, cl, "matching-node-without-label-1", map[string]string{"project": "test-1", "test-label": "value", nfsNodeSelectorKey: ""})
-				checkNodeLabels(ctx, cl, "matching-node-without-label-2", map[string]string{"project": "test-1", nfsNodeSelectorKey: ""})
-
-				checkNodeLabels(ctx, cl, "matching-node-with-label-1", map[string]string{"project": "test-1", "test-label": "value", nfsNodeSelectorKey: ""})
-				checkNodeLabels(ctx, cl, "matching-node-with-label-2", map[string]string{"project": "test-1", nfsNodeSelectorKey: ""})
-
-				checkNodeLabels(ctx, cl, "non-matching-node-without-label-1", map[string]string{"project": "test-2", "test-label": "value"})
-				checkNodeLabels(ctx, cl, "non-matching-node-without-label-2", map[string]string{"project": "test-2"})
-
-				checkNodeLabels(ctx, cl, "non-matching-node-with-label-1", map[string]string{"project": "test-3", "test-label": "value"})
-
-				checkNodeLabels(ctx, cl, "controller-node", map[string]string{"kubernetes.io/os": "linux", "fake-role": "fake"})
-			})
-
-			It("9.3: Has no pending VolumeSnapshot and csi-controller pod exists -> csi-nfs label should be removed from controller node", func() {
-				// create NFSStorageClass
-				nfsSCConfig.nodeSelector = metav1.LabelSelector{
-					MatchLabels: map[string]string{"project": "test-1"},
-				}
-				nsc := generateNFSStorageClass(nfsSCConfig)
-				Expect(cl.Create(ctx, nsc)).To(Succeed())
-				recheckNSC := &v1alpha1.NFSStorageClass{}
-				Expect(cl.Get(ctx, client.ObjectKey{Name: nfsSCConfig.Name}, recheckNSC)).To(Succeed())
-				Expect(recheckNSC.Spec.WorkloadNodes.NodeSelector).To(Equal(&nfsSCConfig.nodeSelector))
-
-				// create controller node with the csi-nfs label and no pending VolumeSnapshot
-				prepareNode(ctx, cl, "controller-node", map[string]string{"kubernetes.io/os": "linux", "fake-role": "fake", nfsNodeSelectorKey: ""})
-				makeNodeAsController(ctx, cl, "controller-node", controllerNamespace)
-				prepareVolumeSnapshot(ctx, cl, testNamespace, "vs-1", provisionerNFS, ptr.To(bool(true)))
-				prepareModulePod(ctx, cl, "csi-controller", controllerNamespace, "controller-node", controller.CSIControllerLabel)
-
-				// create some matching nodes without the csi-nfs label
-				prepareNode(ctx, cl, "matching-node-without-label-1", map[string]string{"project": "test-1", "test-label": "value"})
-				prepareNode(ctx, cl, "matching-node-without-label-2", map[string]string{"project": "test-1"})
-
-				// create some matching nodes with the csi-nfs label
-				prepareNode(ctx, cl, "matching-node-with-label-1", map[string]string{"project": "test-1", "test-label": "value", nfsNodeSelectorKey: ""})
-				prepareNode(ctx, cl, "matching-node-with-label-2", map[string]string{"project": "test-1", nfsNodeSelectorKey: ""})
-
-				// create some non-matching nodes without the csi-nfs label
-				prepareNode(ctx, cl, "non-matching-node-without-label-1", map[string]string{"project": "test-2", "test-label": "value"})
-				prepareNode(ctx, cl, "non-matching-node-without-label-2", map[string]string{"project": "test-2"})
-
-				// create some non-matching nodes with the csi-nfs label
-				prepareNode(ctx, cl, "non-matching-node-with-label-1", map[string]string{"project": "test-3", "test-label": "value", nfsNodeSelectorKey: ""})
-				prepareNode(ctx, cl, "non-matching-node-with-label-2", map[string]string{"test-label": "value", nfsNodeSelectorKey: ""})
-
-				err := controller.ReconcileNodeSelector(ctx, cl, clusterWideCl, log, controllerNamespace)
-				Expect(err).NotTo(HaveOccurred())
-
-				checkNodeLabels(ctx, cl, "matching-node-without-label-1", map[string]string{"project": "test-1", "test-label": "value", nfsNodeSelectorKey: ""})
-				checkNodeLabels(ctx, cl, "matching-node-without-label-2", map[string]string{"project": "test-1", nfsNodeSelectorKey: ""})
-
-				checkNodeLabels(ctx, cl, "matching-node-with-label-1", map[string]string{"project": "test-1", "test-label": "value", nfsNodeSelectorKey: ""})
-				checkNodeLabels(ctx, cl, "matching-node-with-label-2", map[string]string{"project": "test-1", nfsNodeSelectorKey: ""})
-
-				checkNodeLabels(ctx, cl, "non-matching-node-without-label-1", map[string]string{"project": "test-2", "test-label": "value"})
-				checkNodeLabels(ctx, cl, "non-matching-node-without-label-2", map[string]string{"project": "test-2"})
-
-				checkNodeLabels(ctx, cl, "non-matching-node-with-label-1", map[string]string{"project": "test-3", "test-label": "value"})
-				checkNodeLabels(ctx, cl, "non-matching-node-with-label-2", map[string]string{"test-label": "value"})
-
-				checkNodeLabels(ctx, cl, "controller-node", map[string]string{"kubernetes.io/os": "linux", "fake-role": "fake"})
-			})
-
-			It("9.4: Has pending PVC and csi-controller pod exists -> csi-nfs label should not be removed from controller node", func() {
-				// create NFSStorageClass
-				nfsSCConfig.nodeSelector = metav1.LabelSelector{
-					MatchLabels: map[string]string{"project": "test-1"},
-				}
-				nsc := generateNFSStorageClass(nfsSCConfig)
-				Expect(cl.Create(ctx, nsc)).To(Succeed())
-				recheckNSC := &v1alpha1.NFSStorageClass{}
-				Expect(cl.Get(ctx, client.ObjectKey{Name: nfsSCConfig.Name}, recheckNSC)).To(Succeed())
-				Expect(recheckNSC.Spec.WorkloadNodes.NodeSelector).To(Equal(&nfsSCConfig.nodeSelector))
-
-				// create controller node with the csi-nfs label and csi-controller pod
-				prepareNode(ctx, cl, "controller-node", map[string]string{"kubernetes.io/os": "linux", "fake-role": "fake", nfsNodeSelectorKey: ""})
-				makeNodeAsController(ctx, cl, "controller-node", controllerNamespace)
-				prepareModulePod(ctx, cl, "csi-controller", controllerNamespace, "controller-node", controller.CSIControllerLabel)
-
-				// create pending PVC
-				preparePVC(ctx, cl, testNamespace, "pvc-1", provisionerNFS, v1.ClaimPending)
-
-				// create some matching nodes without the csi-nfs label
-				prepareNode(ctx, cl, "matching-node-without-label-1", map[string]string{"project": "test-1", "test-label": "value"})
-				prepareNode(ctx, cl, "matching-node-without-label-2", map[string]string{"project": "test-1"})
-
-				// create some matching nodes with the csi-nfs label
-				prepareNode(ctx, cl, "matching-node-with-label-1", map[string]string{"project": "test-1", "test-label": "value", nfsNodeSelectorKey: ""})
-
-				// create some non-matching nodes without the csi-nfs label
-				prepareNode(ctx, cl, "non-matching-node-without-label-1", map[string]string{"project": "test-2", "test-label": "value"})
-
-				// create some non-matching nodes with the csi-nfs label
-				prepareNode(ctx, cl, "non-matching-node-with-label-1", map[string]string{"project": "test-3", "test-label": "value", nfsNodeSelectorKey: ""})
-				prepareNode(ctx, cl, "non-matching-node-with-label-2", map[string]string{"test-label": "value", nfsNodeSelectorKey: ""})
-
-				err := controller.ReconcileNodeSelector(ctx, cl, clusterWideCl, log, controllerNamespace)
-				Expect(err).NotTo(HaveOccurred())
-
-				checkNodeLabels(ctx, cl, "matching-node-without-label-1", map[string]string{"project": "test-1", "test-label": "value", nfsNodeSelectorKey: ""})
-				checkNodeLabels(ctx, cl, "matching-node-without-label-2", map[string]string{"project": "test-1", nfsNodeSelectorKey: ""})
-
-				checkNodeLabels(ctx, cl, "matching-node-with-label-1", map[string]string{"project": "test-1", "test-label": "value", nfsNodeSelectorKey: ""})
-
-				checkNodeLabels(ctx, cl, "non-matching-node-without-label-1", map[string]string{"project": "test-2", "test-label": "value"})
-
-				checkNodeLabels(ctx, cl, "non-matching-node-with-label-1", map[string]string{"project": "test-3", "test-label": "value"})
-				checkNodeLabels(ctx, cl, "non-matching-node-with-label-2", map[string]string{"test-label": "value"})
-
-				checkNodeLabels(ctx, cl, "controller-node", map[string]string{"kubernetes.io/os": "linux", "fake-role": "fake", nfsNodeSelectorKey: ""})
-			})
-
-			It("9.5: Has pending PVC and csi-controller pod does not exist -> csi-nfs label should be removed from controller node", func() {
-				// create NFSStorageClass
-				nfsSCConfig.nodeSelector = metav1.LabelSelector{
-					MatchLabels: map[string]string{"project": "test-1"},
-				}
-				nsc := generateNFSStorageClass(nfsSCConfig)
-				Expect(cl.Create(ctx, nsc)).To(Succeed())
-				recheckNSC := &v1alpha1.NFSStorageClass{}
-				Expect(cl.Get(ctx, client.ObjectKey{Name: nfsSCConfig.Name}, recheckNSC)).To(Succeed())
-				Expect(recheckNSC.Spec.WorkloadNodes.NodeSelector).To(Equal(&nfsSCConfig.nodeSelector))
-
-				// create controller node with the csi-nfs label and no csi-controller pod
-				prepareNode(ctx, cl, "controller-node", map[string]string{"kubernetes.io/os": "linux", "fake-role": "fake", nfsNodeSelectorKey: ""})
-				makeNodeAsController(ctx, cl, "controller-node", controllerNamespace)
-
-				// create pending PVC
-				preparePVC(ctx, cl, testNamespace, "pvc-1", provisionerNFS, v1.ClaimPending)
-
-				// create some matching nodes without the csi-nfs label
-				prepareNode(ctx, cl, "matching-node-without-label-1", map[string]string{"project": "test-1", "test-label": "value"})
-				prepareNode(ctx, cl, "matching-node-without-label-2", map[string]string{"project": "test-1"})
-
-				// create some matching nodes with the csi-nfs label
-				prepareNode(ctx, cl, "matching-node-with-label-1", map[string]string{"project": "test-1", "test-label": "value", nfsNodeSelectorKey: ""})
-
-				// create some non-matching nodes without the csi-nfs label
-				prepareNode(ctx, cl, "non-matching-node-without-label-1", map[string]string{"project": "test-2", "test-label": "value"})
-
-				// create some non-matching nodes with the csi-nfs label
-				prepareNode(ctx, cl, "non-matching-node-with-label-1", map[string]string{"project": "test-3", "test-label": "value", nfsNodeSelectorKey: ""})
-				prepareNode(ctx, cl, "non-matching-node-with-label-2", map[string]string{"test-label": "value", nfsNodeSelectorKey: ""})
-
-				err := controller.ReconcileNodeSelector(ctx, cl, clusterWideCl, log, controllerNamespace)
-				Expect(err).NotTo(HaveOccurred())
-
-				checkNodeLabels(ctx, cl, "matching-node-without-label-1", map[string]string{"project": "test-1", "test-label": "value", nfsNodeSelectorKey: ""})
-				checkNodeLabels(ctx, cl, "matching-node-without-label-2", map[string]string{"project": "test-1", nfsNodeSelectorKey: ""})
-
-				checkNodeLabels(ctx, cl, "matching-node-with-label-1", map[string]string{"project": "test-1", "test-label": "value", nfsNodeSelectorKey: ""})
-
-				checkNodeLabels(ctx, cl, "non-matching-node-without-label-1", map[string]string{"project": "test-2", "test-label": "value"})
-
-				checkNodeLabels(ctx, cl, "non-matching-node-with-label-1", map[string]string{"project": "test-3", "test-label": "value"})
-				checkNodeLabels(ctx, cl, "non-matching-node-with-label-2", map[string]string{"test-label": "value"})
-
-				checkNodeLabels(ctx, cl, "controller-node", map[string]string{"kubernetes.io/os": "linux", "fake-role": "fake"})
-			})
-		})
-		// Removing the csi-nfs label from nodes when pods with PVCs exist
-		It("Scenario 10: Node not matching selector, not the controller, but has a pod with NFS PVC -> do not remove the label", func() {
-			// create NFSStorageClass
-			nfsSCConfig.nodeSelector = metav1.LabelSelector{
+		It("Scenario 7: Some nodes have csi-nfs label, some do not -> label removed from nodes that do not match any selector, csi-nfs pods removed if node unlabeled", func() {
+			// create SC #1
+			nfsSCConfig7a := nfsSCConfig
+			nfsSCConfig7a.Name = "test-nfs-sc-7a"
+			nfsSCConfig7a.nodeSelector = metav1.LabelSelector{
 				MatchLabels: map[string]string{"project": "test-1"},
 			}
+			nsc7a := generateNFSStorageClass(nfsSCConfig7a)
+			Expect(cl.Create(ctx, nsc7a)).To(Succeed())
 
-			nsc := generateNFSStorageClass(nfsSCConfig)
-			Expect(cl.Create(ctx, nsc)).To(Succeed())
-			recheckNSC := &v1alpha1.NFSStorageClass{}
-			Expect(cl.Get(ctx, client.ObjectKey{Name: nfsSCConfig.Name}, recheckNSC)).To(Succeed())
-			Expect(recheckNSC.Spec.WorkloadNodes.NodeSelector).To(Equal(&nfsSCConfig.nodeSelector))
+			// create SC #2
+			nfsSCConfig7b := nfsSCConfig
+			nfsSCConfig7b.Name = "test-nfs-sc-7b"
+			nfsSCConfig7b.nodeSelector = metav1.LabelSelector{
+				MatchLabels: map[string]string{"project": "test-2"},
+			}
+			nsc7b := generateNFSStorageClass(nfsSCConfig7b)
+			Expect(cl.Create(ctx, nsc7b)).To(Succeed())
 
-			// create node with the csi-nfs label that does not match the selector and has a pod with NFS PVC
-			prepareNode(ctx, cl, "non-matching-node-with-label-and-pod-with-pvc", map[string]string{"project": "test-2", "test-label": "value", nfsNodeSelectorKey: ""})
-			preparePodWithPVC(ctx, cl, testNamespace, "pod-with-pvc", "non-matching-node-with-label-and-pod-with-pvc", "pvc-1", provisionerNFS)
+			// csi-nfs-labeled nodes, some matching, some not
+			prepareNode(ctx, cl, "matching-node-with-label-7-1", map[string]string{"project": "test-1", "role": "nfs", nfsNodeSelectorKey: ""})
+			prepareNode(ctx, cl, "matching-node-with-label-7-2", map[string]string{"project": "test-2", nfsNodeSelectorKey: ""})
 
-			// create some matching nodes without the csi-nfs label
-			prepareNode(ctx, cl, "matching-node-without-label-1", map[string]string{"project": "test-1", "test-label": "value"})
-			prepareNode(ctx, cl, "matching-node-without-label-2", map[string]string{"project": "test-1"})
+			prepareNode(ctx, cl, "non-matching-node-with-label-7-1", map[string]string{"project": "test-3", "test-label": "value", nfsNodeSelectorKey: ""})
+			prepareNode(ctx, cl, "non-matching-node-with-label-7-2", map[string]string{"role": "dev", "test-label": "value", nfsNodeSelectorKey: ""})
 
-			// create some matching nodes with the csi-nfs label
-			prepareNode(ctx, cl, "matching-node-with-label-1", map[string]string{"project": "test-1", "test-label": "value", nfsNodeSelectorKey: ""})
-			prepareNode(ctx, cl, "matching-node-with-label-2", map[string]string{"project": "test-1", nfsNodeSelectorKey: ""})
+			// unlabeled nodes, some match, some not
+			prepareNode(ctx, cl, "matching-node-without-label-7-1", map[string]string{"project": "test-1", "test-label": "value"})
+			prepareNode(ctx, cl, "matching-node-without-label-7-2", map[string]string{"project": "test-2", "test-label": "value"})
 
-			// create some non-matching nodes without the csi-nfs label
-			prepareNode(ctx, cl, "non-matching-node-without-label-1", map[string]string{"project": "test-2", "test-label": "value"})
-			prepareNode(ctx, cl, "non-matching-node-without-label-2", map[string]string{"project": "test-2"})
+			prepareNode(ctx, cl, "non-matching-node-without-label-7-1", map[string]string{"project": "test-3", "test-label": "value"})
+			prepareNode(ctx, cl, "non-matching-node-without-label-7-2", map[string]string{"role": "dev", "test-label": "value"})
 
-			// create some non-matching nodes with the csi-nfs label
-			prepareNode(ctx, cl, "non-matching-node-with-label-1", map[string]string{"project": "test-3", "test-label": "value", nfsNodeSelectorKey: ""})
-			prepareNode(ctx, cl, "non-matching-node-with-label-2", map[string]string{"test-label": "value", nfsNodeSelectorKey: ""})
+			// csi-nfs-node pods on some labeled nodes
+			prepareModulePod(ctx, cl, "csi-nfs-node-7-1a", controllerNamespace, "matching-node-with-label-7-1", controller.CSINodeLabel)
+			prepareModulePod(ctx, cl, "csi-nfs-node-7-1b", controllerNamespace, "non-matching-node-with-label-7-1", controller.CSINodeLabel)
 
 			err := controller.ReconcileNodeSelector(ctx, cl, clusterWideCl, log, controllerNamespace)
 			Expect(err).NotTo(HaveOccurred())
 
-			checkNodeLabels(ctx, cl, "matching-node-without-label-1", map[string]string{"project": "test-1", "test-label": "value", nfsNodeSelectorKey: ""})
-			checkNodeLabels(ctx, cl, "matching-node-without-label-2", map[string]string{"project": "test-1", nfsNodeSelectorKey: ""})
+			checkNodeLabels(ctx, cl, "matching-node-with-label-7-1", map[string]string{"project": "test-1", "role": "nfs", nfsNodeSelectorKey: ""})
+			checkNodeLabels(ctx, cl, "matching-node-with-label-7-2", map[string]string{"project": "test-2", nfsNodeSelectorKey: ""})
 
-			checkNodeLabels(ctx, cl, "matching-node-with-label-1", map[string]string{"project": "test-1", "test-label": "value", nfsNodeSelectorKey: ""})
-			checkNodeLabels(ctx, cl, "matching-node-with-label-2", map[string]string{"project": "test-1", nfsNodeSelectorKey: ""})
+			checkNodeLabels(ctx, cl, "non-matching-node-with-label-7-1", map[string]string{"project": "test-3", "test-label": "value"})
+			checkNodeLabels(ctx, cl, "non-matching-node-with-label-7-2", map[string]string{"role": "dev", "test-label": "value"})
 
-			checkNodeLabels(ctx, cl, "non-matching-node-without-label-1", map[string]string{"project": "test-2", "test-label": "value"})
-			checkNodeLabels(ctx, cl, "non-matching-node-without-label-2", map[string]string{"project": "test-2"})
+			checkNodeLabels(ctx, cl, "matching-node-without-label-7-1", map[string]string{"project": "test-1", "test-label": "value", nfsNodeSelectorKey: ""})
+			checkNodeLabels(ctx, cl, "matching-node-without-label-7-2", map[string]string{"project": "test-2", "test-label": "value", nfsNodeSelectorKey: ""})
 
-			checkNodeLabels(ctx, cl, "non-matching-node-with-label-1", map[string]string{"project": "test-3", "test-label": "value"})
-			checkNodeLabels(ctx, cl, "non-matching-node-with-label-2", map[string]string{"test-label": "value"})
+			checkNodeLabels(ctx, cl, "non-matching-node-without-label-7-1", map[string]string{"project": "test-3", "test-label": "value"})
+			checkNodeLabels(ctx, cl, "non-matching-node-without-label-7-2", map[string]string{"role": "dev", "test-label": "value"})
 
-			checkNodeLabels(ctx, cl, "non-matching-node-with-label-and-pod-with-pvc", map[string]string{"project": "test-2", "test-label": "value", nfsNodeSelectorKey: ""})
+			// ReconcileModulePods
+			err = controller.ReconcileModulePods(ctx, cl, clusterWideCl, log, controllerNamespace, controller.NFSNodeSelector, controller.ModulePodSelectorList)
+			Expect(err).NotTo(HaveOccurred())
+
+			// csi-nfs-node-7-1a on matching => remains
+			errPod7a := cl.Get(ctx, client.ObjectKey{Name: "csi-nfs-node-7-1a", Namespace: controllerNamespace}, &corev1.Pod{})
+			Expect(errPod7a).NotTo(HaveOccurred())
+
+			// csi-nfs-node-7-1b on non-matching => removed
+			errPod7b := cl.Get(ctx, client.ObjectKey{Name: "csi-nfs-node-7-1b", Namespace: controllerNamespace}, &corev1.Pod{})
+			Expect(errPod7b).To(HaveOccurred())
+			Expect(k8serrors.IsNotFound(errPod7b)).To(BeTrue())
+		})
+
+		It("Scenario 9.1: Controller node has pending VolumeSnapshot and csi-controller Pod -> label NOT removed, Pods remain", func() {
+			// 1) Create NFSStorageClass with new nodeSelector that the controller node does not match
+			nfsSCConfig.nodeSelector = metav1.LabelSelector{
+				MatchLabels: map[string]string{"project": "test-9a"},
+			}
+			nsc := generateNFSStorageClass(nfsSCConfig)
+			Expect(cl.Create(ctx, nsc)).To(Succeed())
+
+			// 2) Create controller node with label, but does NOT match the new selector
+			prepareNode(ctx, cl, "controller-node-9a", map[string]string{"project": "something-else", nfsNodeSelectorKey: ""})
+			makeNodeAsController(ctx, cl, "controller-node-9a", controllerNamespace)
+
+			// 3) Create a csi-controller Pod on that node
+			prepareModulePod(ctx, cl, "csi-controller-9a", controllerNamespace, "controller-node-9a", controller.CSIControllerLabel)
+
+			// 4) Create a csi-nfs-node Pod on that node as well (optional)
+			prepareModulePod(ctx, cl, "csi-nfs-node-9a", controllerNamespace, "controller-node-9a", controller.CSINodeLabel)
+
+			// 5) Create a pending VolumeSnapshot (not ReadyToUse) to block removal
+			prepareVolumeSnapshot(ctx, cl, testNamespace, "vs-9a", provisionerNFS, ptr.To(false))
+
+			// 6) ReconcileNodeSelector -> tries to remove label from controller-node-9a, but pending snapshot => cannot remove
+			err := controller.ReconcileNodeSelector(ctx, cl, clusterWideCl, log, controllerNamespace)
+			Expect(err).NotTo(HaveOccurred())
+
+			// label should still exist
+			checkNodeLabels(ctx, cl, "controller-node-9a", map[string]string{"project": "something-else", nfsNodeSelectorKey: ""})
+
+			// 7) ReconcileModulePods -> because label remains, csi-controller & csi-nfs-node pods remain
+			err = controller.ReconcileModulePods(ctx, cl, clusterWideCl, log, controllerNamespace, controller.NFSNodeSelector, controller.ModulePodSelectorList)
+			Expect(err).NotTo(HaveOccurred())
+
+			// csi-controller-9a remains
+			errGetCtrl := cl.Get(ctx, client.ObjectKey{Name: "csi-controller-9a", Namespace: controllerNamespace}, &corev1.Pod{})
+			Expect(errGetCtrl).NotTo(HaveOccurred())
+
+			// csi-nfs-node-9a remains
+			errGetNode := cl.Get(ctx, client.ObjectKey{Name: "csi-nfs-node-9a", Namespace: controllerNamespace}, &corev1.Pod{})
+			Expect(errGetNode).NotTo(HaveOccurred())
+		})
+
+		It("Scenario 9.2: Controller node has pending VolumeSnapshot but NO csi-controller Pod -> label removed, csi-nfs-node Pod on that node is removed", func() {
+			// 1) Create NFSStorageClass so node does NOT match
+			nfsSCConfig.nodeSelector = metav1.LabelSelector{
+				MatchLabels: map[string]string{"project": "test-9b"},
+			}
+			nsc := generateNFSStorageClass(nfsSCConfig)
+			Expect(cl.Create(ctx, nsc)).To(Succeed())
+
+			// 2) Controller node has label, no csi-controller pod
+			prepareNode(ctx, cl, "controller-node-9b", map[string]string{"project": "something-else", nfsNodeSelectorKey: ""})
+			makeNodeAsController(ctx, cl, "controller-node-9b", controllerNamespace)
+
+			// 3) Place a csi-nfs-node Pod on that node
+			prepareModulePod(ctx, cl, "csi-nfs-node-9b", controllerNamespace, "controller-node-9b", controller.CSINodeLabel)
+
+			// 4) Create a pending VolumeSnapshot
+			prepareVolumeSnapshot(ctx, cl, testNamespace, "vs-9b", provisionerNFS, ptr.To(false))
+
+			// NO csi-controller Pod => the logic says if there's no csi-controller pod to remove, the node is removable
+			err := controller.ReconcileNodeSelector(ctx, cl, clusterWideCl, log, controllerNamespace)
+			Expect(err).NotTo(HaveOccurred())
+
+			// label is removed
+			checkNodeLabels(ctx, cl, "controller-node-9b", map[string]string{"project": "something-else"})
+
+			// ReconcileModulePods -> csi-nfs-node on unlabeled node => removed
+			err = controller.ReconcileModulePods(ctx, cl, clusterWideCl, log, controllerNamespace, controller.NFSNodeSelector, controller.ModulePodSelectorList)
+			Expect(err).NotTo(HaveOccurred())
+
+			errGetNode := cl.Get(ctx, client.ObjectKey{Name: "csi-nfs-node-9b", Namespace: controllerNamespace}, &corev1.Pod{})
+			Expect(errGetNode).To(HaveOccurred())
+			Expect(k8serrors.IsNotFound(errGetNode)).To(BeTrue())
+		})
+
+		It("Scenario 9.3: Controller node has no pending resources, csi-controller Pod -> label is removed, Pod is removed", func() {
+			// 1) NFSStorageClass so node doesn't match
+			nfsSCConfig.nodeSelector = metav1.LabelSelector{
+				MatchLabels: map[string]string{"project": "test-9c"},
+			}
+			nsc := generateNFSStorageClass(nfsSCConfig)
+			Expect(cl.Create(ctx, nsc)).To(Succeed())
+
+			// 2) Node has label, csi-controller Pod
+			prepareNode(ctx, cl, "controller-node-9c", map[string]string{"project": "other", nfsNodeSelectorKey: ""})
+			makeNodeAsController(ctx, cl, "controller-node-9c", controllerNamespace)
+			prepareModulePod(ctx, cl, "csi-controller-9c", controllerNamespace, "controller-node-9c", controller.CSIControllerLabel)
+
+			// 3) No pending PVC or snapshots => removable
+			err := controller.ReconcileNodeSelector(ctx, cl, clusterWideCl, log, controllerNamespace)
+			Expect(err).NotTo(HaveOccurred())
+
+			// label removed
+			checkNodeLabels(ctx, cl, "controller-node-9c", map[string]string{"project": "other"})
+
+			// ReconcileModulePods => csi-controller Pod removed
+			err = controller.ReconcileModulePods(ctx, cl, clusterWideCl, log, controllerNamespace, controller.NFSNodeSelector, controller.ModulePodSelectorList)
+			Expect(err).NotTo(HaveOccurred())
+
+			errGetCtrl := cl.Get(ctx, client.ObjectKey{Name: "csi-controller-9c", Namespace: controllerNamespace}, &corev1.Pod{})
+			Expect(errGetCtrl).To(HaveOccurred())
+			Expect(k8serrors.IsNotFound(errGetCtrl)).To(BeTrue())
+		})
+
+		It("Scenario 9.4: Controller node has pending PVC and csi-controller Pod -> label NOT removed, pods remain", func() {
+			// 1) nodeSelector not matched
+			nfsSCConfig.nodeSelector = metav1.LabelSelector{
+				MatchLabels: map[string]string{"project": "test-9d"},
+			}
+			nsc := generateNFSStorageClass(nfsSCConfig)
+			Expect(cl.Create(ctx, nsc)).To(Succeed())
+
+			// 2) Node + csi-controller Pod
+			prepareNode(ctx, cl, "controller-node-9d", map[string]string{"project": "other", nfsNodeSelectorKey: ""})
+			makeNodeAsController(ctx, cl, "controller-node-9d", controllerNamespace)
+			prepareModulePod(ctx, cl, "csi-controller-9d", controllerNamespace, "controller-node-9d", controller.CSIControllerLabel)
+
+			// 3) Create a pending PVC
+			preparePVC(ctx, cl, testNamespace, "pvc-9d", provisionerNFS, v1.ClaimPending)
+
+			// ReconcileNodeSelector => attempt remove label => sees pending PVC => keep label
+			err := controller.ReconcileNodeSelector(ctx, cl, clusterWideCl, log, controllerNamespace)
+			Expect(err).NotTo(HaveOccurred())
+
+			// label remains
+			checkNodeLabels(ctx, cl, "controller-node-9d", map[string]string{"project": "other", nfsNodeSelectorKey: ""})
+
+			// ReconcileModulePods => csi-controller Pod remains
+			err = controller.ReconcileModulePods(ctx, cl, clusterWideCl, log, controllerNamespace, controller.NFSNodeSelector, controller.ModulePodSelectorList)
+			Expect(err).NotTo(HaveOccurred())
+
+			errCtrl := cl.Get(ctx, client.ObjectKey{Name: "csi-controller-9d", Namespace: controllerNamespace}, &corev1.Pod{})
+			Expect(errCtrl).NotTo(HaveOccurred())
+		})
+
+		It("Scenario 9.5: Controller node has pending PVC but NO csi-controller Pod -> label removed, csi-nfs-node Pod also removed if present", func() {
+			// 1) nodeSelector not matched
+			nfsSCConfig.nodeSelector = metav1.LabelSelector{
+				MatchLabels: map[string]string{"project": "test-9e"},
+			}
+			nsc := generateNFSStorageClass(nfsSCConfig)
+			Expect(cl.Create(ctx, nsc)).To(Succeed())
+
+			// 2) Node with label but no csi-controller Pod
+			prepareNode(ctx, cl, "controller-node-9e", map[string]string{"project": "other", nfsNodeSelectorKey: ""})
+			makeNodeAsController(ctx, cl, "controller-node-9e", controllerNamespace)
+			// Instead create a csi-nfs-node Pod
+			prepareModulePod(ctx, cl, "csi-nfs-node-9e", controllerNamespace, "controller-node-9e", controller.CSINodeLabel)
+
+			// 3) Pending PVC
+			preparePVC(ctx, cl, testNamespace, "pvc-9e", provisionerNFS, v1.ClaimPending)
+
+			// ReconcileNodeSelector => no csi-controller Pod to remove => node is considered removable => label removed
+			err := controller.ReconcileNodeSelector(ctx, cl, clusterWideCl, log, controllerNamespace)
+			Expect(err).NotTo(HaveOccurred())
+
+			checkNodeLabels(ctx, cl, "controller-node-9e", map[string]string{"project": "other"})
+
+			// ReconcileModulePods => csi-nfs-node-9e on unlabeled node => removed
+			err = controller.ReconcileModulePods(ctx, cl, clusterWideCl, log, controllerNamespace, controller.NFSNodeSelector, controller.ModulePodSelectorList)
+			Expect(err).NotTo(HaveOccurred())
+
+			errNode := cl.Get(ctx, client.ObjectKey{Name: "csi-nfs-node-9e", Namespace: controllerNamespace}, &corev1.Pod{})
+			Expect(errNode).To(HaveOccurred())
+			Expect(k8serrors.IsNotFound(errNode)).To(BeTrue())
+		})
+
+		It("Scenario 10: Node not matching selector, not the controller, but has a pod with NFS PVC -> do not remove label, csi-nfs-node remains", func() {
+			nfsSCConfig.nodeSelector = metav1.LabelSelector{
+				MatchLabels: map[string]string{"project": "test-10"},
+			}
+			nsc := generateNFSStorageClass(nfsSCConfig)
+			Expect(cl.Create(ctx, nsc)).To(Succeed())
+
+			// node that won't match new selector, but label must remain due to user pod w/ NFS
+			prepareNode(ctx, cl, "non-matching-node-10", map[string]string{"project": "other", nfsNodeSelectorKey: ""})
+
+			// user pod with NFS PVC => block label removal
+			preparePodWithPVC(ctx, cl, testNamespace, "user-pod-10", "non-matching-node-10", "pvc-10", provisionerNFS)
+
+			// also csi-nfs-node Pod
+			prepareModulePod(ctx, cl, "csi-nfs-node-10", controllerNamespace, "non-matching-node-10", controller.CSINodeLabel)
+
+			err := controller.ReconcileNodeSelector(ctx, cl, clusterWideCl, log, controllerNamespace)
+			Expect(err).NotTo(HaveOccurred())
+
+			// label remains
+			checkNodeLabels(ctx, cl, "non-matching-node-10", map[string]string{"project": "other", nfsNodeSelectorKey: ""})
+
+			// ReconcileModulePods => csi-nfs-node remains
+			err = controller.ReconcileModulePods(ctx, cl, clusterWideCl, log, controllerNamespace, controller.NFSNodeSelector, controller.ModulePodSelectorList)
+			Expect(err).NotTo(HaveOccurred())
+
+			errPod10 := cl.Get(ctx, client.ObjectKey{Name: "csi-nfs-node-10", Namespace: controllerNamespace}, &corev1.Pod{})
+			Expect(errPod10).NotTo(HaveOccurred())
 		})
 
 	})
@@ -800,7 +728,7 @@ func preparePodWithPVC(
 	Expect(cl.Create(ctx, pod)).To(Succeed())
 
 	recheckPod := &corev1.Pod{}
-	Expect(cl.Get(ctx, client.ObjectKey{Name: "pod-with-pvc", Namespace: namespace}, recheckPod)).To(Succeed())
+	Expect(cl.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, recheckPod)).To(Succeed())
 	Expect(recheckPod.Spec.NodeName).To(Equal(nodeName))
 	Expect(recheckPod.Spec.Volumes).To(HaveLen(1))
 	Expect(recheckPod.Spec.Volumes[0].VolumeSource.PersistentVolumeClaim.ClaimName).To(Equal(pvcName))
