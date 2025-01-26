@@ -60,32 +60,37 @@ var _ = Describe(controller.NodeSelectorReconcilerName, func() {
 	})
 
 	Context("ReconcileNodeSelector() + ReconcileModulePods() Integration", func() {
-		It("Scenario 1: NFSStorageClass is missing, some nodes have the csi-nfs label, also csi-nfs-node pods -> label/pods removed", func() {
-			prepareNode(ctx, cl, "node-with-label", map[string]string{nfsNodeSelectorKey: "", "test-label": "value"})
+		It("Scenario 1: NFSStorageClass is missing, some nodes have the csi-nfs label, also csi-nfs-node and csi-controller Pods -> label removed, Pods removed", func() {
+			prepareNode(ctx, cl, "node-with-label", map[string]string{"kubernetes.io/os": "linux", nfsNodeSelectorKey: "", "test-label": "value"})
 			prepareNode(ctx, cl, "node-without-label", nil)
+
+			// prepare controller node
+			prepareNode(ctx, cl, "controller-node", map[string]string{"kubernetes.io/os": "linux", nfsNodeSelectorKey: "", "test-label": "value"})
+			makeNodeAsController(ctx, cl, "controller-node", controllerNamespace)
 
 			// csi-nfs-node Pod on node-with-label
 			prepareModulePod(ctx, cl, "csi-nfs-node-pod", controllerNamespace, "node-with-label", controller.CSINodeLabel)
+
+			// csi-controller Pod on node-with-label
+			prepareModulePod(ctx, cl, "csi-controller-pod", controllerNamespace, "node-with-label", controller.CSIControllerLabel)
 
 			// ReconcileNodeSelector
 			err := controller.ReconcileNodeSelector(ctx, cl, clusterWideCl, log, controllerNamespace)
 			Expect(err).NotTo(HaveOccurred())
 
-			checkNodeLabels(ctx, cl, "node-with-label", map[string]string{"test-label": "value"})
+			checkNodeLabels(ctx, cl, "node-with-label", map[string]string{"kubernetes.io/os": "linux", "test-label": "value"})
 			checkNodeLabels(ctx, cl, "node-without-label", nil)
+			checkNodeLabels(ctx, cl, "controller-node", map[string]string{"kubernetes.io/os": "linux", "test-label": "value"})
 
 			// ReconcileModulePods
 			err = controller.ReconcileModulePods(ctx, cl, clusterWideCl, log, controllerNamespace, controller.NFSNodeSelector, controller.ModulePodSelectorList)
 			Expect(err).NotTo(HaveOccurred())
 
-			// Pod removed
-			recheckPod := &corev1.Pod{}
-			errGet := cl.Get(ctx, client.ObjectKey{Name: "csi-nfs-node-pod", Namespace: controllerNamespace}, recheckPod)
-			Expect(errGet).To(HaveOccurred())
-			Expect(k8serrors.IsNotFound(errGet)).To(BeTrue())
+			// Pods removed
+			checkRemovedPod(ctx, cl, controllerNamespace, "csi-nfs-node-pod")
+			checkRemovedPod(ctx, cl, controllerNamespace, "csi-controller-pod")
 		})
 
-		// Scenario 2
 		It("Scenario 2: NFSStorageClass exists without nodeSelector; csi-nfs label is added to linux nodes; csi-nfs-node pods remain", func() {
 			nsc := generateNFSStorageClass(nfsSCConfig)
 			Expect(cl.Create(ctx, nsc)).To(Succeed())
@@ -109,11 +114,9 @@ var _ = Describe(controller.NodeSelectorReconcilerName, func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			// csi-nfs-node-1 Pod remains
-			errGet := cl.Get(ctx, client.ObjectKey{Name: "csi-nfs-node-1", Namespace: controllerNamespace}, &corev1.Pod{})
-			Expect(errGet).NotTo(HaveOccurred())
+			checkRemainingPod(ctx, cl, controllerNamespace, "csi-nfs-node-1", "node-without-label-1", controller.CSINodeLabel)
 		})
 
-		// Scenario 3
 		It("Scenario 3: NFSStorageClass with MatchLabels -> label added to matching nodes, csi-nfs pods removed from non-labeled", func() {
 			nfsSCConfig.nodeSelector = metav1.LabelSelector{
 				MatchLabels: map[string]string{"project": "test-1"},
@@ -138,16 +141,12 @@ var _ = Describe(controller.NodeSelectorReconcilerName, func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			// remains
-			errGet := cl.Get(ctx, client.ObjectKey{Name: "csi-nfs-node-match", Namespace: controllerNamespace}, &corev1.Pod{})
-			Expect(errGet).NotTo(HaveOccurred())
+			checkRemainingPod(ctx, cl, controllerNamespace, "csi-nfs-node-match", "matching-node-without-label-1", controller.CSINodeLabel)
 
 			// removed
-			errGet2 := cl.Get(ctx, client.ObjectKey{Name: "csi-nfs-node-nonmatch", Namespace: controllerNamespace}, &corev1.Pod{})
-			Expect(errGet2).To(HaveOccurred())
-			Expect(k8serrors.IsNotFound(errGet2)).To(BeTrue())
+			checkRemovedPod(ctx, cl, controllerNamespace, "csi-nfs-node-nonmatch")
 		})
 
-		// Scenario 4
 		It("Scenario 4: NFSStorageClass with MatchExpressions -> label is added to matching nodes, csi-nfs pods removed on unlabeled", func() {
 			nfsSCConfig.nodeSelector = metav1.LabelSelector{
 				MatchExpressions: []metav1.LabelSelectorRequirement{
@@ -164,36 +163,31 @@ var _ = Describe(controller.NodeSelectorReconcilerName, func() {
 			// matching vs. non-matching
 			prepareNode(ctx, cl, "matching-node-without-label-4-1", map[string]string{"project": "test-1"})
 			prepareNode(ctx, cl, "matching-node-without-label-4-2", map[string]string{"project": "test-2", "role": "something"})
-			prepareNode(ctx, cl, "non-matching-node-without-label-4", map[string]string{"project": "test-3"})
+			prepareNode(ctx, cl, "non-matching-node-with-label-4", map[string]string{"project": "test-3", nfsNodeSelectorKey: ""})
 
 			// pods
 			prepareModulePod(ctx, cl, "csi-nfs-node-4-match1", controllerNamespace, "matching-node-without-label-4-1", controller.CSINodeLabel)
 			prepareModulePod(ctx, cl, "csi-nfs-node-4-match2", controllerNamespace, "matching-node-without-label-4-2", controller.CSINodeLabel)
-			prepareModulePod(ctx, cl, "csi-nfs-node-4-nonmatch", controllerNamespace, "non-matching-node-without-label-4", controller.CSINodeLabel)
+			prepareModulePod(ctx, cl, "csi-nfs-node-4-nonmatch", controllerNamespace, "non-matching-node-with-label-4", controller.CSINodeLabel)
 
 			err := controller.ReconcileNodeSelector(ctx, cl, clusterWideCl, log, controllerNamespace)
 			Expect(err).NotTo(HaveOccurred())
 
 			checkNodeLabels(ctx, cl, "matching-node-without-label-4-1", map[string]string{"project": "test-1", nfsNodeSelectorKey: ""})
 			checkNodeLabels(ctx, cl, "matching-node-without-label-4-2", map[string]string{"project": "test-2", "role": "something", nfsNodeSelectorKey: ""})
-			checkNodeLabels(ctx, cl, "non-matching-node-without-label-4", map[string]string{"project": "test-3"})
+			checkNodeLabels(ctx, cl, "non-matching-node-with-label-4", map[string]string{"project": "test-3"})
 
 			err = controller.ReconcileModulePods(ctx, cl, clusterWideCl, log, controllerNamespace, controller.NFSNodeSelector, controller.ModulePodSelectorList)
 			Expect(err).NotTo(HaveOccurred())
 
 			// remain
-			errGetMatch1 := cl.Get(ctx, client.ObjectKey{Name: "csi-nfs-node-4-match1", Namespace: controllerNamespace}, &corev1.Pod{})
-			Expect(errGetMatch1).NotTo(HaveOccurred())
-			errGetMatch2 := cl.Get(ctx, client.ObjectKey{Name: "csi-nfs-node-4-match2", Namespace: controllerNamespace}, &corev1.Pod{})
-			Expect(errGetMatch2).NotTo(HaveOccurred())
+			checkRemainingPod(ctx, cl, controllerNamespace, "csi-nfs-node-4-match1", "matching-node-without-label-4-1", controller.CSINodeLabel)
+			checkRemainingPod(ctx, cl, controllerNamespace, "csi-nfs-node-4-match2", "matching-node-without-label-4-2", controller.CSINodeLabel)
 
 			// removed
-			errGetNon := cl.Get(ctx, client.ObjectKey{Name: "csi-nfs-node-4-nonmatch", Namespace: controllerNamespace}, &corev1.Pod{})
-			Expect(errGetNon).To(HaveOccurred())
-			Expect(k8serrors.IsNotFound(errGetNon)).To(BeTrue())
+			checkRemovedPod(ctx, cl, controllerNamespace, "csi-nfs-node-4-nonmatch")
 		})
 
-		// Scenario 5
 		It("Scenario 5: NFSStorageClass with both MatchExpressions & MatchLabels -> label added to strictly matching nodes, csi-nfs pods removed otherwise", func() {
 			nfsSCConfig.nodeSelector = metav1.LabelSelector{
 				MatchLabels: map[string]string{"project": "test-1"},
@@ -208,21 +202,27 @@ var _ = Describe(controller.NodeSelectorReconcilerName, func() {
 			nsc := generateNFSStorageClass(nfsSCConfig)
 			Expect(cl.Create(ctx, nsc)).To(Succeed())
 
-			// matching node
-			prepareNode(ctx, cl, "matching-node-5", map[string]string{"project": "test-1", "role": "nfs"})
+			// matching nodes
+			prepareNode(ctx, cl, "matching-node-5a", map[string]string{"project": "test-1", "role": "nfs"})
+			prepareNode(ctx, cl, "matching-node-5b-controller", map[string]string{"project": "test-1", "role": "storage"})
+			// make node-5b-controller a controller node
+			makeNodeAsController(ctx, cl, "matching-node-5b-controller", controllerNamespace)
+
 			// partial match or mismatch
-			prepareNode(ctx, cl, "non-match-node-5a", map[string]string{"project": "test-2", "role": "nfs"})
+			prepareNode(ctx, cl, "non-match-node-5a", map[string]string{"project": "test-2", "role": "nfs", nfsNodeSelectorKey: ""})
 			prepareNode(ctx, cl, "non-match-node-5b", map[string]string{"project": "test-1", "role": "worker"})
 
 			// pods
-			prepareModulePod(ctx, cl, "csi-nfs-node-5-match", controllerNamespace, "matching-node-5", controller.CSINodeLabel)
+			prepareModulePod(ctx, cl, "csi-nfs-node-5a-match", controllerNamespace, "matching-node-5a", controller.CSINodeLabel)
+			prepareModulePod(ctx, cl, "csi-controller-5b-match", controllerNamespace, "matching-node-5b-controller", controller.CSIControllerLabel)
 			prepareModulePod(ctx, cl, "csi-nfs-node-5a", controllerNamespace, "non-match-node-5a", controller.CSINodeLabel)
 			prepareModulePod(ctx, cl, "csi-nfs-node-5b", controllerNamespace, "non-match-node-5b", controller.CSINodeLabel)
 
 			err := controller.ReconcileNodeSelector(ctx, cl, clusterWideCl, log, controllerNamespace)
 			Expect(err).NotTo(HaveOccurred())
 
-			checkNodeLabels(ctx, cl, "matching-node-5", map[string]string{"project": "test-1", "role": "nfs", nfsNodeSelectorKey: ""})
+			checkNodeLabels(ctx, cl, "matching-node-5a", map[string]string{"project": "test-1", "role": "nfs", nfsNodeSelectorKey: ""})
+			checkNodeLabels(ctx, cl, "matching-node-5b-controller", map[string]string{"project": "test-1", "role": "storage", nfsNodeSelectorKey: ""})
 			checkNodeLabels(ctx, cl, "non-match-node-5a", map[string]string{"project": "test-2", "role": "nfs"})
 			checkNodeLabels(ctx, cl, "non-match-node-5b", map[string]string{"project": "test-1", "role": "worker"})
 
@@ -230,20 +230,15 @@ var _ = Describe(controller.NodeSelectorReconcilerName, func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			// remains
-			errGetMatch := cl.Get(ctx, client.ObjectKey{Name: "csi-nfs-node-5-match", Namespace: controllerNamespace}, &corev1.Pod{})
-			Expect(errGetMatch).NotTo(HaveOccurred())
+			checkRemainingPod(ctx, cl, controllerNamespace, "csi-nfs-node-5a-match", "matching-node-5a", controller.CSINodeLabel)
+			checkRemainingPod(ctx, cl, controllerNamespace, "csi-controller-5b-match", "matching-node-5b-controller", controller.CSIControllerLabel)
 
 			// removed
-			errGet5a := cl.Get(ctx, client.ObjectKey{Name: "csi-nfs-node-5a", Namespace: controllerNamespace}, &corev1.Pod{})
-			Expect(errGet5a).To(HaveOccurred())
-			Expect(k8serrors.IsNotFound(errGet5a)).To(BeTrue())
-			errGet5b := cl.Get(ctx, client.ObjectKey{Name: "csi-nfs-node-5b", Namespace: controllerNamespace}, &corev1.Pod{})
-			Expect(errGet5b).To(HaveOccurred())
-			Expect(k8serrors.IsNotFound(errGet5b)).To(BeTrue())
+			checkRemovedPod(ctx, cl, controllerNamespace, "csi-nfs-node-5a")
+			checkRemovedPod(ctx, cl, controllerNamespace, "csi-nfs-node-5b")
 		})
 
-		// Scenario 6
-		It("Scenario 6: Several NFSStorageClasses exist; label combos, csi-nfs pods removed from unlabeled", func() {
+		It("Scenario 6: Several NFSStorageClasses exist; one with MatchLabels, one with MatchExpressions, one without selector -> label added to all nodes with Linux OS, csi-nfs pods removed from non-matching", func() {
 			// SC #1
 			nfsSCConfig1 := nfsSCConfig
 			nfsSCConfig1.Name = "test-nfs-sc-1"
@@ -271,7 +266,7 @@ var _ = Describe(controller.NodeSelectorReconcilerName, func() {
 			// Nodes
 			prepareNode(ctx, cl, "matching-node-6-1", map[string]string{"kubernetes.io/os": "linux", "project": "test-1"})
 			prepareNode(ctx, cl, "matching-node-6-2", map[string]string{"kubernetes.io/os": "linux", "project": "test-2"})
-			prepareNode(ctx, cl, "matching-node-6-3", map[string]string{"kubernetes.io/os": "linux"}) // default SC #3
+			prepareNode(ctx, cl, "matching-node-6-3", map[string]string{"kubernetes.io/os": "linux"})
 			prepareNode(ctx, cl, "non-matching-node-6", map[string]string{"project": "test-3"})
 
 			// Pods
@@ -292,17 +287,12 @@ var _ = Describe(controller.NodeSelectorReconcilerName, func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			// remain
-			errGetM1 := cl.Get(ctx, client.ObjectKey{Name: "csi-nfs-node-6-match1", Namespace: controllerNamespace}, &corev1.Pod{})
-			Expect(errGetM1).NotTo(HaveOccurred())
-			errGetM2 := cl.Get(ctx, client.ObjectKey{Name: "csi-nfs-node-6-match2", Namespace: controllerNamespace}, &corev1.Pod{})
-			Expect(errGetM2).NotTo(HaveOccurred())
-			errGetM3 := cl.Get(ctx, client.ObjectKey{Name: "csi-nfs-node-6-match3", Namespace: controllerNamespace}, &corev1.Pod{})
-			Expect(errGetM3).NotTo(HaveOccurred())
+			checkRemainingPod(ctx, cl, controllerNamespace, "csi-nfs-node-6-match1", "matching-node-6-1", controller.CSINodeLabel)
+			checkRemainingPod(ctx, cl, controllerNamespace, "csi-nfs-node-6-match2", "matching-node-6-2", controller.CSINodeLabel)
+			checkRemainingPod(ctx, cl, controllerNamespace, "csi-nfs-node-6-match3", "matching-node-6-3", controller.CSINodeLabel)
 
 			// removed
-			errGetNM := cl.Get(ctx, client.ObjectKey{Name: "csi-nfs-node-6-nonmatch", Namespace: controllerNamespace}, &corev1.Pod{})
-			Expect(errGetNM).To(HaveOccurred())
-			Expect(k8serrors.IsNotFound(errGetNM)).To(BeTrue())
+			checkRemovedPod(ctx, cl, controllerNamespace, "csi-nfs-node-6-nonmatch")
 		})
 
 		It("Scenario 7: Some nodes have csi-nfs label, some do not -> label removed from nodes that do not match any selector, csi-nfs pods removed if node unlabeled", func() {
@@ -362,13 +352,10 @@ var _ = Describe(controller.NodeSelectorReconcilerName, func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			// csi-nfs-node-7-1a on matching => remains
-			errPod7a := cl.Get(ctx, client.ObjectKey{Name: "csi-nfs-node-7-1a", Namespace: controllerNamespace}, &corev1.Pod{})
-			Expect(errPod7a).NotTo(HaveOccurred())
+			checkRemainingPod(ctx, cl, controllerNamespace, "csi-nfs-node-7-1a", "matching-node-with-label-7-1", controller.CSINodeLabel)
 
 			// csi-nfs-node-7-1b on non-matching => removed
-			errPod7b := cl.Get(ctx, client.ObjectKey{Name: "csi-nfs-node-7-1b", Namespace: controllerNamespace}, &corev1.Pod{})
-			Expect(errPod7b).To(HaveOccurred())
-			Expect(k8serrors.IsNotFound(errPod7b)).To(BeTrue())
+			checkRemovedPod(ctx, cl, controllerNamespace, "csi-nfs-node-7-1b")
 		})
 
 		It("Scenario 9.1: Controller node has pending VolumeSnapshot and csi-controller Pod -> label NOT removed, Pods remain", func() {
@@ -386,7 +373,7 @@ var _ = Describe(controller.NodeSelectorReconcilerName, func() {
 			// 3) Create a csi-controller Pod on that node
 			prepareModulePod(ctx, cl, "csi-controller-9a", controllerNamespace, "controller-node-9a", controller.CSIControllerLabel)
 
-			// 4) Create a csi-nfs-node Pod on that node as well (optional)
+			// 4) Create a csi-nfs-node Pod on that node as well
 			prepareModulePod(ctx, cl, "csi-nfs-node-9a", controllerNamespace, "controller-node-9a", controller.CSINodeLabel)
 
 			// 5) Create a pending VolumeSnapshot (not ReadyToUse) to block removal
@@ -404,12 +391,10 @@ var _ = Describe(controller.NodeSelectorReconcilerName, func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			// csi-controller-9a remains
-			errGetCtrl := cl.Get(ctx, client.ObjectKey{Name: "csi-controller-9a", Namespace: controllerNamespace}, &corev1.Pod{})
-			Expect(errGetCtrl).NotTo(HaveOccurred())
+			checkRemainingPod(ctx, cl, controllerNamespace, "csi-controller-9a", "controller-node-9a", controller.CSIControllerLabel)
 
 			// csi-nfs-node-9a remains
-			errGetNode := cl.Get(ctx, client.ObjectKey{Name: "csi-nfs-node-9a", Namespace: controllerNamespace}, &corev1.Pod{})
-			Expect(errGetNode).NotTo(HaveOccurred())
+			checkRemainingPod(ctx, cl, controllerNamespace, "csi-nfs-node-9a", "controller-node-9a", controller.CSINodeLabel)
 		})
 
 		It("Scenario 9.2: Controller node has pending VolumeSnapshot but NO csi-controller Pod -> label removed, csi-nfs-node Pod on that node is removed", func() {
@@ -441,9 +426,7 @@ var _ = Describe(controller.NodeSelectorReconcilerName, func() {
 			err = controller.ReconcileModulePods(ctx, cl, clusterWideCl, log, controllerNamespace, controller.NFSNodeSelector, controller.ModulePodSelectorList)
 			Expect(err).NotTo(HaveOccurred())
 
-			errGetNode := cl.Get(ctx, client.ObjectKey{Name: "csi-nfs-node-9b", Namespace: controllerNamespace}, &corev1.Pod{})
-			Expect(errGetNode).To(HaveOccurred())
-			Expect(k8serrors.IsNotFound(errGetNode)).To(BeTrue())
+			checkRemovedPod(ctx, cl, controllerNamespace, "csi-nfs-node-9b")
 		})
 
 		It("Scenario 9.3: Controller node has no pending resources, csi-controller Pod -> label is removed, Pod is removed", func() {
@@ -459,7 +442,10 @@ var _ = Describe(controller.NodeSelectorReconcilerName, func() {
 			makeNodeAsController(ctx, cl, "controller-node-9c", controllerNamespace)
 			prepareModulePod(ctx, cl, "csi-controller-9c", controllerNamespace, "controller-node-9c", controller.CSIControllerLabel)
 
-			// 3) No pending PVC or snapshots => removable
+			// 3) Create ready to use snapshot
+			prepareVolumeSnapshot(ctx, cl, testNamespace, "vs-9c", provisionerNFS, ptr.To(true))
+
+			// 4) No pending PVC or snapshots => removable
 			err := controller.ReconcileNodeSelector(ctx, cl, clusterWideCl, log, controllerNamespace)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -470,9 +456,7 @@ var _ = Describe(controller.NodeSelectorReconcilerName, func() {
 			err = controller.ReconcileModulePods(ctx, cl, clusterWideCl, log, controllerNamespace, controller.NFSNodeSelector, controller.ModulePodSelectorList)
 			Expect(err).NotTo(HaveOccurred())
 
-			errGetCtrl := cl.Get(ctx, client.ObjectKey{Name: "csi-controller-9c", Namespace: controllerNamespace}, &corev1.Pod{})
-			Expect(errGetCtrl).To(HaveOccurred())
-			Expect(k8serrors.IsNotFound(errGetCtrl)).To(BeTrue())
+			checkRemovedPod(ctx, cl, controllerNamespace, "csi-controller-9c")
 		})
 
 		It("Scenario 9.4: Controller node has pending PVC and csi-controller Pod -> label NOT removed, pods remain", func() {
@@ -502,8 +486,7 @@ var _ = Describe(controller.NodeSelectorReconcilerName, func() {
 			err = controller.ReconcileModulePods(ctx, cl, clusterWideCl, log, controllerNamespace, controller.NFSNodeSelector, controller.ModulePodSelectorList)
 			Expect(err).NotTo(HaveOccurred())
 
-			errCtrl := cl.Get(ctx, client.ObjectKey{Name: "csi-controller-9d", Namespace: controllerNamespace}, &corev1.Pod{})
-			Expect(errCtrl).NotTo(HaveOccurred())
+			checkRemainingPod(ctx, cl, controllerNamespace, "csi-controller-9d", "controller-node-9d", controller.CSIControllerLabel)
 		})
 
 		It("Scenario 9.5: Controller node has pending PVC but NO csi-controller Pod -> label removed, csi-nfs-node Pod also removed if present", func() {
@@ -533,9 +516,7 @@ var _ = Describe(controller.NodeSelectorReconcilerName, func() {
 			err = controller.ReconcileModulePods(ctx, cl, clusterWideCl, log, controllerNamespace, controller.NFSNodeSelector, controller.ModulePodSelectorList)
 			Expect(err).NotTo(HaveOccurred())
 
-			errNode := cl.Get(ctx, client.ObjectKey{Name: "csi-nfs-node-9e", Namespace: controllerNamespace}, &corev1.Pod{})
-			Expect(errNode).To(HaveOccurred())
-			Expect(k8serrors.IsNotFound(errNode)).To(BeTrue())
+			checkRemovedPod(ctx, cl, controllerNamespace, "csi-nfs-node-9e")
 		})
 
 		It("Scenario 10: Node not matching selector, not the controller, but has a pod with NFS PVC -> do not remove label, csi-nfs-node remains", func() {
@@ -564,8 +545,7 @@ var _ = Describe(controller.NodeSelectorReconcilerName, func() {
 			err = controller.ReconcileModulePods(ctx, cl, clusterWideCl, log, controllerNamespace, controller.NFSNodeSelector, controller.ModulePodSelectorList)
 			Expect(err).NotTo(HaveOccurred())
 
-			errPod10 := cl.Get(ctx, client.ObjectKey{Name: "csi-nfs-node-10", Namespace: controllerNamespace}, &corev1.Pod{})
-			Expect(errPod10).NotTo(HaveOccurred())
+			checkRemainingPod(ctx, cl, controllerNamespace, "csi-nfs-node-10", "non-matching-node-10", controller.CSINodeLabel)
 		})
 
 	})
@@ -732,4 +712,20 @@ func preparePodWithPVC(
 	Expect(recheckPod.Spec.NodeName).To(Equal(nodeName))
 	Expect(recheckPod.Spec.Volumes).To(HaveLen(1))
 	Expect(recheckPod.Spec.Volumes[0].VolumeSource.PersistentVolumeClaim.ClaimName).To(Equal(pvcName))
+}
+
+func checkRemainingPod(ctx context.Context, cl client.Client, namespace, name, nodeName string, labels map[string]string) {
+	pod := &corev1.Pod{}
+	Expect(cl.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, pod)).To(Succeed())
+	Expect(pod.Name).To(Equal(name))
+	Expect(pod.Namespace).To(Equal(namespace))
+	Expect(pod.Spec.NodeName).To(Equal(nodeName))
+	Expect(pod.Labels).To(Equal(labels))
+}
+
+func checkRemovedPod(ctx context.Context, cl client.Client, namespace, name string) {
+	pod := &corev1.Pod{}
+	err := cl.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, pod)
+	Expect(err).To(HaveOccurred())
+	Expect(k8serrors.IsNotFound(err)).To(BeTrue())
 }
