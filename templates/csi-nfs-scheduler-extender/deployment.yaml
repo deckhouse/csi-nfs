@@ -8,8 +8,7 @@ cpu: 10m
 memory: 25Mi
 {{- end }}
 
-{{- $ns := .Values.csiNfs.dataNodes.nodeSelector | default dict }}
-{{- if or (ne (len $ns) 1) (ne (index $ns "kubernetes.io/os") "linux") }}
+{{- if .Values.csiNfs.internal.shedulerExtenderEnabled }}
 {{- if or (eq "dev" .Values.global.deckhouseVersion) (semverCompare ">=1.64" .Values.global.deckhouseVersion) }}
 
 {{- $kubeVersion := semver .Values.global.discovery.kubernetesVersion -}}

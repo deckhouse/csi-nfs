@@ -45,6 +45,9 @@ properties:
           ca:
             type: string
             x-examples: ["YjY0ZW5jX3N0cmluZwo="]
+      shedulerExtenderEnabled:
+        type: boolean
+        default: false
   registry:
     type: object
     description: "System field, overwritten by Deckhouse. Don't use"
