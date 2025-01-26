@@ -131,6 +131,7 @@ spec:
                     - WaitForFirstConsumer
                 workloadNodes:
                   type: object
+                  minProperties: 1
                   properties:
                     nodeSelector:
                       type: object

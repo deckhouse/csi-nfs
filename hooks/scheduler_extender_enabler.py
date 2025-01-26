@@ -15,8 +15,18 @@
 # limitations under the License.
 
 
-import yaml
+# import yaml
+# from deckhouse import hook
 from deckhouse import hook
+from typing import Callable
+
+import yaml
+import hashlib
+
+from lib.hooks.hook import Hook
+from lib.module import values as module_values
+import common
+
 
 config = """
 configVersion: v1
@@ -38,9 +48,30 @@ settings:
 
 def main(ctx: hook.Context):
     print("Scheduler extender enabler hook started")
-    nscs = ctx.snapshots.get("nfs-storage-classes", [])
-    print(f"get nfs-storage-classes: {nscs}")
-    
+    should_enable = False
+    snapshots = ctx.snapshots.get("nfs-storage-classes", [])
+    for snapshot in snapshots:
+        print(f"get snapshot: {snapshot}")
+        filter_result = snapshot.get("filterResult", [])
+        if not filter_result:
+            print(f"filter result is empty")
+            continue
+        print(f"get filter result: {filter_result}")
+        nodeSelector = filter_result.get("nodeSelector", {})
+        print(f"get nodeSelector: {nodeSelector}")
+        if not nodeSelector:
+            print(f"nodeSelector is empty")
+            continue
+        print("NodeSelector is not empty. Should enable scheduler extender")
+        should_enable = True
+        break
+    if should_enable:
+        print("Enable scheduler extender")
+        module_values.set_value(f"csiNfs.internal.shedulerExtenderEnabled", ctx.values, True)
+    else:
+        print("Disable scheduler extender")
+        module_values.set_value(f"csiNfs.internal.shedulerExtenderEnabled", ctx.values, False)
+
 
 if __name__ == "__main__":
     hook.run(main, config=config)
