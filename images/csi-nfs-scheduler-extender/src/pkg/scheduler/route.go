@@ -22,6 +22,7 @@ import (
 	"net/http"
 
 	"csi-nfs-scheduler-extender/pkg/logger"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -37,7 +38,7 @@ func (s *scheduler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
 	case "/scheduler/filter":
 		s.log.Debug("[ServeHTTP] filter route starts handling the request")
-		s.filter(w, r)
+		s.Filter(w, r)
 		s.log.Debug("[ServeHTTP] filter route ends handling the request")
 	case "/scheduler/prioritize":
 		s.log.Debug("[ServeHTTP] prioritize route starts handling the request")

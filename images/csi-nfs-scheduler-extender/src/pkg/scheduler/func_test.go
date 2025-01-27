@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"csi-nfs-scheduler-extender/pkg/logger"
+
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -226,7 +227,7 @@ func TestShouldProcessPod(t *testing.T) {
 			_ = storagev1.AddToScheme(s)
 
 			cl := fake.NewFakeClient(tc.objects...)
-			shouldProcess, err := shouldProcessPod(ctx, cl, log, tc.pod, tc.targetProvisioner)
+			shouldProcess, _, err := shouldProcessPod(ctx, cl, log, tc.pod, tc.targetProvisioner)
 			if (err != nil) != tc.expectedError {
 				t.Fatalf("Unexpected error: %v", err)
 			}

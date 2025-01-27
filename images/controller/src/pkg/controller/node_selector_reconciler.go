@@ -92,11 +92,15 @@ func RunNodeSelectorReconciler(ctx context.Context, mgr manager.Manager, cfg con
 }
 
 func ReconcileNodeSelector(ctx context.Context, cl client.Client, clusterWideClient client.Reader, log logger.Logger, namespace string) error {
-	userNodeSelectorList, err := GetNodeSelectorFromNFSStorageClasses(ctx, cl, log)
+	nfsStorageClasses := &v1alpha1.NFSStorageClassList{}
+	err := cl.List(ctx, nfsStorageClasses)
 	if err != nil {
-		err = fmt.Errorf("[reconcileNodeSelector] Failed get user node selector list: %w", err)
+		err = fmt.Errorf("[ReconcileNodeSelector] Failed get NFSStorageClasses: %w", err)
 		return err
 	}
+
+	log.Trace(fmt.Sprintf("[GetNodeSelectorFromNFSStorageClasses] Found %d NFSStorageClasses: %+v", len(nfsStorageClasses.Items), nfsStorageClasses.Items))
+	userNodeSelectorList := GetNodeSelectorFromNFSStorageClasses(log, nfsStorageClasses)
 	log.Debug(fmt.Sprintf("[reconcileNodeSelector] User node selector list: %+v", userNodeSelectorList))
 
 	selectedNodes, err := GetNodesBySelectorList(ctx, cl, log, userNodeSelectorList)
@@ -208,28 +212,20 @@ func ReconcileNodeSelector(ctx context.Context, cl client.Client, clusterWideCli
 	return nil
 }
 
-func GetNodeSelectorFromNFSStorageClasses(ctx context.Context, cl client.Client, log logger.Logger) ([]*metav1.LabelSelector, error) {
-	nfsStorageClasses := &v1alpha1.NFSStorageClassList{}
-	err := cl.List(ctx, nfsStorageClasses)
-	if err != nil {
-		err = fmt.Errorf("[GetNodeSelectorFromNFSStorageClasses] Failed get NFSStorageClasses: %w", err)
-		return nil, err
-	}
-
-	log.Trace(fmt.Sprintf("[GetNodeSelectorFromNFSStorageClasses] Found %d NFSStorageClasses: %+v", len(nfsStorageClasses.Items), nfsStorageClasses.Items))
+func GetNodeSelectorFromNFSStorageClasses(log logger.Logger, nfsStorageClasses *v1alpha1.NFSStorageClassList) []*metav1.LabelSelector {
 	nodeSelectorList := []*metav1.LabelSelector{}
 	for _, nfsStorageClass := range nfsStorageClasses.Items {
 		log.Debug(fmt.Sprintf("[GetNodeSelectorFromNFSStorageClasses] Process NFSStorageClass %s.", nfsStorageClass.Name))
 		if nfsStorageClass.Spec.WorkloadNodes == nil || nfsStorageClass.Spec.WorkloadNodes.NodeSelector == nil {
 			log.Debug(fmt.Sprintf("[GetNodeSelectorFromNFSStorageClasses] NFSStorageClass %s has not NodeSelector. Return default NodeSelector %+v.", nfsStorageClass.Name, DefaultNodeSelector))
-			return []*metav1.LabelSelector{DefaultNodeSelector}, nil
+			return []*metav1.LabelSelector{DefaultNodeSelector}
 		}
 		log.Debug(fmt.Sprintf("[GetNodeSelectorFromNFSStorageClasses] Add NodeSelector %+v from NFSStorageClass %s.", nfsStorageClass.Spec.WorkloadNodes.NodeSelector, nfsStorageClass.Name))
 		nodeSelectorList = append(nodeSelectorList, nfsStorageClass.Spec.WorkloadNodes.NodeSelector)
 	}
 
 	// TODO: make unique nodeSelectorList
-	return nodeSelectorList, nil
+	return nodeSelectorList
 }
 
 func GetNodesBySelectorList(ctx context.Context, cl client.Client, log logger.Logger, nodeSelectorList []*metav1.LabelSelector) (*corev1.NodeList, error) {

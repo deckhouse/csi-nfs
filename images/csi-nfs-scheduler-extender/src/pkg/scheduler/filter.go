@@ -22,37 +22,37 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
 	"slices"
 
 	"csi-nfs-scheduler-extender/pkg/consts"
 	"csi-nfs-scheduler-extender/pkg/logger"
+
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (s *scheduler) filter(w http.ResponseWriter, r *http.Request) {
+func (s *scheduler) Filter(w http.ResponseWriter, r *http.Request) {
 	s.log.Debug("[filter] starts the serving")
 	var inputData ExtenderArgs
 	reader := http.MaxBytesReader(w, r.Body, 10<<20)
 	err := json.NewDecoder(reader).Decode(&inputData)
 	if err != nil {
 		s.log.Error(err, "[filter] unable to decode a request")
-		http.Error(w, "bad request", http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("[filter] unable to decode a request: %s", err), http.StatusBadRequest)
 		return
 	}
 	s.log.Trace(fmt.Sprintf("[filter] input data: %+v", inputData))
 
 	if inputData.Pod == nil {
 		s.log.Error(errors.New("no pod in the request"), "[filter] unable to get a Pod from the request")
-		http.Error(w, "bad request", http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("[filter] unable to get a Pod from the request: %s", err), http.StatusBadRequest)
 		return
 	}
 
 	nodeNames, err := getNodeNames(inputData)
 	if err != nil {
 		s.log.Error(err, "[filter] unable to get node names from the request")
-		http.Error(w, "bad request", http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("[filter] unable to get node names from the request: %s", err), http.StatusBadRequest)
 		return
 	}
 
@@ -61,10 +61,10 @@ func (s *scheduler) filter(w http.ResponseWriter, r *http.Request) {
 	s.log.Trace(fmt.Sprintf("[filter] Node names from the request: %+v", nodeNames))
 
 	s.log.Debug(fmt.Sprintf("[filter] Find out if the Pod %s/%s should be processed", inputData.Pod.Namespace, inputData.Pod.Name))
-	shouldProcess, err := shouldProcessPod(s.ctx, s.client, s.log, inputData.Pod, consts.CSINFSProvisioner)
+	shouldProcess, targetProvisionerVolumes, err := shouldProcessPod(s.ctx, s.client, s.log, inputData.Pod, consts.CSINFSProvisioner)
 	if err != nil {
 		s.log.Error(err, "[filter] unable to check if the Pod should be processed")
-		http.Error(w, "bad request", http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("[filter] unable to check if the Pod should be processed: %s", err), http.StatusBadRequest)
 		return
 	}
 	if !shouldProcess {
@@ -86,10 +86,10 @@ func (s *scheduler) filter(w http.ResponseWriter, r *http.Request) {
 	s.log.Debug(fmt.Sprintf("[filter] Pod %s/%s should be processed", inputData.Pod.Namespace, inputData.Pod.Name))
 
 	s.log.Debug(fmt.Sprintf("[filter] starts to filter the nodes from the request for a Pod %s/%s", inputData.Pod.Namespace, inputData.Pod.Name))
-	filteredNodes, err := filterNodes(s.ctx, s.client, s.log, &nodeNames)
+	filteredNodes, err := filterNodes(s.ctx, s.client, s.log, &nodeNames, inputData.Pod.Namespace, targetProvisionerVolumes)
 	if err != nil {
 		s.log.Error(err, "[filter] unable to filter the nodes")
-		http.Error(w, "bad request", http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("[filter] internal error: %s", err), http.StatusInternalServerError)
 		return
 	}
 	s.log.Debug(fmt.Sprintf("[filter] successfully filtered the nodes from the request for a Pod %s/%s", inputData.Pod.Namespace, inputData.Pod.Name))
@@ -109,30 +109,26 @@ func filterNodes(
 	cl client.Client,
 	log logger.Logger,
 	nodeNames *[]string,
+	namespace string,
+	targetProvisionerVolumes []corev1.Volume,
 ) (*ExtenderFilterResult, error) {
 	log.Debug("[filterNodes] Get user selectors")
 
-	namespace := os.Getenv("NAMESPACE")
-	configSecret := &corev1.Secret{}
-	err := cl.Get(ctx, client.ObjectKey{Namespace: namespace, Name: consts.ConfigSecretName}, configSecret)
+	nfsStorageClasses, err := GetNFSStorageClassesFromVolumes(ctx, cl, log, namespace, targetProvisionerVolumes)
 	if err != nil {
-		log.Error(err, fmt.Sprintf("[filterNodes] Failed to get config secret %s/%s", namespace, consts.ConfigSecretName))
+		log.Error(err, "[filterNodes] Failed to get NFSStorageClasses from volumes")
 		return nil, err
 	}
 
-	configNodeSelector, err := GetNodeSelectorFromConfig(*configSecret)
-	if err != nil {
-		log.Error(err, fmt.Sprintf("[filterNodes] Failed get node selector from secret %s/%s", namespace, consts.ConfigSecretName))
-		return nil, err
-	}
-	log.Debug(fmt.Sprintf("[filterNodes] User selectors: %+v", configNodeSelector))
+	userNodeSelectorList := GetNodeSelectorFromNFSStorageClasses(log, nfsStorageClasses)
+	log.Trace(fmt.Sprintf("[filterNodes] user selector list: %+v", userNodeSelectorList))
 
-	selectedKubernetesNodeNames, err := GetKubernetesNodeNamesBySelector(ctx, cl, configNodeSelector)
+	commonNodeNames, err := GetCommonNodesByNodeSelectorList(ctx, cl, log, userNodeSelectorList)
 	if err != nil {
-		log.Error(err, fmt.Sprintf("[filterNodes] Failed get nodes from Kubernetes by selector: %+v", configNodeSelector))
+		log.Error(err, fmt.Sprintf("[filterNodes] Failed get common node names by user selectors: %+v", userNodeSelectorList))
 		return nil, err
 	}
-	log.Debug(fmt.Sprintf("[filterNodes] Kubernetes nodes selected by user selectors: %+v", selectedKubernetesNodeNames))
+	log.Debug(fmt.Sprintf("[filterNodes] common node names: %+v", commonNodeNames))
 
 	result := &ExtenderFilterResult{
 		NodeNames:   &[]string{},
@@ -140,7 +136,7 @@ func filterNodes(
 	}
 
 	for _, nodeName := range *nodeNames {
-		if slices.Contains(selectedKubernetesNodeNames, nodeName) {
+		if slices.Contains(commonNodeNames, nodeName) {
 			*result.NodeNames = append(*result.NodeNames, nodeName)
 		} else {
 			result.FailedNodes[nodeName] = "node is not selected by user selectors"
