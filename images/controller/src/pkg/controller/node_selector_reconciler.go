@@ -86,7 +86,6 @@ func RunNodeSelectorReconciler(ctx context.Context, mgr manager.Manager, cfg con
 				}
 				log.Info("END reconcile of module pods.")
 			}
-
 		}
 	}()
 }
@@ -251,10 +250,8 @@ func GetNodesBySelectorList(ctx context.Context, cl client.Client, log logger.Lo
 		log.Debug(fmt.Sprintf("[GetNodesBySelectorList] Found %d nodes: by selector: %+v.", len(selectedNodes.Items), nodeSelector))
 		log.Trace(fmt.Sprintf("[GetNodesBySelectorList] Nodes: %+v", selectedNodes.Items))
 
-		nodeNames := []string{}
 		for _, node := range selectedNodes.Items {
 			log.Debug(fmt.Sprintf("[GetNodesBySelectorList] Process node: %s", node.Name))
-			nodeNames = append(nodeNames, node.Name)
 			if _, ok := allSelectedNodesMap[node.Name]; !ok {
 				log.Debug(fmt.Sprintf("[GetNodesBySelectorList] Add node %s to allSelectedNodes.", node.Name))
 				allSelectedNodesMap[node.Name] = node
