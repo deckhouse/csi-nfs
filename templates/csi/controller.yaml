@@ -16,7 +16,7 @@
       mountPath: /run
 {{- end }}
 
-{{- if .Values.internal.featureTLSEnabled }}
+{{- if .Values.csiNfs.internal.featureTLSEnabled }}
 {{- if .Values.csiNfs.tlsParameters.ca }}
 - name: ktls-enabler
   image: {{ include "helm_lib_module_image" (list . "kmod") }}
@@ -47,7 +47,7 @@
     type: Directory
 {{- end }}
 
-{{- if .Values.internal.featureTLSEnabled }}
+{{- if .Values.csiNfs.internal.featureTLSEnabled }}
 {{- if .Values.csiNfs.tlsParameters.ca }}
 - name: host-sys
   hostPath:
@@ -63,7 +63,7 @@
 
 
 {{- define "csi_tlshd_container" }}
-{{- if .Values.internal.featureTLSEnabled }}
+{{- if .Values.csiNfs.internal.featureTLSEnabled }}
 {{- if .Values.csiNfs.tlsParameters.ca }}
 - name: tlshd
   image: {{ include "helm_lib_module_image" (list . "tlshd") }}
@@ -97,7 +97,7 @@
 {{- end }}
 
 {{- define "csi_tlshd_container_volume" }}
-{{- if .Values.internal.featureTLSEnabled }}
+{{- if .Values.csiNfs.internal.featureTLSEnabled }}
 {{- if .Values.csiNfs.tlsParameters.ca }}
 - name: cm-tlshd-conf
   configMap:
