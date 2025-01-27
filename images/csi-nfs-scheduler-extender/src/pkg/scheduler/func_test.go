@@ -20,14 +20,14 @@ import (
 	"context"
 	"testing"
 
-	"csi-nfs-scheduler-extender/pkg/logger"
-
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	"csi-nfs-scheduler-extender/pkg/logger"
 )
 
 func TestShouldProcessPod(t *testing.T) {

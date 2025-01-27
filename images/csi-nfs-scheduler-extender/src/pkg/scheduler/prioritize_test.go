@@ -3,8 +3,9 @@ package scheduler
 import (
 	"testing"
 
-	"csi-nfs-scheduler-extender/pkg/logger"
 	"github.com/stretchr/testify/assert"
+
+	"csi-nfs-scheduler-extender/pkg/logger"
 )
 
 func TestPrioritize(t *testing.T) {

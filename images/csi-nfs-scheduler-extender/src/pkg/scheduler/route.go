@@ -21,9 +21,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"csi-nfs-scheduler-extender/pkg/logger"
-
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"csi-nfs-scheduler-extender/pkg/logger"
 )
 
 type scheduler struct {
