@@ -16,10 +16,9 @@ require (
 	sigs.k8s.io/controller-runtime v0.19.4
 )
 
-replace (
-	github.com/deckhouse/csi-nfs/api => ../../../api
-	github.com/deckhouse/csi-nfs/lib/go/utils => ../../../lib/go/utils
-)
+replace github.com/deckhouse/csi-nfs/api => ../../../api
+
+replace github.com/deckhouse/csi-nfs/lib/go/utils => ../../../lib/go/utils
 
 require (
 	github.com/beorn7/perks v1.0.1 // indirect
