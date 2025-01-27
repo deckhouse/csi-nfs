@@ -27,6 +27,7 @@ import (
 	kwhlogrus "github.com/slok/kubewebhook/v2/pkg/log/logrus"
 	storagev1 "k8s.io/api/storage/v1"
 	"webhooks/handlers"
+	"webhooks/internal"
 )
 
 type config struct {
@@ -86,6 +87,8 @@ func main() {
 	mux.Handle("/nsc-validate", nscValidatingWebhookHandler)
 	mux.Handle("/mc-validate", mcValidatingWebhookHandler)
 	mux.HandleFunc("/healthz", httpHandlerHealthz)
+
+	logger.Infof("FeatureTLSEnabled:%v", internal.FeatureTLSEnabled)
 
 	logger.Infof("Listening on %s", port)
 	err = http.ListenAndServeTLS(port, cfg.certFile, cfg.keyFile, mux)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
+	utilsvalidating "github.com/deckhouse/csi-nfs/lib/go/utils/pkg/validating"
 	"github.com/slok/kubewebhook/v2/pkg/model"
 	kwhvalidating "github.com/slok/kubewebhook/v2/pkg/webhook/validating"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,7 +39,7 @@ func NSCValidate(ctx context.Context, arReview *model.AdmissionReview, obj metav
 		klog.Fatal(err)
 	}
 
-	if err := validateNFSStorageClass(nfsModuleConfig, nsc); err != nil {
+	if err := utilsvalidating.ValidateNFSStorageClass(nfsModuleConfig, nsc); err != nil {
 		klog.Error(err)
 		return &kwhvalidating.ValidatorResult{
 			Valid:   false,

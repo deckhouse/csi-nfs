@@ -4,6 +4,7 @@ go 1.23.4
 
 require (
 	github.com/deckhouse/csi-nfs/api v0.0.0-20250116103144-d23aedd591a3
+	github.com/deckhouse/csi-nfs/lib/go/utils v0.0.0-20250116103144-d23aedd591a3
 	github.com/go-logr/logr v1.4.2
 	github.com/sirupsen/logrus v1.9.3
 	github.com/slok/kubewebhook/v2 v2.7.0
@@ -13,6 +14,11 @@ require (
 	k8s.io/client-go v0.32.0
 	k8s.io/klog/v2 v2.130.1
 	sigs.k8s.io/controller-runtime v0.19.4
+)
+
+replace (
+	github.com/deckhouse/csi-nfs/api => ../../../api
+	github.com/deckhouse/csi-nfs/lib/go/utils => ../../../lib/go/utils
 )
 
 require (
@@ -64,5 +70,3 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.5.0 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
-
-replace github.com/deckhouse/csi-nfs/api => ../../../api
