@@ -17,6 +17,17 @@ rules:
   - apiGroups:
       - ""
     resources:
+      - secrets
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - delete
+  - apiGroups:
+      - ""
+    resources:
       - pods
     verbs:
       - get
