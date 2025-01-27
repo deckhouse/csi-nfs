@@ -32,7 +32,7 @@ jobs:
           failed='false'
           for i in $(find images -type f -name go.mod);do
             dir=$(echo $i | sed 's/go.mod$//')
-            cd $dir
+            cd $basedir/$dir
             # check all editions
             for edition in $GO_BUILD_TAGS ;do
               echo "Running linter in $dir (edition: $edition)"
@@ -42,7 +42,6 @@ jobs:
                 failed='true'
               fi
             done
-            cd $basedir
           done
           if [ $failed == 'true' ]; then
             exit 1
