@@ -29,11 +29,11 @@ jobs:
           failed='false'
           for i in $(find images -type f -name '*_test.go');do
             dir=$(echo $i | sed 's/[a-z_A-Z0-9-]*_test.go$//')
-            cd $dir
+            cd $basedir/$dir
             # check all editions
             for edition in $GO_BUILD_TAGS ;do
               echo "Running tests in $dir (edition: $edition)"
-              go test -v
+              go test -v -tags $edition
               if [ $? -ne 0 ]; then
                 echo "Tests failed in $dir (edition: $edition)"
                 failed='true'

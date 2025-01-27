@@ -42,6 +42,7 @@ jobs:
                 failed='true'
               fi
             done
+            cd $basedir
           done
           if [ $failed == 'true' ]; then
             exit 1
