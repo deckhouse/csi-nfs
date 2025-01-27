@@ -34,6 +34,9 @@ rules:
   - apiGroups: [ "storage.deckhouse.io" ]
     resources: [ "nfsstorageclasses" ]
     verbs: [ "list", "watch", "get"]
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
