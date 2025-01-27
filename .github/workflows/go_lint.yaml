@@ -35,14 +35,13 @@ jobs:
             cd $dir
             # check all editions
             for edition in $GO_BUILD_TAGS ;do
-            echo "Running linter in $dir (edition: $edition)"
+              echo "Running linter in $dir (edition: $edition)"
               golangci-lint run --build-tags $edition
               if [ $? -ne 0 ]; then
                 echo "Linter failed in $dir (edition: $edition)"
                 failed='true'
               fi
             done
-            cd $basedir
           done
           if [ $failed == 'true' ]; then
             exit 1
