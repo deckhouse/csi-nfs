@@ -16,6 +16,7 @@
       mountPath: /run
 {{- end }}
 
+{{- if .Values.internal.featureTLSEnabled }}
 {{- if .Values.csiNfs.tlsParameters.ca }}
 - name: ktls-enabler
   image: {{ include "helm_lib_module_image" (list . "kmod") }}
@@ -36,6 +37,7 @@
     privileged: true
 {{- end }}
 {{- end }}
+{{- end }}
 
 {{- define "csi_init_containers_volume" }}
 {{- if .Values.csiNfs.v3support }}
@@ -45,6 +47,7 @@
     type: Directory
 {{- end }}
 
+{{- if .Values.internal.featureTLSEnabled }}
 {{- if .Values.csiNfs.tlsParameters.ca }}
 - name: host-sys
   hostPath:
@@ -56,9 +59,11 @@
     type: Directory
 {{- end }}
 {{- end }}
+{{- end }}
 
 
 {{- define "csi_tlshd_container" }}
+{{- if .Values.internal.featureTLSEnabled }}
 {{- if .Values.csiNfs.tlsParameters.ca }}
 - name: tlshd
   image: {{ include "helm_lib_module_image" (list . "tlshd") }}
@@ -89,13 +94,16 @@
 
 {{- end }}
 {{- end }}
+{{- end }}
 
 {{- define "csi_tlshd_container_volume" }}
+{{- if .Values.internal.featureTLSEnabled }}
 {{- if .Values.csiNfs.tlsParameters.ca }}
 - name: cm-tlshd-conf
   configMap:
     name: tlshd-conf
     defaultMode: 384
+{{- end }}
 {{- end }}
 {{- end }}
 

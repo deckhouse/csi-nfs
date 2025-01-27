@@ -6,9 +6,9 @@ properties:
     type: object
     default: {}
     properties:
-      edition:
-        type: string
-        default: CE
+      featureTLSEnabled:
+        type: boolean
+        default: false
       pythonVersions:
         type: array
         default: []
