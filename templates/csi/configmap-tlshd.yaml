@@ -1,3 +1,4 @@
+{{- if .Values.csiNfs.internal.featureTLSEnabled }}
 {{- if .Values.csiNfs.tlsParameters.ca }}
 {{/*  File /etc/client.crt: expected mode 644 - because of this message in the tlshd container log, I did not create a separate ConfigMap. */}}
 ---
@@ -62,4 +63,5 @@ data:
     {{- .Values.csiNfs.tlsParameters.mtls.clientKey | b64dec | nindent 4 }}
   {{- end }}
 
+{{- end }}
 {{- end }}

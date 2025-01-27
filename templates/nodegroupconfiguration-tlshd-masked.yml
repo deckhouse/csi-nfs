@@ -1,3 +1,4 @@
+{{- if .Values.csiNfs.internal.featureTLSEnabled }}
 {{- if .Values.csiNfs.tlsParameters.ca }}
 ---
 apiVersion: deckhouse.io/v1alpha1
@@ -46,4 +47,5 @@ spec:
 
     bb-log-info "The unit $UNIT_FILE is masking."
     systemctl mask $UNIT_FILE
+{{- end }}
 {{- end }}
