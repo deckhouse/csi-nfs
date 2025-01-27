@@ -22,6 +22,7 @@ import (
 	"reflect"
 	"time"
 
+	"d8-controller/internal"
 	"d8-controller/pkg/config"
 	"d8-controller/pkg/logger"
 	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
@@ -229,7 +230,7 @@ func RunModuleConfigEventReconcile(
 func validateModuleConfig(log logger.Logger, mc *v1alpha1.ModuleConfig, nscList *v1alpha1.NFSStorageClassList) map[string]string {
 	alertMap := make(map[string]string)
 	for _, nsc := range nscList.Items {
-		if err := utilsvalidating.ValidateNFSStorageClass(mc, &nsc); err != nil {
+		if err := utilsvalidating.ValidateNFSStorageClass(mc, &nsc, internal.FeatureTLSEnabled); err != nil {
 			log.Warning(fmt.Sprintf("[validateModuleConfig] invalid NFSStorageClass (%v)", err))
 			alertMap[nsc.Name] = "true"
 		}

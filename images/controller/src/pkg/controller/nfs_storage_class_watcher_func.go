@@ -25,6 +25,7 @@ import (
 	"strconv"
 	"strings"
 
+	"d8-controller/internal"
 	"d8-controller/pkg/logger"
 	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -589,10 +590,12 @@ func GetSCMountOptions(nsc *v1alpha1.NFSStorageClass) []string {
 		mountOptions = append(mountOptions, "nfsvers="+nsc.Spec.Connection.NFSVersion)
 	}
 
-	if nsc.Spec.Connection.Mtls {
-		mountOptions = append(mountOptions, "xprtsec=mtls")
-	} else if nsc.Spec.Connection.Tls {
-		mountOptions = append(mountOptions, "xprtsec=tls")
+	if internal.FeatureTLSEnabled {
+		if nsc.Spec.Connection.Mtls {
+			mountOptions = append(mountOptions, "xprtsec=mtls")
+		} else if nsc.Spec.Connection.Tls {
+			mountOptions = append(mountOptions, "xprtsec=tls")
+		}
 	}
 
 	if nsc.Spec.MountOptions != nil {

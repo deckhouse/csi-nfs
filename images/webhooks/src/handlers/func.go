@@ -41,6 +41,7 @@ import (
 	controllerruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
+	"webhooks/internal"
 )
 
 func NewKubeClient(kubeconfigPath string) (client.Client, error) {
@@ -127,7 +128,7 @@ func GetValidatingWebhookHandler(validationFunc func(ctx context.Context, _ *mod
 
 func validateModuleConfig(mc *cn.ModuleConfig, nscList *cn.NFSStorageClassList) error {
 	for _, nsc := range nscList.Items {
-		if err := utilsvalidating.ValidateNFSStorageClass(mc, &nsc); err != nil {
+		if err := utilsvalidating.ValidateNFSStorageClass(mc, &nsc, internal.FeatureTLSEnabled); err != nil {
 			return err
 		}
 	}

@@ -23,6 +23,7 @@ import (
 	"reflect"
 	"time"
 
+	"d8-controller/internal"
 	"d8-controller/pkg/config"
 	"d8-controller/pkg/logger"
 	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
@@ -110,7 +111,7 @@ func RunNFSStorageClassWatcherController(
 					return reconcile.Result{}, err
 				}
 
-				if err := utilsvalidating.ValidateNFSStorageClass(nfsModuleConfig, nsc); err != nil {
+				if err := utilsvalidating.ValidateNFSStorageClass(nfsModuleConfig, nsc, internal.FeatureTLSEnabled); err != nil {
 					log.Error(err, "[NFSStorageClassReconciler] invalid NFSStorageClass")
 					return reconcile.Result{}, err
 				}

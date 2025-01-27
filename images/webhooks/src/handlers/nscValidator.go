@@ -11,6 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
+	"webhooks/internal"
 )
 
 const (
@@ -39,7 +40,7 @@ func NSCValidate(ctx context.Context, arReview *model.AdmissionReview, obj metav
 		klog.Fatal(err)
 	}
 
-	if err := utilsvalidating.ValidateNFSStorageClass(nfsModuleConfig, nsc); err != nil {
+	if err := utilsvalidating.ValidateNFSStorageClass(nfsModuleConfig, nsc, internal.FeatureTLSEnabled); err != nil {
 		klog.Error(err)
 		return &kwhvalidating.ValidatorResult{
 			Valid:   false,
