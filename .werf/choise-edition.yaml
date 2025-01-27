@@ -2,6 +2,7 @@
 ---
 image: choise-edition
 from: {{ $.BASE_ALPINE_3_20 }}
+fromCacheVersion: 2025-01-27.1
 git:
   - add: /
     to: /
