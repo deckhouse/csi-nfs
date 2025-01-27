@@ -27,6 +27,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/deckhouse/csi-nfs/api/v1alpha1"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -65,6 +66,7 @@ var cfgFilePath string
 var resourcesSchemeFuncs = []func(*runtime.Scheme) error{
 	corev1.AddToScheme,
 	storagev1.AddToScheme,
+	v1alpha1.AddToScheme,
 }
 
 var config = &Config{
@@ -183,10 +185,10 @@ func subMain(ctx context.Context) error {
 	}
 	log.Info("[subMain] server was initialized")
 
-	return runServer(ctx, serv, log)
+	return runServer(ctx, serv, mgr, log)
 }
 
-func runServer(ctx context.Context, serv *http.Server, log *logger.Logger) error {
+func runServer(ctx context.Context, serv *http.Server, mgr manager.Manager, log *logger.Logger) error {
 	ctx, stop := context.WithCancel(ctx)
 
 	var wg sync.WaitGroup
@@ -199,6 +201,13 @@ func runServer(ctx context.Context, serv *http.Server, log *logger.Logger) error
 		<-ctx.Done()
 		if err := serv.Shutdown(ctx); err != nil {
 			log.Error(err, "[runServer] failed to shutdown gracefully")
+		}
+	}()
+
+	go func() {
+		log.Info("[runServer] kube manager will start now")
+		if err := mgr.Start(ctx); err != nil {
+			log.Error(err, "[runServer] unable to mgr.Start")
 		}
 	}()
 
