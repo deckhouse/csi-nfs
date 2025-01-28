@@ -6,7 +6,8 @@ properties:
     description: Поддержка NFS версии v3.
   tlsParameters:
     description: |
-      **Доступно только в enterprise edition.**  
+      **Доступно только в enterprise edition.**
+
       Настройка RPC-with-TLS (RFC 9289).
     properties:
       ca:

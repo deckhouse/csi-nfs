@@ -19,7 +19,8 @@ properties:
     default: {}
     x-doc-d8editions: [ee]
     description: |
-      **This feature is available in enterprise edition only.**  
+      **This feature is available in enterprise edition only.**
+
       RPC-with-TLS (RFC 9289) configuration.
     properties:
       ca:

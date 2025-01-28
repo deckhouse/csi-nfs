@@ -86,7 +86,8 @@ spec:
                         - rule: self == oldSelf
                           message: Value is immutable.
                       description: |
-                        **This feature is available in enterprise edition only.**  
+                        **This feature is available in enterprise edition only.**
+
                         Whether to use TLS for connection.
                       default: false
                     mtls:
@@ -96,6 +97,8 @@ spec:
                         - rule: self == oldSelf
                           message: Value is immutable.
                       description: |
+                        **This feature is available in enterprise edition only.**
+
                         Whether to use mTLS — requires TLS to be enabled.
                       default: false
                 mountOptions:
