@@ -61,3 +61,17 @@ This command will display a list of all snapshots and their current status.
 
 If the [NFSStorageClass](./cr.html#nfsstorageclass) resource was configured with RPC-with-TLS support, there might be a situation where the PV fails to be deleted.
 This happens due to the removal of the secret (for example, after deleting `NFSStorageClass`), which holds the mount options. As a result, the controller is unable to mount the NFS folder to delete the `<PV name>` folder.
+
+## How to place multiple CAs in the `tlsParameters.ca` setting in ModuleConfig?
+
+- for two CAs
+```shell
+cat CA1.crt CA2.crt | base64 -w0
+```
+
+- for three CAs
+```shell
+cat CA1.crt CA2.crt CA3.crt | base64 -w0
+```
+
+- and so on

@@ -61,3 +61,17 @@ kubectl -n d8-csi-nfs get pod -owide -w
 
 Если ресурс [NFSStorageClass](./cr.html#nfsstorageclass) был настроен с поддержкой RPC-with-TLS, может возникнуть ситуация, когда PV не удастся удалить.
 Это происходит из-за удаления секрета (например, после удаления `NFSStorageClass`), который хранит параметры монтирования. В результате контроллер не может смонтировать NFS-папку для удаления папки `<имя PV>`.
+
+## Как в настройках ModuleConfig в параметре `tlsParameters.ca` разместить несколько CA?
+
+- для двух CA
+```shell
+cat CA1.crt CA2.crt | base64 -w0
+```
+
+- для трех CA
+```shell
+cat CA1.crt CA2.crt CA3.crt | base64 -w0
+```
+
+- и т.д.
