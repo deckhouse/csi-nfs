@@ -5,7 +5,9 @@ properties:
   v3support:
     description: Поддержка NFS версии v3.
   tlsParameters:
-    description: Настройка RPC-with-TLS (RFC 9289).
+    description: |
+      **Доступно только в enterprise edition.**  
+      Настройка RPC-with-TLS (RFC 9289).
     properties:
       ca:
         description: Корневой сертификат в формате PEM, закодированный в Base64, который будет использован для проверки сертификата NFS-сервера.

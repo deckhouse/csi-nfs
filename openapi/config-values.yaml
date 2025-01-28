@@ -17,7 +17,10 @@ properties:
   tlsParameters:
     type: object
     default: {}
-    description: RPC-with-TLS (RFC 9289) configuration.
+    x-doc-d8editions: [ee]
+    description: |
+      **This feature is available in enterprise edition only.**  
+      RPC-with-TLS (RFC 9289) configuration.
     properties:
       ca:
         type: string
