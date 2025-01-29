@@ -54,7 +54,7 @@ webhooks:
     rules:
       - apiGroups: ["deckhouse.io"]
         apiVersions: ["v1alpha1"]
-        operations: ["UPDATE"]
+        operations: ["CREATE", "UPDATE"]
         resources: ["moduleconfigs"]
         scope: "Cluster"
     clientConfig:
