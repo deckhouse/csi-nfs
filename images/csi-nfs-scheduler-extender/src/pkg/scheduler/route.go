@@ -31,7 +31,6 @@ type scheduler struct {
 	log            logger.Logger
 	client         client.Client
 	ctx            context.Context
-	requestCount   int
 }
 
 func (s *scheduler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -56,6 +55,7 @@ func (s *scheduler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // NewHandler return new http.Handler of the scheduler extender
 func NewHandler(ctx context.Context, cl client.Client, log logger.Logger) (http.Handler, error) {
 	return &scheduler{
+		// defaultDivisor // TODO: add defaultDivisor from the config
 		log:    log,
 		client: cl,
 		ctx:    ctx,

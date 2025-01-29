@@ -112,6 +112,14 @@ func filterNodes(
 	namespace string,
 	targetProvisionerVolumes []corev1.Volume,
 ) (*ExtenderFilterResult, error) {
+	if len(*nodeNames) == 0 {
+		log.Warning("[filterNodes] No nodes to filter. Return empty node list")
+		return &ExtenderFilterResult{
+			NodeNames:   &[]string{},
+			FailedNodes: FailedNodesMap{},
+		}, nil
+	}
+
 	log.Debug("[filterNodes] Get user selectors")
 
 	nfsStorageClasses, err := GetNFSStorageClassesFromVolumes(ctx, cl, log, namespace, targetProvisionerVolumes)

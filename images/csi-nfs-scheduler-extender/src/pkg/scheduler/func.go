@@ -23,6 +23,7 @@ import (
 	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -49,61 +50,34 @@ func shouldProcessPod(ctx context.Context, cl client.Client, log logger.Logger, 
 	targetProvisionerVolumes := make([]corev1.Volume, 0)
 
 	for _, volume := range pod.Spec.Volumes {
-		if volume.PersistentVolumeClaim != nil {
-			log.Trace(fmt.Sprintf("[ShouldProcessPod] process volume: %+v that has pvc: %+v", volume, volume.PersistentVolumeClaim))
-			pvcName := volume.PersistentVolumeClaim.ClaimName
-			pvc := &corev1.PersistentVolumeClaim{}
-			err := cl.Get(ctx, client.ObjectKey{Namespace: pod.Namespace, Name: pvcName}, pvc)
-			if err != nil {
-				return false, nil, fmt.Errorf("[ShouldProcessPod] error getting PVC %s/%s: %v", pod.Namespace, pvcName, err)
-			}
-
-			log.Trace(fmt.Sprintf("[ShouldProcessPod] get pvc: %+v", pvc))
-			log.Trace(fmt.Sprintf("[ShouldProcessPod] check provisioner in pvc annotations: %+v", pvc.Annotations))
-
-			discoveredProvisioner = pvc.Annotations[annotationStorageProvisioner]
-			if discoveredProvisioner != "" {
-				log.Trace(fmt.Sprintf("[ShouldProcessPod] discovered provisioner in pvc annotations: %s", discoveredProvisioner))
-			} else {
-				discoveredProvisioner = pvc.Annotations[annotationBetaStorageProvisioner]
-				log.Trace(fmt.Sprintf("[ShouldProcessPod] discovered provisioner in beta pvc annotations: %s", discoveredProvisioner))
-			}
-
-			if discoveredProvisioner == "" && pvc.Spec.StorageClassName != nil && *pvc.Spec.StorageClassName != "" {
-				log.Trace(fmt.Sprintf("[ShouldProcessPod] can't find provisioner in pvc annotations, check in storageClass with name: %s", *pvc.Spec.StorageClassName))
-				storageClass := &storagev1.StorageClass{}
-				err = cl.Get(ctx, client.ObjectKey{Name: *pvc.Spec.StorageClassName}, storageClass)
-				if err != nil {
-					return false, nil, fmt.Errorf("[ShouldProcessPod] error getting StorageClass %s: %v", *pvc.Spec.StorageClassName, err)
-				}
-				discoveredProvisioner = storageClass.Provisioner
-				log.Trace(fmt.Sprintf("[ShouldProcessPod] discover provisioner %s in storageClass: %+v", discoveredProvisioner, storageClass))
-			}
-
-			if discoveredProvisioner == "" && pvc.Spec.VolumeName != "" {
-				log.Trace(fmt.Sprintf("[ShouldProcessPod] can't find provisioner in pvc annotations and StorageClass, check in PV with name: %s", pvc.Spec.VolumeName))
-				pv := &corev1.PersistentVolume{}
-				err := cl.Get(ctx, client.ObjectKey{Name: pvc.Spec.VolumeName}, pv)
-				if err != nil {
-					return false, nil, fmt.Errorf("[ShouldProcessPod] error getting PV %s: %v", pvc.Spec.VolumeName, err)
-				}
-
-				if pv.Spec.CSI != nil {
-					discoveredProvisioner = pv.Spec.CSI.Driver
-				}
-
-				log.Trace(fmt.Sprintf("[ShouldProcessPod] discover provisioner %s in PV: %+v", discoveredProvisioner, pv))
-			}
-
-			log.Trace(fmt.Sprintf("[ShouldProcessPod] discovered provisioner: %s", discoveredProvisioner))
-			if discoveredProvisioner == targetProvisioner {
-				log.Trace(fmt.Sprintf("[ShouldProcessPod] provisioner matches targetProvisioner %s. Pod: %s/%s", pod.Namespace, pod.Name, targetProvisioner))
-				shouldProcessPod = true
-				targetProvisionerVolumes = append(targetProvisionerVolumes, volume)
-			}
-			log.Trace(fmt.Sprintf("[ShouldProcessPod] provisioner %s doesn't match targetProvisioner %s. Skip volume %s.", discoveredProvisioner, targetProvisioner, volume.Name))
+		if volume.PersistentVolumeClaim == nil {
+			log.Trace(fmt.Sprintf("[ShouldProcessPod] skip volume %s because it doesn't have PVC", volume.Name))
+			continue
 		}
+
+		log.Trace(fmt.Sprintf("[ShouldProcessPod] process volume: %+v that has pvc: %+v", volume, volume.PersistentVolumeClaim))
+		pvcName := volume.PersistentVolumeClaim.ClaimName
+		pvc := &corev1.PersistentVolumeClaim{}
+		err := cl.Get(ctx, client.ObjectKey{Namespace: pod.Namespace, Name: pvcName}, pvc)
+		if err != nil {
+			return false, nil, fmt.Errorf("[ShouldProcessPod] error getting PVC %s/%s: %v", pod.Namespace, pvcName, err)
+		}
+
+		log.Trace(fmt.Sprintf("[ShouldProcessPod] Successfully get PVC %s/%s: %+v", pod.Namespace, pvcName, pvc))
+
+		discoveredProvisioner, err = getProvisionerFromPVC(ctx, cl, log, pvc)
+		if err != nil {
+			return false, nil, fmt.Errorf("[ShouldProcessPod] error getting provisioner from PVC %s/%s: %v", pod.Namespace, pvcName, err)
+		}
+		log.Trace(fmt.Sprintf("[ShouldProcessPod] discovered provisioner: %s", discoveredProvisioner))
+		if discoveredProvisioner == targetProvisioner {
+			log.Trace(fmt.Sprintf("[ShouldProcessPod] provisioner matches targetProvisioner %s. Pod: %s/%s", pod.Namespace, pod.Name, targetProvisioner))
+			shouldProcessPod = true
+			targetProvisionerVolumes = append(targetProvisionerVolumes, volume)
+		}
+		log.Trace(fmt.Sprintf("[ShouldProcessPod] provisioner %s doesn't match targetProvisioner %s. Skip volume %s.", discoveredProvisioner, targetProvisioner, volume.Name))
 	}
+
 	if shouldProcessPod {
 		log.Trace(fmt.Sprintf("[ShouldProcessPod] targetProvisioner %s found in pod volumes. Pod: %s/%s. Volumes that match: %+v", targetProvisioner, pod.Namespace, pod.Name, targetProvisionerVolumes))
 		return true, targetProvisionerVolumes, nil
@@ -218,14 +192,63 @@ func GetCommonNodesByNodeSelectorList(ctx context.Context, cl client.Client, log
 }
 
 func getCommonNodeNames(nodeNames, selectedNodeNames []string) []string {
+	selectedNodeNamesMap := make(map[string]struct{}, len(selectedNodeNames))
+	for _, nodeName := range selectedNodeNames {
+		selectedNodeNamesMap[nodeName] = struct{}{}
+	}
+
 	commonNodeNames := make([]string, 0)
 	for _, nodeName := range nodeNames {
-		for _, selectedNodeName := range selectedNodeNames {
-			if nodeName == selectedNodeName {
-				commonNodeNames = append(commonNodeNames, nodeName)
-				break
-			}
+		if _, ok := selectedNodeNamesMap[nodeName]; ok {
+			commonNodeNames = append(commonNodeNames, nodeName)
 		}
 	}
 	return commonNodeNames
+}
+
+func getProvisionerFromPVC(ctx context.Context, cl client.Client, log logger.Logger, pvc *corev1.PersistentVolumeClaim) (string, error) {
+	discoveredProvisioner := ""
+
+	log.Trace(fmt.Sprintf("[getProvisionerFromPVC] check provisioner in pvc annotations: %+v", pvc.Annotations))
+	discoveredProvisioner = pvc.Annotations[annotationStorageProvisioner]
+	if discoveredProvisioner != "" {
+		log.Trace(fmt.Sprintf("[getProvisionerFromPVC] discovered provisioner in pvc annotations: %s", discoveredProvisioner))
+	} else {
+		discoveredProvisioner = pvc.Annotations[annotationBetaStorageProvisioner]
+		log.Trace(fmt.Sprintf("[getProvisionerFromPVC] discovered provisioner in beta pvc annotations: %s", discoveredProvisioner))
+	}
+
+	if discoveredProvisioner == "" && pvc.Spec.StorageClassName != nil && *pvc.Spec.StorageClassName != "" {
+		log.Trace(fmt.Sprintf("[getProvisionerFromPVC] can't find provisioner in pvc annotations, check in storageClass with name: %s", *pvc.Spec.StorageClassName))
+		storageClass := &storagev1.StorageClass{}
+		err := cl.Get(ctx, client.ObjectKey{Name: *pvc.Spec.StorageClassName}, storageClass)
+		if err != nil {
+			if !k8serrors.IsNotFound(err) {
+				return "", fmt.Errorf("[getProvisionerFromPVC] error getting StorageClass %s: %v", *pvc.Spec.StorageClassName, err)
+			}
+			log.Warning(fmt.Sprintf("[getProvisionerFromPVC] StorageClass %s for PVC %s/%s not found", *pvc.Spec.StorageClassName, pvc.Namespace, pvc.Name))
+		}
+		discoveredProvisioner = storageClass.Provisioner
+		log.Trace(fmt.Sprintf("[getProvisionerFromPVC] discover provisioner %s in storageClass: %+v", discoveredProvisioner, storageClass))
+	}
+
+	if discoveredProvisioner == "" && pvc.Spec.VolumeName != "" {
+		log.Trace(fmt.Sprintf("[getProvisionerFromPVC] can't find provisioner in pvc annotations and StorageClass, check in PV with name: %s", pvc.Spec.VolumeName))
+		pv := &corev1.PersistentVolume{}
+		err := cl.Get(ctx, client.ObjectKey{Name: pvc.Spec.VolumeName}, pv)
+		if err != nil {
+			if !k8serrors.IsNotFound(err) {
+				return "", fmt.Errorf("[getProvisionerFromPVC] error getting PV %s for PVC %s/%s: %v", pvc.Spec.VolumeName, pvc.Namespace, pvc.Name, err)
+			}
+			log.Warning(fmt.Sprintf("[getProvisionerFromPVC] PV %s for PVC %s/%s not found", pvc.Spec.VolumeName, pvc.Namespace, pvc.Name))
+		}
+
+		if pv.Spec.CSI != nil {
+			discoveredProvisioner = pv.Spec.CSI.Driver
+		}
+
+		log.Trace(fmt.Sprintf("[getProvisionerFromPVC] discover provisioner %s in PV: %+v", discoveredProvisioner, pv))
+	}
+
+	return discoveredProvisioner, nil
 }

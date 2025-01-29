@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math"
 	"net/http"
 
 	"csi-nfs-scheduler-extender/pkg/logger"
@@ -69,6 +68,10 @@ func scoreNodes(
 	nodeNames *[]string,
 ) []HostPriority {
 	result := make([]HostPriority, 0, len(*nodeNames))
+	if len(*nodeNames) == 0 {
+		log.Warning("[scoreNodes] no nodes to score. Return empty result")
+		return result
+	}
 
 	for _, nodeName := range *nodeNames {
 		log.Trace(fmt.Sprintf("[scoreNodes] node: %s", nodeName))
@@ -80,23 +83,4 @@ func scoreNodes(
 
 	log.Trace("[scoreNodes] final result: %+v", result)
 	return result
-}
-
-func getFreeSpaceLeftPercent(freeSize, requestedSpace, totalSize int64) int64 {
-	leftFreeSize := freeSize - requestedSpace
-	fraction := float64(leftFreeSize) / float64(totalSize)
-	percent := fraction * 100
-	return int64(percent)
-}
-
-func getNodeScore(freeSpace int64, divisor float64) int {
-	converted := int(math.Round(math.Log2(float64(freeSpace) / divisor)))
-	switch {
-	case converted < 1:
-		return 1
-	case converted > 10:
-		return 10
-	default:
-		return converted
-	}
 }

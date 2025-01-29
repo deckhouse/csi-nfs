@@ -43,11 +43,12 @@ import (
 )
 
 const (
-	defaultDivisor    = 1
-	defaultListenAddr = ":8000"
-	defaultCacheSize  = 10
-	defaultcertFile   = "/etc/csi-nfs-scheduler-extender/certs/tls.crt"
-	defaultkeyFile    = "/etc/csi-nfs-scheduler-extender/certs/tls.key"
+	defaultDivisor                = 1
+	defaultListenAddr             = ":8000"
+	defaultHealthProbeBindAddress = ":8081"
+	defaultCacheSize              = 10
+	defaultcertFile               = "/etc/csi-nfs-scheduler-extender/certs/tls.crt"
+	defaultkeyFile                = "/etc/csi-nfs-scheduler-extender/certs/tls.key"
 )
 
 type Config struct {
@@ -70,10 +71,11 @@ var resourcesSchemeFuncs = []func(*runtime.Scheme) error{
 }
 
 var config = &Config{
-	ListenAddr: defaultListenAddr,
-	LogLevel:   "2",
-	CertFile:   defaultcertFile,
-	KeyFile:    defaultkeyFile,
+	ListenAddr:             defaultListenAddr,
+	HealthProbeBindAddress: defaultHealthProbeBindAddress,
+	LogLevel:               "2",
+	CertFile:               defaultcertFile,
+	KeyFile:                defaultkeyFile,
 }
 
 var rootCmd = &cobra.Command{
@@ -208,6 +210,7 @@ func runServer(ctx context.Context, serv *http.Server, mgr manager.Manager, log 
 		log.Info("[runServer] kube manager will start now")
 		if err := mgr.Start(ctx); err != nil {
 			log.Error(err, "[runServer] unable to mgr.Start")
+			stop()
 		}
 	}()
 
