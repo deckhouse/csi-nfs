@@ -1,7 +1,7 @@
 # TODO comment here
 ---
 image: choise-edition
-from: {{ $.BASE_ALPINE_3_20 }}
+from: {{ $.BASE_ALT_P11 }}
 fromCacheVersion: 2025-01-27.1
 git:
   - add: /
