@@ -26,7 +26,8 @@ defaults:
 
 jobs:
   set_edition:
-    runs-on: ubuntu-latest
+    #runs-on: ubuntu-latest
+    runs-on: [self-hosted, regular, selectel]
     name: Set edition
     outputs:
       module_edition: ${{ steps.set-vars.outputs.MODULE_EDITION }}
