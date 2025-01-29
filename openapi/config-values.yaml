@@ -17,9 +17,9 @@ properties:
   tlsParameters:
     type: object
     default: {}
-    x-doc-d8editions: [ee]
+    x-doc-d8editions: [se,se-plus,ee,fe]
     description: |
-      **This feature is available in enterprise edition only.**
+      **This feature is available in SE, SE+, EE, and FE.**
 
       RPC-with-TLS (RFC 9289) configuration.
     properties:

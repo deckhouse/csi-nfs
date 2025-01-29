@@ -25,12 +25,12 @@ spec:
                         Версия NFS.
                     tls:
                       description: |
-                        **Доступно только в enterprise edition.**
+                        **Доступно в SE, SE+, EE, FE.**
 
                         Использовать ли TLS для подключения.
                     mtls:
                       description: |
-                        **Доступно только в enterprise edition.**
+                        **Доступно в SE, SE+, EE, FE.**
 
                         Использовать ли mTLS — требует, чтобы TLS был включён.
                 mountOptions:

@@ -81,23 +81,23 @@ spec:
                         - "4.2"
                     tls:
                       type: boolean
-                      x-doc-d8editions: [ee]
+                      x-doc-d8editions: [se,se-plus,ee,fe]
                       x-kubernetes-validations:
                         - rule: self == oldSelf
                           message: Value is immutable.
                       description: |
-                        **This feature is available in enterprise edition only.**
+                        **This feature is available in SE, SE+, EE, and FE.**
 
                         Whether to use TLS for connection.
                       default: false
                     mtls:
                       type: boolean
-                      x-doc-d8editions: [ee]
+                      x-doc-d8editions: [se,se-plus,ee,fe]
                       x-kubernetes-validations:
                         - rule: self == oldSelf
                           message: Value is immutable.
                       description: |
-                        **This feature is available in enterprise edition only.**
+                        **This feature is available in SE, SE+, EE, and FE.**
 
                         Whether to use mTLS — requires TLS to be enabled.
                       default: false
