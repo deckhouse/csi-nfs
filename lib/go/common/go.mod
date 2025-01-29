@@ -1,4 +1,4 @@
-module github.com/deckhouse/csi-nfs/lib/go/utils
+module github.com/deckhouse/csi-nfs/lib/go/common
 
 go 1.23.4
 
@@ -24,4 +24,8 @@ require (
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 
+// Do not combine multiple replacements into a single block,
+// as this will break the CI workflow "Check Go module version."
 replace github.com/deckhouse/csi-nfs/api => ../../../api
+
+replace github.com/deckhouse/csi-nfs/lib/go/common => ./

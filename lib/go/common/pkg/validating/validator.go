@@ -20,9 +20,10 @@ import (
 	"fmt"
 
 	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
+	feature "github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature"
 )
 
-func ValidateNFSStorageClass(nfsModuleConfig *cn.ModuleConfig, nsc *cn.NFSStorageClass, featureTLSEnabled bool) error {
+func ValidateNFSStorageClass(nfsModuleConfig *cn.ModuleConfig, nsc *cn.NFSStorageClass) error {
 	var logPostfix = "Such a combination of parameters is not allowed"
 
 	if nsc.Spec.Connection.NFSVersion == "3" {
@@ -39,7 +40,7 @@ func ValidateNFSStorageClass(nfsModuleConfig *cn.ModuleConfig, nsc *cn.NFSStorag
 		}
 	}
 
-	if featureTLSEnabled {
+	if feature.TLSEnabled {
 		if nsc.Spec.Connection.Tls || nsc.Spec.Connection.Mtls {
 			var tlsParameters map[string]any
 

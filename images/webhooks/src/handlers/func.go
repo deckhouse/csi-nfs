@@ -22,7 +22,7 @@ import (
 	"os"
 
 	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
-	utilsvalidating "github.com/deckhouse/csi-nfs/lib/go/utils/pkg/validating"
+	commonvalidating "github.com/deckhouse/csi-nfs/lib/go/common/pkg/validating"
 	"github.com/go-logr/logr"
 	kwhhttp "github.com/slok/kubewebhook/v2/pkg/http"
 	"github.com/slok/kubewebhook/v2/pkg/log"
@@ -41,7 +41,6 @@ import (
 	controllerruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
-	"webhooks/internal"
 )
 
 func NewKubeClient(kubeconfigPath string) (client.Client, error) {
@@ -128,7 +127,7 @@ func GetValidatingWebhookHandler(validationFunc func(ctx context.Context, _ *mod
 
 func validateModuleConfig(mc *cn.ModuleConfig, nscList *cn.NFSStorageClassList) error {
 	for _, nsc := range nscList.Items {
-		if err := utilsvalidating.ValidateNFSStorageClass(mc, &nsc, internal.FeatureTLSEnabled); err != nil {
+		if err := commonvalidating.ValidateNFSStorageClass(mc, &nsc); err != nil {
 			return err
 		}
 	}

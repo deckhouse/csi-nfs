@@ -4,7 +4,7 @@ go 1.23.4
 
 require (
 	github.com/deckhouse/csi-nfs/api v0.0.0-20250116103144-d23aedd591a3
-	github.com/deckhouse/csi-nfs/lib/go/utils v0.0.0-20250116103144-d23aedd591a3
+	github.com/deckhouse/csi-nfs/lib/go/common v0.0.0-20250116103144-d23aedd591a3
 	github.com/go-logr/logr v1.4.2
 	github.com/onsi/ginkgo/v2 v2.22.2
 	github.com/onsi/gomega v1.36.2
@@ -16,9 +16,11 @@ require (
 	sigs.k8s.io/controller-runtime v0.19.4
 )
 
+// Do not combine multiple replacements into a single block,
+// as this will break the CI workflow "Check Go module version."
 replace github.com/deckhouse/csi-nfs/api => ../../../api
 
-replace github.com/deckhouse/csi-nfs/lib/go/utils => ../../../lib/go/utils
+replace github.com/deckhouse/csi-nfs/lib/go/common => ../../../lib/go/common
 
 require (
 	github.com/beorn7/perks v1.0.1 // indirect

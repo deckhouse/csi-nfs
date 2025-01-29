@@ -22,11 +22,10 @@ import (
 	"reflect"
 	"time"
 
-	"d8-controller/internal"
 	"d8-controller/pkg/config"
 	"d8-controller/pkg/logger"
 	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
-	utilsvalidating "github.com/deckhouse/csi-nfs/lib/go/utils/pkg/validating"
+	commonvalidating "github.com/deckhouse/csi-nfs/lib/go/common/pkg/validating"
 	storagev1 "k8s.io/api/storage/v1"
 	k8serr "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -67,7 +66,9 @@ func RunModuleConfigWatcherController(
 				return reconcile.Result{}, nil
 			}
 
-			if mc.DeletionTimestamp == nil {
+			if mc.DeletionTimestamp != nil {
+				log.Debug(fmt.Sprintf("[ModuleConfigReconciler] reconcile operation for ModuleConfig %s: Delete", mc.Name))
+			} else {
 				nscList := &v1alpha1.NFSStorageClassList{}
 				err = cl.List(ctx, nscList)
 				if err != nil {
@@ -95,8 +96,6 @@ func RunModuleConfigWatcherController(
 						RequeueAfter: cfg.RequeueModuleConfigInterval * time.Second,
 					}, nil
 				}
-			} else {
-				log.Debug(fmt.Sprintf("[ModuleConfigReconciler] reconcile operation for ModuleConfig %s: Delete", mc.Name))
 			}
 
 			log.Info(fmt.Sprintf("[ModuleConfigReconciler] ends Reconcile for the ModuleConfig %q", request.Name))
@@ -182,12 +181,8 @@ func RunModuleConfigEventReconcile(
 		}
 
 		if sc == nil {
-			log.Warning(fmt.Sprintf("[RunModuleConfigEventReconcile] no storage class found for the NFSStorageClass, name: %s", nsc.Name))
-			break
-
-			// maybe it's like this here !!!!!!!!!!!
-			// err = fmt.Errorf("[RunModuleConfigEventReconcile] no storage class found for the NFSStorageClass, name: %s", nsc.Name")
-			// return true, err
+			err = fmt.Errorf("[RunModuleConfigEventReconcile] no storage class found for the NFSStorageClass, name: %s", nsc.Name)
+			return true, err
 		}
 
 		var action string
@@ -230,7 +225,7 @@ func RunModuleConfigEventReconcile(
 func validateModuleConfig(log logger.Logger, mc *v1alpha1.ModuleConfig, nscList *v1alpha1.NFSStorageClassList) map[string]string {
 	alertMap := make(map[string]string)
 	for _, nsc := range nscList.Items {
-		if err := utilsvalidating.ValidateNFSStorageClass(mc, &nsc, internal.FeatureTLSEnabled); err != nil {
+		if err := commonvalidating.ValidateNFSStorageClass(mc, &nsc); err != nil {
 			log.Warning(fmt.Sprintf("[validateModuleConfig] invalid NFSStorageClass (%v)", err))
 			alertMap[nsc.Name] = "true"
 		}

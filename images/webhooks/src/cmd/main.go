@@ -23,11 +23,11 @@ import (
 	"os"
 
 	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
+	commonfeature "github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature"
 	"github.com/sirupsen/logrus"
 	kwhlogrus "github.com/slok/kubewebhook/v2/pkg/log/logrus"
 	storagev1 "k8s.io/api/storage/v1"
 	"webhooks/handlers"
-	"webhooks/internal"
 )
 
 type config struct {
@@ -88,7 +88,7 @@ func main() {
 	mux.Handle("/mc-validate", mcValidatingWebhookHandler)
 	mux.HandleFunc("/healthz", httpHandlerHealthz)
 
-	logger.Infof("FeatureTLSEnabled:%v", internal.FeatureTLSEnabled)
+	logger.Infof("Feature TLSEnabled:%v", commonfeature.TLSEnabled)
 
 	logger.Infof("Listening on %s", port)
 	err = http.ListenAndServeTLS(port, cfg.certFile, cfg.keyFile, mux)

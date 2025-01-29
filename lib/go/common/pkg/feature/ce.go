@@ -1,4 +1,4 @@
-//go:build EE
+//go:build CE
 
 /*
 Copyright 2024 Flant JSC
@@ -13,6 +13,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package internal
+package feature
 
-const FeatureTLSEnabled = true
+const TLSEnabled = false
