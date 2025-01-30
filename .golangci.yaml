@@ -13,6 +13,9 @@ linters-settings:
     sections:
       - standard
       - default
+      - prefix(d8-controller)
+      - prefix(csi-nfs-scheduler-extender)
+      - prefix(webhooks)
 
 linters:
   disable-all: true

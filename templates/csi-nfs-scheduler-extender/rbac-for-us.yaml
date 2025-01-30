@@ -1,0 +1,58 @@
+{{- if .Values.csiNfs.internal.shedulerExtenderEnabled }}
+{{- if or (eq "dev" .Values.global.deckhouseVersion) (semverCompare ">=1.64" .Values.global.deckhouseVersion) }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: csi-nfs-scheduler-extender
+  namespace: d8-{{ .Chart.Name }}
+  {{- include "helm_lib_module_labels" (list . (dict "app" "csi-nfs-scheduler-extender")) | nindent 2 }}
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: d8:{{ .Chart.Name }}:csi-nfs-scheduler-extender:volume-scheduler
+  {{- include "helm_lib_module_labels" (list . (dict "app" "csi-nfs-scheduler-extender")) | nindent 2 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:volume-scheduler
+subjects:
+  - kind: ServiceAccount
+    name: csi-nfs-scheduler-extender
+    namespace: d8-{{ .Chart.Name }}
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: d8:{{ .Chart.Name }}:csi-nfs-scheduler-extender
+  namespace: d8-{{ .Chart.Name }}
+  {{- include "helm_lib_module_labels" (list . (dict "app" "sds-local-volume-scheduler-extender")) | nindent 2 }}
+rules:
+  - apiGroups: [ "storage.deckhouse.io" ]
+    resources: [ "nfsstorageclasses" ]
+    verbs: [ "list", "watch", "get"]
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: d8:{{ .Chart.Name }}:csi-nfs-scheduler-extender
+  namespace: d8-{{ .Chart.Name }}
+  {{- include "helm_lib_module_labels" (list . (dict "app" "csi-nfs-scheduler-extender")) | nindent 2 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: d8:{{ .Chart.Name }}:csi-nfs-scheduler-extender
+subjects:
+  - kind: ServiceAccount
+    name: csi-nfs-scheduler-extender
+    namespace: d8-{{ .Chart.Name }}
+
+{{- end }}
+{{- end }}

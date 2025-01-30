@@ -39,11 +39,12 @@ type NFSStorageClassList struct {
 
 // +k8s:deepcopy-gen=true
 type NFSStorageClassSpec struct {
-	Connection        *NFSStorageClassConnection   `json:"connection,omitempty"`
-	MountOptions      *NFSStorageClassMountOptions `json:"mountOptions,omitempty"`
-	ChmodPermissions  string                       `json:"chmodPermissions,omitempty"`
-	ReclaimPolicy     string                       `json:"reclaimPolicy"`
-	VolumeBindingMode string                       `json:"volumeBindingMode"`
+	Connection        *NFSStorageClassConnection    `json:"connection,omitempty"`
+	MountOptions      *NFSStorageClassMountOptions  `json:"mountOptions,omitempty"`
+	ChmodPermissions  string                        `json:"chmodPermissions,omitempty"`
+	ReclaimPolicy     string                        `json:"reclaimPolicy"`
+	VolumeBindingMode string                        `json:"volumeBindingMode"`
+	WorkloadNodes     *NFSStorageClassWorkloadNodes `json:"workloadNodes,omitempty"`
 }
 
 // +k8s:deepcopy-gen=true
@@ -59,6 +60,11 @@ type NFSStorageClassMountOptions struct {
 	Timeout         int    `json:"timeout,omitempty"`
 	Retransmissions int    `json:"retransmissions,omitempty"`
 	ReadOnly        *bool  `json:"readOnly,omitempty"`
+}
+
+// +k8s:deepcopy-gen=true
+type NFSStorageClassWorkloadNodes struct {
+	NodeSelector *metav1.LabelSelector `json:"nodeSelector"`
 }
 
 // +k8s:deepcopy-gen=true
