@@ -154,6 +154,43 @@ spec:
                   enum:
                     - Immediate
                     - WaitForFirstConsumer
+                workloadNodes:
+                  type: object
+                  minProperties: 1
+                  properties:
+                    nodeSelector:
+                      type: object
+                      minProperties: 1
+                      description: |
+                        Node selector to specify rules for selecting nodes where Persistent Volumes (PVs) created by this StorageClass are allowed to connect. Combines simple label matches and advanced matching expressions.
+                        If this parameter is omitted, NFS shares can be mounted on any node in the cluster running the `Linux` OS.
+                      properties:
+                        matchLabels:
+                          type: object
+                          description: |
+                            A map of labels that must match exactly with the labels of a node. Nodes that do not match any of the specified labels will be excluded.
+                          additionalProperties:
+                            type: string
+                        matchExpressions:
+                          type: array
+                          description: |
+                            A list of advanced node selector requirements. Each requirement specifies a key, an operator, and optional values for filtering nodes based on their labels or other fields.
+                          items:
+                            type: object
+                            properties:
+                              key:
+                                type: string
+                              operator:
+                                type: string
+                                enum:
+                                  - In
+                                  - NotIn
+                                  - Exists
+                                  - DoesNotExist
+                              values:
+                                type: array
+                                items:
+                                  type: string
             status:
               type: object
               description: |

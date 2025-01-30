@@ -25,7 +25,6 @@ import (
 	"strconv"
 	"strings"
 
-	"d8-controller/pkg/logger"
 	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	commonfeature "github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature"
 	corev1 "k8s.io/api/core/v1"
@@ -33,6 +32,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"d8-controller/pkg/logger"
 )
 
 func ReconcileStorageClassCreateFunc(

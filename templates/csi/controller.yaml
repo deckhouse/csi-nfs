@@ -171,8 +171,13 @@
 {{- include "nfsv3_container_volume_mounts" . }}
 {{- end }}
 
-{{/*- define "csi_additional_controller_containers" }}
-{{- end */}}
+{{- end }}
+
+{{- define "csi_custom_node_selector" }}
+storage.deckhouse.io/csi-nfs-node: ""
+{{- end }}
+
+{{- $csiControllerImage := include "helm_lib_module_image" (list . "csiNfs") }}
 
 {{- $csiControllerConfig := dict }}
 {{- $_ := set $csiControllerConfig "controllerImage" $csiControllerImage }}
@@ -188,7 +193,10 @@
 {{- $_ := set $csiControllerConfig "additionalControllerEnvs" (include "csi_controller_envs" . | fromYamlArray) }}
 {{- $_ := set $csiControllerConfig "additionalControllerVolumes" (include "csi_additional_controller_volume" . | fromYamlArray) }}
 {{- $_ := set $csiControllerConfig "additionalControllerVolumeMounts" (include "csi_additional_controller_volume_mounts" . | fromYamlArray) }}
-{{/*- $_ := set $csiControllerConfig "additionalContainers" (include "csi_additional_controller_containers" . | fromYamlArray) */}}
+{{- $_ := set $csiControllerConfig "customNodeSelector" (include "csi_custom_node_selector" . | fromYaml) }}
+
+
+{{- if .Values.csiNfs.v3support }}
 {{- $_ := set $csiControllerConfig "initContainers" (include "csi_init_containers" . | fromYamlArray) }}
 
 {{- include "helm_lib_csi_controller_manifests" (list . $csiControllerConfig) }}
@@ -237,6 +245,9 @@
 {{- $_ := set $csiNodeConfig "livenessProbePort" 4230 }}
 {{- $_ := set $csiNodeConfig "additionalNodeArgs" (include "csi_node_args" . | fromYamlArray) }}
 {{- $_ := set $csiNodeConfig "additionalNodeEnvs" (include "csi_node_envs" . | fromYamlArray) }}
+{{- $_ := set $csiNodeConfig "customNodeSelector" (include "csi_custom_node_selector" . | fromYaml) }}
+
+{{- if .Values.csiNfs.v3support }}
 {{- $_ := set $csiNodeConfig "additionalNodeVolumes" (include "csi_additional_node_volume" . | fromYamlArray) }}
 {{- $_ := set $csiNodeConfig "additionalNodeVolumeMounts" (include "csi_additional_node_volume_mounts" . | fromYamlArray) }}
 {{- $_ := set $csiNodeConfig "additionalContainers" (include "csi_additional_node_containers" . | fromYamlArray) }}

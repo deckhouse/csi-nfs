@@ -20,16 +20,17 @@ import (
 	"context"
 	"fmt"
 
-	"d8-controller/pkg/controller"
-	"d8-controller/pkg/logger"
 	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/storage/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"d8-controller/pkg/controller"
+	"d8-controller/pkg/logger"
 )
 
 const (
@@ -69,10 +70,10 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 			MountMode:         mountMode,
 			Timeout:           timeout,
 			Retransmissions:   retransmissions,
-			ReadOnly:          &readOnlyFalse,
+			ReadOnly:          readOnlyFalse,
 			ChmodPermissions:  chmodPermissions,
 			ReclaimPolicy:     string(corev1.PersistentVolumeReclaimDelete),
-			VolumeBindingMode: string(v1.VolumeBindingWaitForFirstConsumer),
+			VolumeBindingMode: string(storagev1.VolumeBindingWaitForFirstConsumer),
 		})
 
 		err := cl.Create(ctx, nfsSCtemplate)
@@ -86,7 +87,7 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		Expect(nsc.Name).To(Equal(nameForTestResource))
 		Expect(nsc.Finalizers).To(HaveLen(0))
 
-		scList := &v1.StorageClassList{}
+		scList := &storagev1.StorageClassList{}
 		err = cl.List(ctx, scList)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -99,7 +100,7 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		Expect(nsc.Finalizers).To(HaveLen(1))
 		Expect(nsc.Finalizers).To(ContainElement(controller.NFSStorageClassControllerFinalizerName))
 
-		sc := &v1.StorageClass{}
+		sc := &storagev1.StorageClass{}
 		err = cl.Get(ctx, client.ObjectKey{Name: nameForTestResource}, sc)
 		Expect(err).NotTo(HaveOccurred())
 		performStandartChecksForSc(sc, server, share)
@@ -117,7 +118,7 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 	})
 
 	It("Annotate_sc_as_default_sc", func() {
-		sc := &v1.StorageClass{}
+		sc := &storagev1.StorageClass{}
 		err := cl.Get(ctx, client.ObjectKey{Name: nameForTestResource}, sc)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(sc.Annotations).To(BeNil())
@@ -152,7 +153,7 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		Expect(nsc.Finalizers).To(HaveLen(1))
 		Expect(nsc.Finalizers).To(ContainElement(controller.NFSStorageClassControllerFinalizerName))
 
-		scList := &v1.StorageClassList{}
+		scList := &storagev1.StorageClassList{}
 		err = cl.List(ctx, scList)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -165,7 +166,7 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		Expect(nsc.Finalizers).To(HaveLen(1))
 		Expect(nsc.Finalizers).To(ContainElement(controller.NFSStorageClassControllerFinalizerName))
 
-		sc := &v1.StorageClass{}
+		sc := &storagev1.StorageClass{}
 		err = cl.Get(ctx, client.ObjectKey{Name: nameForTestResource}, sc)
 		Expect(err).NotTo(HaveOccurred())
 		performStandartChecksForSc(sc, server, share)
@@ -183,7 +184,7 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 	})
 
 	It("Check_anotated_sc_after_nsc_update", func() {
-		sc := &v1.StorageClass{}
+		sc := &storagev1.StorageClass{}
 		err := cl.Get(ctx, client.ObjectKey{Name: nameForTestResource}, sc)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(sc.Annotations).To(HaveLen(1))
@@ -209,7 +210,7 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		Expect(nsc.Finalizers).To(HaveLen(1))
 		Expect(nsc.Finalizers).To(ContainElement(controller.NFSStorageClassControllerFinalizerName))
 
-		scList := &v1.StorageClassList{}
+		scList := &storagev1.StorageClassList{}
 		err = cl.List(ctx, scList)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -222,7 +223,7 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		Expect(nsc.Finalizers).To(HaveLen(1))
 		Expect(nsc.Finalizers).To(ContainElement(controller.NFSStorageClassControllerFinalizerName))
 
-		sc := &v1.StorageClass{}
+		sc := &storagev1.StorageClass{}
 		err = cl.Get(ctx, client.ObjectKey{Name: nameForTestResource}, sc)
 		Expect(err).NotTo(HaveOccurred())
 		performStandartChecksForSc(sc, server, share)
@@ -260,7 +261,7 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		Expect(nsc.Finalizers).To(HaveLen(1))
 		Expect(nsc.Finalizers).To(ContainElement(controller.NFSStorageClassControllerFinalizerName))
 
-		scList := &v1.StorageClassList{}
+		scList := &storagev1.StorageClassList{}
 		err = cl.List(ctx, scList)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -273,7 +274,7 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		Expect(nsc.Finalizers).To(HaveLen(1))
 		Expect(nsc.Finalizers).To(ContainElement(controller.NFSStorageClassControllerFinalizerName))
 
-		sc := &v1.StorageClass{}
+		sc := &storagev1.StorageClass{}
 		err = cl.Get(ctx, client.ObjectKey{Name: nameForTestResource}, sc)
 		Expect(err).NotTo(HaveOccurred())
 		performStandartChecksForSc(sc, server, share)
@@ -303,7 +304,7 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		err = cl.Get(ctx, client.ObjectKey{Name: nameForTestResource}, nsc)
 		Expect(err).NotTo(HaveOccurred())
 
-		scList := &v1.StorageClassList{}
+		scList := &storagev1.StorageClassList{}
 		err = cl.List(ctx, scList)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -314,7 +315,7 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		err = cl.Get(ctx, client.ObjectKey{Name: nameForTestResource}, nsc)
 		Expect(k8serrors.IsNotFound(err)).To(BeTrue())
 
-		sc := &v1.StorageClass{}
+		sc := &storagev1.StorageClass{}
 		err = cl.Get(ctx, client.ObjectKey{Name: nameForTestResource}, sc)
 		Expect(k8serrors.IsNotFound(err)).To(BeTrue())
 
@@ -325,7 +326,7 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 	})
 
 	It("Create_nfs_sc_when_sc_with_another_provisioner_exists", func() {
-		sc := &v1.StorageClass{
+		sc := &storagev1.StorageClass{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: nameForTestResource,
 			},
@@ -341,9 +342,9 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 			Share:             share,
 			NFSVersion:        nfsVer,
 			MountMode:         mountMode,
-			ReadOnly:          &readOnlyFalse,
+			ReadOnly:          readOnlyFalse,
 			ReclaimPolicy:     string(corev1.PersistentVolumeReclaimDelete),
-			VolumeBindingMode: string(v1.VolumeBindingWaitForFirstConsumer),
+			VolumeBindingMode: string(storagev1.VolumeBindingWaitForFirstConsumer),
 		})
 
 		err = cl.Create(ctx, nfsSCtemplate)
@@ -353,7 +354,7 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		err = cl.Get(ctx, client.ObjectKey{Name: nameForTestResource}, nsc)
 		Expect(err).NotTo(HaveOccurred())
 
-		scList := &v1.StorageClassList{}
+		scList := &storagev1.StorageClassList{}
 		err = cl.List(ctx, scList)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -383,7 +384,7 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		Expect(nsc.Finalizers).To(ContainElement(controller.NFSStorageClassControllerFinalizerName))
 		Expect(nsc.DeletionTimestamp).NotTo(BeNil())
 
-		scList := &v1.StorageClassList{}
+		scList := &storagev1.StorageClassList{}
 		err = cl.List(ctx, scList)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -394,7 +395,7 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		err = cl.Get(ctx, client.ObjectKey{Name: nameForTestResource}, nsc)
 		Expect(k8serrors.IsNotFound(err)).To(BeTrue())
 
-		sc := &v1.StorageClass{}
+		sc := &storagev1.StorageClass{}
 		err = cl.Get(ctx, client.ObjectKey{Name: nameForTestResource}, sc)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(sc.Provisioner).To(Equal("test-provisioner"))
@@ -414,48 +415,53 @@ type NFSStorageClassConfig struct {
 	MountMode         string
 	Timeout           int
 	Retransmissions   int
-	ReadOnly          *bool
+	ReadOnly          bool
 	ChmodPermissions  string
 	ReclaimPolicy     string
 	VolumeBindingMode string
+	nodeSelector      metav1.LabelSelector
 }
 
 func generateNFSStorageClass(cfg NFSStorageClassConfig) *v1alpha1.NFSStorageClass {
-	return &v1alpha1.NFSStorageClass{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: cfg.Name,
-		},
-		Spec: v1alpha1.NFSStorageClassSpec{
-			Connection: &v1alpha1.NFSStorageClassConnection{
-				Host:       cfg.Host,
-				Share:      cfg.Share,
-				NFSVersion: cfg.NFSVersion,
-			},
-			MountOptions: &v1alpha1.NFSStorageClassMountOptions{
-				MountMode:       cfg.MountMode,
-				Timeout:         cfg.Timeout,
-				Retransmissions: cfg.Retransmissions,
-				ReadOnly:        cfg.ReadOnly,
-			},
-			ChmodPermissions:  cfg.ChmodPermissions,
-			ReclaimPolicy:     cfg.ReclaimPolicy,
-			VolumeBindingMode: cfg.VolumeBindingMode,
-		},
+	nfsStorageClass := &v1alpha1.NFSStorageClass{}
+	nfsStorageClass.Name = cfg.Name
+	nfsStorageClass.Spec.Connection = &v1alpha1.NFSStorageClassConnection{
+		Host:       cfg.Host,
+		Share:      cfg.Share,
+		NFSVersion: cfg.NFSVersion,
 	}
+	nfsStorageClass.Spec.MountOptions = &v1alpha1.NFSStorageClassMountOptions{
+		MountMode:       cfg.MountMode,
+		Timeout:         cfg.Timeout,
+		Retransmissions: cfg.Retransmissions,
+		ReadOnly:        &cfg.ReadOnly,
+	}
+
+	nfsStorageClass.Spec.ChmodPermissions = cfg.ChmodPermissions
+	nfsStorageClass.Spec.ReclaimPolicy = cfg.ReclaimPolicy
+	nfsStorageClass.Spec.VolumeBindingMode = cfg.VolumeBindingMode
+
+	if cfg.nodeSelector.MatchLabels != nil || cfg.nodeSelector.MatchExpressions != nil {
+		nfsStorageClass.Spec.WorkloadNodes = &v1alpha1.NFSStorageClassWorkloadNodes{
+			NodeSelector: &cfg.nodeSelector,
+		}
+	}
+
+	return nfsStorageClass
 }
 
 func BoolPtr(b bool) *bool {
 	return &b
 }
 
-func performStandartChecksForSc(sc *v1.StorageClass, server, share string) {
+func performStandartChecksForSc(sc *storagev1.StorageClass, server, share string) {
 	Expect(sc).NotTo(BeNil())
 	Expect(sc.Name).To(Equal(nameForTestResource))
 	Expect(sc.Finalizers).To(HaveLen(1))
 	Expect(sc.Finalizers).To(ContainElement(controller.NFSStorageClassControllerFinalizerName))
 	Expect(sc.Provisioner).To(Equal(controller.NFSStorageClassProvisioner))
 	Expect(*sc.ReclaimPolicy).To(Equal(corev1.PersistentVolumeReclaimDelete))
-	Expect(*sc.VolumeBindingMode).To(Equal(v1.VolumeBindingWaitForFirstConsumer))
+	Expect(*sc.VolumeBindingMode).To(Equal(storagev1.VolumeBindingWaitForFirstConsumer))
 	Expect(sc.Parameters).To(HaveKeyWithValue("server", server))
 	Expect(sc.Parameters).To(HaveKeyWithValue("share", share))
 	Expect(sc.Parameters).To(HaveKeyWithValue(controller.StorageClassSecretNameKey, controller.SecretForMountOptionsPrefix+nameForTestResource))

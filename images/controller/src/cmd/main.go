@@ -22,12 +22,9 @@ import (
 	"os"
 	goruntime "runtime"
 
-	"d8-controller/pkg/config"
-	"d8-controller/pkg/controller"
-	"d8-controller/pkg/kubutils"
-	"d8-controller/pkg/logger"
 	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	commonfeature "github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature"
+	snapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumesnapshot/v1"
 	v1 "k8s.io/api/core/v1"
 	sv1 "k8s.io/api/storage/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -37,6 +34,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+
+	"d8-controller/pkg/config"
+	"d8-controller/pkg/controller"
+	"d8-controller/pkg/kubutils"
+	"d8-controller/pkg/logger"
 )
 
 var (
@@ -46,6 +48,7 @@ var (
 		extv1.AddToScheme,
 		v1.AddToScheme,
 		sv1.AddToScheme,
+		snapshotv1.AddToScheme,
 	}
 )
 
@@ -117,6 +120,8 @@ func main() {
 		log.Error(err, fmt.Sprintf("[main] unable to run %s", controller.ModuleConfigCtrlName))
 		os.Exit(1)
 	}
+
+	controller.RunNodeSelectorReconciler(ctx, mgr, *cfgParams, *log)
 
 	if err = mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		log.Error(err, "[main] unable to mgr.AddHealthzCheck")
