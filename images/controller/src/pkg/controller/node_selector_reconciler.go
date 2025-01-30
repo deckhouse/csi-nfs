@@ -59,17 +59,17 @@ var (
 )
 
 func RunNodeSelectorReconciler(ctx context.Context, mgr manager.Manager, cfg config.Options, log logger.Logger) {
-	// cl := mgr.GetClient()
+	cl := mgr.GetClient()
 
-	// clusterWideClient := mgr.GetAPIReader()
+	clusterWideClient := mgr.GetAPIReader()
 	go func() {
 		for {
-			// log.Info("Start reconcile of NFS node selectors.")
-			// err := ReconcileNodeSelector(ctx, cl, clusterWideClient, log, cfg.ControllerNamespace)
-			// if err != nil {
-			// 	log.Error(err, "Failed reconcile of NFS node selectors.")
-			// }
-			// log.Info("END reconcile of NFS node selectors.")
+			log.Info("Start reconcile of NFS node selectors.")
+			err := ReconcileNodeSelector(ctx, cl, clusterWideClient, log, cfg.ControllerNamespace)
+			if err != nil {
+				log.Error(err, "Failed reconcile of NFS node selectors.")
+			}
+			log.Info("END reconcile of NFS node selectors.")
 
 			// log.Info("Start reconcile of module pods.")
 			// err = ReconcileModulePods(ctx, cl, clusterWideClient, log, cfg.ControllerNamespace, NFSNodeSelector, ModulePodSelectorList)
@@ -115,11 +115,11 @@ func ReconcileNodeSelector(ctx context.Context, cl client.Client, clusterWideCli
 			selectedNodeNames = append(selectedNodeNames, node.Name)
 		}
 		log.Info(fmt.Sprintf("[reconcileNodeSelector] Found %d nodes: %v; by user node selector list: %+v.", len(selectedNodes.Items), selectedNodeNames, userNodeSelectorList))
-		log.Trace(fmt.Sprintf("[reconcileNodeSelector] Nodes: %+v", selectedNodes.Items))
+		// log.Trace(fmt.Sprintf("[reconcileNodeSelector] Nodes: %+v", selectedNodes.Items))
 
 		for _, node := range selectedNodes.Items {
 			log.Info(fmt.Sprintf("[reconcileNodeSelector] Process labels for node: %s", node.Name))
-			err := AddLabelsToNode(ctx, cl, log, node, nfsNodeLabels)
+			err := AddLabelsToNodeIfNeeded(ctx, cl, log, node, nfsNodeLabels)
 			if err != nil {
 				err = fmt.Errorf("[reconcileNodeSelector] Failed add labels %+v to node: %s: %w", nfsNodeLabels, node.Name, err)
 				return err
@@ -270,8 +270,8 @@ func GetNodesBySelector(ctx context.Context, cl client.Client, nodeSelector map[
 	return selectedK8sNodes, err
 }
 
-func AddLabelsToNode(ctx context.Context, cl client.Client, log logger.Logger, node corev1.Node, labels map[string]string) error {
-	log.Debug(fmt.Sprintf("[AddLabelsToNode] node labels: %+v", node.Labels))
+func AddLabelsToNodeIfNeeded(ctx context.Context, cl client.Client, log logger.Logger, node corev1.Node, labels map[string]string) error {
+	log.Trace(fmt.Sprintf("[AddLabelsToNode] node labels: %+v", node.Labels))
 	_, added := AddLabelsIfNeeded(log, node.Labels, labels)
 	if !added {
 		log.Debug(fmt.Sprintf("[AddLabelsToNode] Node %s already has labels %v. Skip add labels to node.", node.Name, labels))
