@@ -2,11 +2,7 @@ package handlers
 
 import (
 	"context"
-<<<<<<< HEAD
 	"fmt"
-=======
-	"encoding/json"
->>>>>>> main
 
 	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	commonvalidating "github.com/deckhouse/csi-nfs/lib/go/common/pkg/validating"
@@ -15,12 +11,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
-<<<<<<< HEAD
-=======
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	mc "webhooks/api"
->>>>>>> main
 )
 
 const (
