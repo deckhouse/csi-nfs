@@ -119,11 +119,11 @@ func ReconcileNodeSelector(ctx context.Context, cl client.Client, clusterWideCli
 
 		for _, node := range selectedNodes.Items {
 			log.Info(fmt.Sprintf("[reconcileNodeSelector] Process labels for node: %s", node.Name))
-			err := AddLabelsToNodeIfNeeded(ctx, cl, log, node, nfsNodeLabels)
-			if err != nil {
-				err = fmt.Errorf("[reconcileNodeSelector] Failed add labels %+v to node: %s: %w", nfsNodeLabels, node.Name, err)
-				return err
-			}
+			// err := AddLabelsToNodeIfNeeded(ctx, cl, log, node, nfsNodeLabels)
+			// if err != nil {
+			// 	err = fmt.Errorf("[reconcileNodeSelector] Failed add labels %+v to node: %s: %w", nfsNodeLabels, node.Name, err)
+			// 	return err
+			// }
 		}
 	}
 
