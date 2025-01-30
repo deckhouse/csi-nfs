@@ -59,17 +59,17 @@ var (
 )
 
 func RunNodeSelectorReconciler(ctx context.Context, mgr manager.Manager, cfg config.Options, log logger.Logger) {
-	cl := mgr.GetClient()
+	// cl := mgr.GetClient()
 
-	clusterWideClient := mgr.GetAPIReader()
+	// clusterWideClient := mgr.GetAPIReader()
 	go func() {
 		for {
-			log.Info("Start reconcile of NFS node selectors.")
-			err := ReconcileNodeSelector(ctx, cl, clusterWideClient, log, cfg.ControllerNamespace)
-			if err != nil {
-				log.Error(err, "Failed reconcile of NFS node selectors.")
-			}
-			log.Info("END reconcile of NFS node selectors.")
+			// log.Info("Start reconcile of NFS node selectors.")
+			// err := ReconcileNodeSelector(ctx, cl, clusterWideClient, log, cfg.ControllerNamespace)
+			// if err != nil {
+			// 	log.Error(err, "Failed reconcile of NFS node selectors.")
+			// }
+			// log.Info("END reconcile of NFS node selectors.")
 
 			// log.Info("Start reconcile of module pods.")
 			// err = ReconcileModulePods(ctx, cl, clusterWideClient, log, cfg.ControllerNamespace, NFSNodeSelector, ModulePodSelectorList)
