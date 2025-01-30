@@ -71,12 +71,12 @@ func RunNodeSelectorReconciler(ctx context.Context, mgr manager.Manager, cfg con
 			}
 			log.Info("END reconcile of NFS node selectors.")
 
-			log.Info("Start reconcile of module pods.")
-			err = ReconcileModulePods(ctx, cl, clusterWideClient, log, cfg.ControllerNamespace, NFSNodeSelector, ModulePodSelectorList)
-			if err != nil {
-				log.Error(err, "Failed reconcile of module pods.")
-			}
-			log.Info("END reconcile of module pods.")
+			// log.Info("Start reconcile of module pods.")
+			// err = ReconcileModulePods(ctx, cl, clusterWideClient, log, cfg.ControllerNamespace, NFSNodeSelector, ModulePodSelectorList)
+			// if err != nil {
+			// 	log.Error(err, "Failed reconcile of module pods.")
+			// }
+			// log.Info("END reconcile of module pods.")
 
 			timer := time.NewTimer(cfg.RequeueNodeSelectorInterval * time.Second)
 
