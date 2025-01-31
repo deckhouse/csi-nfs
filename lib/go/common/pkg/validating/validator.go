@@ -86,6 +86,11 @@ func ValidateNFSStorageClass(nfsModuleConfig *cn.ModuleConfig, nsc *cn.NFSStorag
 				}
 			}
 		}
+	} else {
+		_, ok := nfsModuleConfig.Spec.Settings["tlsParameters"]
+		if nsc.Spec.Connection.Tls || nsc.Spec.Connection.Mtls || ok {
+			return fmt.Errorf("RPC-with-TLS related parameters are not allowed because feature TLSEnabled: false")
+		}
 	}
 
 	return nil
