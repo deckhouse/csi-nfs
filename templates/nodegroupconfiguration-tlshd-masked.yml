@@ -25,8 +25,17 @@ spec:
     # See the License for the specific language governing permissions and
     # limitations under the License.
 
+    kubeconfig="/etc/kubernetes/kubelet.conf"
+    is_csi_nfs_node=$(bb-kubectl --kubeconfig $kubeconfig  get node "$(hostname)" -o json | jq -c '.metadata.labels | contains({"storage.deckhouse.io/csi-nfs-node":""})')
+    bb-log-info "is_csi_nfs_node: "$is_csi_nfs_node
+
+    if [ "$is_csi_nfs_node" == "false" ]; then
+      bb-log-info "This node is not a CSI NFS node. Skipping masking."
+      exit 0
+    fi
+
     systemctl --version || {
-      echo "The operating system does not use the system manager systemd. Masking is skipped."
+      echo "The operating system does not use the system manager systemd. Skipping masking."
       exit 0
     }
 
@@ -34,7 +43,7 @@ spec:
 
     systemctl is-enabled $UNIT_FILE >/dev/null || {
       if [ $? -eq 4 ]; then
-        bb-log-info "The unit file '$UNIT_FILE' doesn't exist. Masking is skipped."
+        bb-log-info "The unit file '$UNIT_FILE' doesn't exist. Skipping masking."
         exit 0
       fi
     }
