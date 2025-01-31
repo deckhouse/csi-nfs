@@ -46,7 +46,7 @@ jobs:
               pseudo_tag=$(echo "$line" | awk '{print $2}')
               
               go_pkg=$(echo "$line" | awk '{print $1}')
-              if [ grep "^replace $go_pkg" $go_mod_file ];then
+              if grep -q "^replace $go_pkg" $go_mod_file ;then
                 echo "Skipping $go_pkg check because it exists in replacement"
                 continue
               fi
