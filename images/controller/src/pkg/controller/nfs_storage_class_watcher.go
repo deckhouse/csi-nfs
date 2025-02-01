@@ -23,8 +23,6 @@ import (
 	"reflect"
 	"time"
 
-	"d8-controller/pkg/config"
-	"d8-controller/pkg/logger"
 	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	commonvalidating "github.com/deckhouse/csi-nfs/lib/go/common/pkg/validating"
 	corev1 "k8s.io/api/core/v1"
@@ -39,6 +37,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	"d8-controller/pkg/config"
+	"d8-controller/pkg/logger"
 )
 
 const (
