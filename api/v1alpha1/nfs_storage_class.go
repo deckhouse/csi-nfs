@@ -45,6 +45,7 @@ type NFSStorageClassSpec struct {
 	ReclaimPolicy     string                        `json:"reclaimPolicy"`
 	VolumeBindingMode string                        `json:"volumeBindingMode"`
 	WorkloadNodes     *NFSStorageClassWorkloadNodes `json:"workloadNodes,omitempty"`
+	SecureErase       string                        `json:"secureErase,omitempty"`
 }
 
 // +k8s:deepcopy-gen=true
