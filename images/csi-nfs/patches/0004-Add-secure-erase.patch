@@ -1,13 +1,13 @@
-From b9d2b3922660f904eb7c2e0bfb6091da38dec77d Mon Sep 17 00:00:00 2001
+From f2993db6160b941726ac0915382b03d6304b1048 Mon Sep 17 00:00:00 2001
 From: Aleksandr Zimin <alexandr.zimin@flant.com>
-Date: Sat, 1 Feb 2025 03:16:57 +0300
+Date: Sat, 1 Feb 2025 03:50:04 +0300
 Subject: [PATCH] Add secure erase
 
 Signed-off-by: Aleksandr Zimin <alexandr.zimin@flant.com>
 ---
  pkg/nfs/controllerserver.go |  19 ++++-
- pkg/nfs/secure_erase.go     | 143 ++++++++++++++++++++++++++++++++++++
- 2 files changed, 159 insertions(+), 3 deletions(-)
+ pkg/nfs/secure_erase.go     | 145 ++++++++++++++++++++++++++++++++++++
+ 2 files changed, 161 insertions(+), 3 deletions(-)
  create mode 100644 pkg/nfs/secure_erase.go
 
 diff --git a/pkg/nfs/controllerserver.go b/pkg/nfs/controllerserver.go
@@ -42,10 +42,10 @@ index d8af15da..51b3f8ff 100644
  	} else {
 diff --git a/pkg/nfs/secure_erase.go b/pkg/nfs/secure_erase.go
 new file mode 100644
-index 00000000..09acb0d2
+index 00000000..8dd3c2a9
 --- /dev/null
 +++ b/pkg/nfs/secure_erase.go
-@@ -0,0 +1,143 @@
+@@ -0,0 +1,145 @@
 +/*
 +Copyright 2025 The Kubernetes Authors.
 +
@@ -166,10 +166,11 @@ index 00000000..09acb0d2
 +		return fmt.Errorf("discard (punch hole) failed for file %s: %w", filePath, err)
 +	}
 +
-+	klog.V(4).Infof("Discarding file %s completed. Removing file", filePath)
-+	if err := os.Remove(filePath); err != nil {
-+		return fmt.Errorf("failed to remove file %s after discard: %w", filePath, err)
-+	}
++	klog.V(4).Infof("Discarding file %s completed.", filePath)
++	// klog.V(4).Infof("Discarding file %s completed. Removing file", filePath)
++	// if err := os.Remove(filePath); err != nil {
++	// 	return fmt.Errorf("failed to remove file %s after discard: %w", filePath, err)
++	// }
 +
 +	return nil
 +}
@@ -182,10 +183,11 @@ index 00000000..09acb0d2
 +		return fmt.Errorf("shred shred failed for file %s: %w, output: %s", filePath, err, string(out))
 +	}
 +
-+	klog.V(4).Infof("Shredding file %s completed. Removing file", filePath)
-+	if err := os.Remove(filePath); err != nil {
-+		return fmt.Errorf("failed to remove file %s after shred: %w", filePath, err)
-+	}
++	klog.V(4).Infof("Shredding file %s completed.", filePath)
++	// klog.V(4).Infof("Shredding file %s completed. Removing file", filePath)
++	// if err := os.Remove(filePath); err != nil {
++	// 	return fmt.Errorf("failed to remove file %s after shred: %w", filePath, err)
++	// }
 +
 +	return nil
 +}
