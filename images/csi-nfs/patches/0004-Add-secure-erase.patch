@@ -1,23 +1,24 @@
-From f2993db6160b941726ac0915382b03d6304b1048 Mon Sep 17 00:00:00 2001
+From df112b3065ca867a1c8584e95cbd78d9373ebdba Mon Sep 17 00:00:00 2001
 From: Aleksandr Zimin <alexandr.zimin@flant.com>
-Date: Sat, 1 Feb 2025 03:50:04 +0300
+Date: Sun, 2 Feb 2025 13:49:52 +0300
 Subject: [PATCH] Add secure erase
 
 Signed-off-by: Aleksandr Zimin <alexandr.zimin@flant.com>
 ---
- pkg/nfs/controllerserver.go |  19 ++++-
+ pkg/nfs/controllerserver.go |  21 +++++-
  pkg/nfs/secure_erase.go     | 145 ++++++++++++++++++++++++++++++++++++
- 2 files changed, 161 insertions(+), 3 deletions(-)
+ 2 files changed, 162 insertions(+), 4 deletions(-)
  create mode 100644 pkg/nfs/secure_erase.go
 
 diff --git a/pkg/nfs/controllerserver.go b/pkg/nfs/controllerserver.go
-index d8af15da..51b3f8ff 100644
+index d8af15da..a84673e6 100644
 --- a/pkg/nfs/controllerserver.go
 +++ b/pkg/nfs/controllerserver.go
-@@ -259,9 +259,22 @@ func (cs *ControllerServer) DeleteVolume(ctx context.Context, req *csi.DeleteVol
+@@ -258,11 +258,24 @@ func (cs *ControllerServer) DeleteVolume(ctx context.Context, req *csi.DeleteVol
+ 				return nil, status.Errorf(codes.Internal, "archive subdirectory(%s, %s) failed with %v", internalVolumePath, archivedInternalVolumePath, err.Error())
  			}
  		} else {
- 			// delete subdirectory under base-dir
+-			// delete subdirectory under base-dir
 -			klog.V(2).Infof("removing subdirectory at %v", internalVolumePath)
 -			if err = os.RemoveAll(internalVolumePath); err != nil {
 -				return nil, status.Errorf(codes.Internal, "delete subdirectory(%s) failed with %v", internalVolumePath, err.Error())
@@ -32,14 +33,16 @@ index d8af15da..51b3f8ff 100644
 +				if err != nil {
 +					return nil, status.Errorf(codes.Internal, "secure erase failed with %v", err.Error())
 +				}
-+			} else {
-+				klog.V(2).Infof("secure erase disabled. Removing subdirectory at %v", internalVolumePath)
-+				if err = os.RemoveAll(internalVolumePath); err != nil {
-+					return nil, status.Errorf(codes.Internal, "delete subdirectory(%s) failed with %v", internalVolumePath, err.Error())
-+				}
  			}
++
++			// delete subdirectory under base-dir
++			// klog.V(2).Infof("removing subdirectory at %v", internalVolumePath)
++			// if err = os.RemoveAll(internalVolumePath); err != nil {
++			// 	return nil, status.Errorf(codes.Internal, "delete subdirectory(%s) failed with %v", internalVolumePath, err.Error())
++			// }
  		}
  	} else {
+ 		klog.V(2).Infof("DeleteVolume: volume(%s) is set to retain, not deleting/archiving subdirectory", volumeID)
 diff --git a/pkg/nfs/secure_erase.go b/pkg/nfs/secure_erase.go
 new file mode 100644
 index 00000000..8dd3c2a9
