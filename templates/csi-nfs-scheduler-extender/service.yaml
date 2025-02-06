@@ -1,5 +1,5 @@
 {{- if .Values.csiNfs.internal.shedulerExtenderEnabled }}
-{{- if or (eq "dev" .Values.global.deckhouseVersion) (semverCompare ">=1.64" .Values.global.deckhouseVersion) }}
+{{- if or (or (hasPrefix "dev" .Values.global.deckhouseVersion) (hasSuffix "dev" .Values.global.deckhouseVersion)) (semverCompare ">=1.64" .Values.global.deckhouseVersion) }}
 ---
 apiVersion: v1
 kind: Service
