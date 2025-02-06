@@ -51,7 +51,7 @@ moduleStatus: experimental
    EOF
    ```
 
-1. Дождитесь, когда модуль перейдет в состояние `Ready`:
+2. Дождитесь, когда модуль перейдет в состояние `Ready`:
 
    ```shell
    kubectl get module csi-nfs -w
