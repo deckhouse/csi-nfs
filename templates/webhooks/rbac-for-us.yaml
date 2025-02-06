@@ -19,9 +19,7 @@ rules:
     verbs:
       - get
       - watch
-      - update
       - list
-      - patch
   - apiGroups:
       - storage.deckhouse.io
     resources:

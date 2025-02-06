@@ -84,6 +84,14 @@ rules:
       - watch
       - update
   - apiGroups:
+      - deckhouse.io
+    resources:
+      - moduleconfigs
+    verbs:
+      - get
+      - watch
+      - list
+  - apiGroups:
       - snapshot.storage.k8s.io
     resources:
       - volumesnapshots

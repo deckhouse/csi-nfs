@@ -4,20 +4,25 @@ go 1.23.4
 
 require (
 	github.com/deckhouse/csi-nfs/api v0.0.0-20250116103144-d23aedd591a3
+	github.com/deckhouse/csi-nfs/lib/go/common v0.0.0-20250116103144-d23aedd591a3
 	github.com/go-logr/logr v1.4.2
 	github.com/kubernetes-csi/external-snapshotter/client/v8 v8.2.0
 	github.com/onsi/ginkgo/v2 v2.22.2
 	github.com/onsi/gomega v1.36.2
-	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.32.1
 	k8s.io/apiextensions-apiserver v0.32.1
 	k8s.io/apimachinery v0.32.1
 	k8s.io/client-go v0.32.1
 	k8s.io/klog/v2 v2.130.1
+	k8s.io/utils v0.0.0-20241210054802-24370beab758
 	sigs.k8s.io/controller-runtime v0.20.0
 )
 
+// Do not combine multiple replacements into a single block,
+// as this will break the CI workflow "Check Go module version."
 replace github.com/deckhouse/csi-nfs/api => ../../../api
+
+replace github.com/deckhouse/csi-nfs/lib/go/common => ../../../lib/go/common
 
 require (
 	github.com/beorn7/perks v1.0.1 // indirect
@@ -65,8 +70,8 @@ require (
 	google.golang.org/protobuf v1.36.3 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20241212222426-2c72e554b1e7 // indirect
-	k8s.io/utils v0.0.0-20241210054802-24370beab758 // indirect
 	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.5.0 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect

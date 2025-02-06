@@ -23,6 +23,7 @@ import (
 	"os"
 
 	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
+	commonfeature "github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature"
 	"github.com/sirupsen/logrus"
 	kwhlogrus "github.com/slok/kubewebhook/v2/pkg/log/logrus"
 	storagev1 "k8s.io/api/storage/v1"
@@ -54,6 +55,7 @@ const (
 	port           = ":8443"
 	NSCValidatorID = "NSCValidator"
 	SCValidatorID  = "SCValidator"
+	MCValidatorID  = "MCValidator"
 )
 
 func main() {
@@ -75,10 +77,19 @@ func main() {
 		os.Exit(1)
 	}
 
+	mcValidatingWebhookHandler, err := handlers.GetValidatingWebhookHandler(handlers.MCValidate, MCValidatorID, &cn.ModuleConfig{}, logger)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error creating mcValidatingWebhookHandler: %s", err)
+		os.Exit(1)
+	}
+
 	mux := http.NewServeMux()
 	mux.Handle("/sc-validate", scValidatingWebhookHandler)
 	mux.Handle("/nsc-validate", nscValidatingWebhookHandler)
+	mux.Handle("/mc-validate", mcValidatingWebhookHandler)
 	mux.HandleFunc("/healthz", httpHandlerHealthz)
+
+	logger.Infof("Feature TLSEnabled:%v", commonfeature.TLSEnabled)
 
 	logger.Infof("Listening on %s", port)
 	err = http.ListenAndServeTLS(port, cfg.certFile, cfg.keyFile, mux)

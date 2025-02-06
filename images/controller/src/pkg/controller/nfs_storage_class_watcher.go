@@ -24,6 +24,7 @@ import (
 	"time"
 
 	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
+	commonvalidating "github.com/deckhouse/csi-nfs/lib/go/common/pkg/validating"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/storage/v1"
 	k8serr "k8s.io/apimachinery/pkg/api/errors"
@@ -100,6 +101,25 @@ func RunNFSStorageClassWatcherController(
 			if nsc.Name == "" {
 				log.Info(fmt.Sprintf("[NFSStorageClassReconciler] seems like the NFSStorageClass for the request %s was deleted. Reconcile retrying will stop.", request.Name))
 				return reconcile.Result{}, nil
+			}
+
+			if nsc.DeletionTimestamp == nil {
+				nfsModuleConfig := &v1alpha1.ModuleConfig{}
+				err := cl.Get(ctx, types.NamespacedName{Name: cfg.CsiNfsModuleName, Namespace: ""}, nfsModuleConfig)
+				if err != nil {
+					log.Error(err, fmt.Sprintf("[NFSStorageClassReconciler] unable to get ModuleConfig, name: %s", cfg.CsiNfsModuleName))
+					return reconcile.Result{}, err
+				}
+
+				if err := commonvalidating.ValidateNFSStorageClass(nfsModuleConfig, nsc); err != nil {
+					log.Error(err, "[NFSStorageClassReconciler] invalid NFSStorageClass")
+					upError := updateNFSStorageClassPhase(ctx, cl, nsc, FailedStatusPhase, err.Error())
+					if upError != nil {
+						upError = fmt.Errorf("[NFSStorageClassReconciler] invalid NFSStorageClass %s: %w", nsc.Name, upError)
+						err = errors.Join(err, upError)
+					}
+					return reconcile.Result{}, err
+				}
 			}
 
 			scList := &v1.StorageClassList{}

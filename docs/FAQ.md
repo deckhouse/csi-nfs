@@ -3,9 +3,9 @@ title: "The csi-nfs module: FAQ"
 description: CSI NFS module FAQ
 ---
 
-## How to check module health?
+## How to check the module's functionality?
 
-To do this, you need to check the status of the pods in the `d8-csi-nfs` namespace. All pods should be in the `Running` or `Completed` state and should be running on all nodes.
+To do this, you need to check the pod statuses in the `d8-csi-nfs` namespace. All pods should be in the `Running` or `Completed` state and should be running on all nodes. You can check this with the following command:
 
 ```shell
 kubectl -n d8-csi-nfs get pod -owide -w
@@ -13,56 +13,65 @@ kubectl -n d8-csi-nfs get pod -owide -w
 
 ## Is it possible to change the parameters of an NFS server for already created PVs?
 
-No, the connection data to the NFS server is stored directly in the PV manifest and cannot be changed. Changing the Storage Class also does not affect the connection settings in already existing PVs.
+No, the connection data to the NFS server is stored directly in the PV manifest and cannot be changed. Changing the StorageClass also does not affect the connection settings in already existing PVs.
 
-## How to Create Volume Snapshots?
+## How to create volume snapshots?
 
-In `csi-nfs`, snapshots are created by archiving the volume directory. The archive is saved in the root folder of the NFS server specified in the `spec.connection.share` parameter.
+In `csi-nfs`, snapshots are created by archiving the volume folder. The archive is stored in the root of the NFS server folder specified in the `spec.connection.share` parameter.
 
-### Step 1: Enabling the snapshot-controller
+1. Enable the `snapshot-controller`:
 
-First, you need to enable the snapshot-controller:
+   ```yaml
+   kubectl apply -f -<<EOF
+   apiVersion: deckhouse.io/v1alpha1
+   kind: ModuleConfig
+   metadata:
+     name: snapshot-controller
+   spec:
+     enabled: true
+     version: 1
+   EOF
+   ```
 
-```shell
-kubectl apply -f -<<EOF
-apiVersion: deckhouse.io/v1alpha1
-kind: ModuleConfig
-metadata:
-  name: snapshot-controller
-spec:
-  enabled: true
-  version: 1
-EOF
+1. Create volume snapshots. To do this, run the following command, specifying the required parameters:
 
-```
+   ```yaml
+   kubectl apply -f -<<EOF
+   apiVersion: snapshot.storage.k8s.io/v1
+   kind: VolumeSnapshot
+   metadata:
+     name: my-snapshot
+     namespace: <namespace name where the PVC is located>
+   spec:
+     volumeSnapshotClassName: csi-nfs-snapshot-class
+     source:
+       persistentVolumeClaimName: <PVC name for which you need to create the snapshot>
+   EOF
+   ```
 
-### Step 2: Creating a Volume Snapshot
+1. Check the status of the created snapshot using the following command:
 
-Now you can create volume snapshots. To do this, execute the following command with the necessary parameters:
-
-```shell
-kubectl apply -f -<<EOF
-apiVersion: snapshot.storage.k8s.io/v1
-kind: VolumeSnapshot
-metadata:
-  name: my-snapshot
-  namespace: <name of the namespace where the PVC is located>
-spec:
-  volumeSnapshotClassName: csi-nfs-snapshot-class
-  source:
-    persistentVolumeClaimName: <name of the PVC to snapshot>
-EOF
-
-```
-
-
-### Step 3: Checking the Snapshot Status
-
-To check the status of the created snapshot, execute the command:
-
-```shell
-kubectl get volumesnapshot
-
-```
+   ```shell
+   kubectl get volumesnapshot
+   ```
 
 This command will display a list of all snapshots and their current status.
+
+## Why are PVs created in a StorageClass with RPC-with-TLS support not being deleted, along with their `<PV name>` directories on the NFS server?
+
+If the [NFSStorageClass](./cr.html#nfsstorageclass) resource was configured with RPC-with-TLS support, there might be a situation where the PV fails to be deleted.
+This happens due to the removal of the secret (for example, after deleting `NFSStorageClass`), which holds the mount options. As a result, the controller is unable to mount the NFS folder to delete the `<PV name>` folder.
+
+## How to place multiple CAs in the `tlsParameters.ca` setting in ModuleConfig?
+
+- for two CAs
+```shell
+cat CA1.crt CA2.crt | base64 -w0
+```
+
+- for three CAs
+```shell
+cat CA1.crt CA2.crt CA3.crt | base64 -w0
+```
+
+- and so on

@@ -23,6 +23,7 @@ import (
 	goruntime "runtime"
 
 	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
+	commonfeature "github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature"
 	snapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumesnapshot/v1"
 	v1 "k8s.io/api/core/v1"
 	sv1 "k8s.io/api/storage/v1"
@@ -63,6 +64,8 @@ func main() {
 
 	log.Info(fmt.Sprintf("[main] Go Version:%s ", goruntime.Version()))
 	log.Info(fmt.Sprintf("[main] OS/Arch:Go OS/Arch:%s/%s ", goruntime.GOOS, goruntime.GOARCH))
+
+	log.Info(fmt.Sprintf("[main] Feature TLSEnabled:%v", commonfeature.TLSEnabled))
 
 	log.Info("[main] CfgParams has been successfully created")
 	log.Info(fmt.Sprintf("[main] %s = %s", config.LogLevelEnvName, cfgParams.Loglevel))
@@ -110,6 +113,11 @@ func main() {
 
 	if _, err = controller.RunNFSStorageClassWatcherController(mgr, *cfgParams, *log); err != nil {
 		log.Error(err, fmt.Sprintf("[main] unable to run %s", controller.NFSStorageClassCtrlName))
+		os.Exit(1)
+	}
+
+	if _, err = controller.RunModuleConfigWatcherController(mgr, *cfgParams, *log); err != nil {
+		log.Error(err, fmt.Sprintf("[main] unable to run %s", controller.ModuleConfigCtrlName))
 		os.Exit(1)
 	}
 

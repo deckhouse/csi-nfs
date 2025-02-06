@@ -52,6 +52,8 @@ type NFSStorageClassConnection struct {
 	Host       string `json:"host"`
 	Share      string `json:"share"`
 	NFSVersion string `json:"nfsVersion"`
+	Tls        bool   `json:"tls"`
+	Mtls       bool   `json:"mtls"`
 }
 
 // +k8s:deepcopy-gen=true

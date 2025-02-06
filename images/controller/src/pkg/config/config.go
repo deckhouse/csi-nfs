@@ -29,6 +29,8 @@ const (
 	DefaultHealthProbeBindAddressEnvName = "HEALTH_PROBE_BIND_ADDRESS"
 	DefaultHealthProbeBindAddress        = ":8081"
 	DefaultRequeueStorageClassInterval   = 10
+	DefaultRequeueModuleConfigInterval   = 10
+	CsiNfsModuleName                     = "csi-nfs"
 	DefaultRequeueNodeSelectorInterval   = 10
 	ConfigSecretName                     = "d8-csi-nfs-controller-config"
 )
@@ -36,10 +38,12 @@ const (
 type Options struct {
 	Loglevel                    logger.Verbosity
 	RequeueStorageClassInterval time.Duration
+	RequeueModuleConfigInterval time.Duration
 	RequeueNodeSelectorInterval time.Duration
 	ConfigSecretName            string
 	HealthProbeBindAddress      string
 	ControllerNamespace         string
+	CsiNfsModuleName            string
 }
 
 func NewConfig() *Options {
@@ -71,6 +75,9 @@ func NewConfig() *Options {
 	}
 
 	opts.RequeueStorageClassInterval = DefaultRequeueStorageClassInterval
+	opts.RequeueModuleConfigInterval = DefaultRequeueModuleConfigInterval
+
+	opts.CsiNfsModuleName = CsiNfsModuleName
 	opts.RequeueNodeSelectorInterval = DefaultRequeueNodeSelectorInterval
 	opts.ConfigSecretName = ConfigSecretName
 

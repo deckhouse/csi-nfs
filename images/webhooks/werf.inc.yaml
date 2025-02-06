@@ -8,6 +8,7 @@ git:
     to: /src
     includePaths:
       - api
+      - lib/go
       - images/{{ $.ImageName }}/src
     stageDependencies:
       install:
@@ -32,7 +33,7 @@ shell:
   setup:
     - cd /src/images/{{ $.ImageName }}/src/cmd
     - export CGO_ENABLED=0 GOOS=linux GOARCH=amd64
-    - go build -ldflags="-s -w" -o /webhooks
+    - go build -ldflags="-s -w" -tags {{ $.Root.MODULE_EDITION }} -o /webhooks
     - chmod +x /webhooks
 
 ---

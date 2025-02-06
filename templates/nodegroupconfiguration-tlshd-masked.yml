@@ -1,0 +1,60 @@
+{{- if .Values.csiNfs.internal.featureTLSEnabled }}
+{{- if .Values.csiNfs.tlsParameters.ca }}
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: NodeGroupConfiguration
+metadata:
+  name: tlshd-masked.sh
+  {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
+spec:
+  weight: 98
+  nodeGroups: [ "*" ]
+  bundles: [ "ubuntu-lts", "debian", "astra", "centos", "redos", "altlinux" ]
+  content: |
+    # Copyright 2024 Flant JSC
+    #
+    # Licensed under the Apache License, Version 2.0 (the "License");
+    # you may not use this file except in compliance with the License.
+    # You may obtain a copy of the License at
+    #
+    #     http://www.apache.org/licenses/LICENSE-2.0
+    #
+    # Unless required by applicable law or agreed to in writing, software
+    # distributed under the License is distributed on an "AS IS" BASIS,
+    # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    # See the License for the specific language governing permissions and
+    # limitations under the License.
+
+    kubeconfig="/etc/kubernetes/kubelet.conf"
+    is_csi_nfs_node=$(bb-kubectl --kubeconfig $kubeconfig  get node "$(hostname)" -o json | jq -c '.metadata.labels | contains({"storage.deckhouse.io/csi-nfs-node":""})')
+    bb-log-info "is_csi_nfs_node: "$is_csi_nfs_node
+
+    if [ "$is_csi_nfs_node" == "false" ]; then
+      bb-log-info "This node is not a CSI NFS node. Skipping masking."
+      exit 0
+    fi
+
+    systemctl --version || {
+      echo "The operating system does not use the system manager systemd. Skipping masking."
+      exit 0
+    }
+
+    UNIT_FILE=tlshd.service
+
+    systemctl is-enabled $UNIT_FILE >/dev/null || {
+      if [ $? -eq 4 ]; then
+        bb-log-info "The unit file '$UNIT_FILE' doesn't exist. Skipping masking."
+        exit 0
+      fi
+    }
+
+    bb-log-info "The unit $UNIT_FILE is stopping."
+    systemctl stop $UNIT_FILE
+
+    bb-log-info "The unit $UNIT_FILE is disabling autostart."
+    systemctl disable $UNIT_FILE 2>/dev/null
+
+    bb-log-info "The unit $UNIT_FILE is masking."
+    systemctl mask $UNIT_FILE
+{{- end }}
+{{- end }}

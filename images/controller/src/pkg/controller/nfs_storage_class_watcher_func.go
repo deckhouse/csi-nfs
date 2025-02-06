@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
+	commonfeature "github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -588,6 +589,14 @@ func GetSCMountOptions(nsc *v1alpha1.NFSStorageClass) []string {
 
 	if nsc.Spec.Connection.NFSVersion != "" {
 		mountOptions = append(mountOptions, "nfsvers="+nsc.Spec.Connection.NFSVersion)
+	}
+
+	if commonfeature.TLSEnabled {
+		if nsc.Spec.Connection.Mtls {
+			mountOptions = append(mountOptions, "xprtsec=mtls")
+		} else if nsc.Spec.Connection.Tls {
+			mountOptions = append(mountOptions, "xprtsec=tls")
+		}
 	}
 
 	if nsc.Spec.MountOptions != nil {

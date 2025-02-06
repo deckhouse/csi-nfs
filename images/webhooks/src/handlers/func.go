@@ -22,6 +22,7 @@ import (
 	"os"
 
 	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
+	commonvalidating "github.com/deckhouse/csi-nfs/lib/go/common/pkg/validating"
 	"github.com/go-logr/logr"
 	kwhhttp "github.com/slok/kubewebhook/v2/pkg/http"
 	"github.com/slok/kubewebhook/v2/pkg/log"
@@ -40,8 +41,6 @@ import (
 	controllerruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
-
-	mc "webhooks/api"
 )
 
 func NewKubeClient(kubeconfigPath string) (client.Client, error) {
@@ -63,7 +62,6 @@ func NewKubeClient(kubeconfigPath string) (client.Client, error) {
 	var (
 		resourcesSchemeFuncs = []func(*apiruntime.Scheme) error{
 			v1alpha3.AddToScheme,
-			mc.AddToScheme,
 			cn.AddToScheme,
 			clientgoscheme.AddToScheme,
 			extv1.AddToScheme,
@@ -125,4 +123,14 @@ func GetValidatingWebhookHandler(validationFunc func(ctx context.Context, _ *mod
 	mutationWebhookHandler, err := kwhhttp.HandlerFor(kwhhttp.HandlerConfig{Webhook: mutationWebhook, Logger: logger})
 
 	return mutationWebhookHandler, err
+}
+
+func validateModuleConfig(mc *cn.ModuleConfig, nscList *cn.NFSStorageClassList) error {
+	for _, nsc := range nscList.Items {
+		if err := commonvalidating.ValidateNFSStorageClass(mc, &nsc); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

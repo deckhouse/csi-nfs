@@ -1,0 +1,108 @@
+---
+# do not remove this image: used in external audits (DKP CSE)
+image: {{ $.ImageName }}-src-artifact
+from: {{ $.Root.BASE_ALT_P11 }}
+final: false
+git:
+  - url: {{ env "SOURCE_REPO" }}/kmod-project/kmod.git
+    add: /
+    to: /src
+    tag: {{ $.Versions.KMOD }}
+    stageDependencies:
+      install:
+        - '**/*'
+shell:
+  install:
+    - rm -rf /src/.git
+
+---
+image: {{ $.ImageName }}-binaries-artifact
+from: {{ $.Root.BASE_ALT_P11 }}
+final: false
+
+import:
+  - image: {{ $.ImageName }}-src-artifact
+    add: /src
+    to: /src
+    before: install
+
+git:
+  - add: /tools/dev_images/additional_tools/alt/binary_replace.sh
+    to: /binary_replace.sh
+    stageDependencies:
+      beforeSetup:
+        - '**/*'
+
+shell:
+  beforeInstall:
+    - apt-get update
+    - apt-get install -y {{ $.Root.DEV_PACKAGES }}
+    - apt-get install -y libzstd-devel liblzma-devel zlib-devel libssl-devel
+    - {{ $.Root.ALT_CLEANUP_CMD }}
+  install:
+    - cd /src
+    - ./autogen.sh
+    - ./configure CFLAGS='-g -O2' --with-zstd --with-xz --with-zlib --with-openssl --disable-manpages --disable-test-modules
+    - make
+  beforeSetup:
+    - mkdir -p /opt/deckhouse/csi/bin
+    - cp -v /src/tools/kmod /opt/deckhouse/csi/bin/kmod # do not use an end name other than 'kmod'
+    - chmod +x /binary_replace.sh
+    - /binary_replace.sh -i "/opt/deckhouse/csi/bin/kmod" -o /relocate
+  setup:
+    - |
+        cd /opt/deckhouse/csi/bin
+        for i in lsmod rmmod insmod modinfo modprobe depmod
+        do
+          ln -sv kmod $i
+        done
+
+---
+image: {{ $.ImageName }}-distroless-artifact
+from: {{ $.Root.BASE_ALT_P11 }}
+final: false
+
+shell:
+  beforeInstall:
+    - apt-get update
+    - apt-get install -y openssl libtirpc
+    - {{ $.Root.ALT_CLEANUP_CMD }}
+  install:
+    - mkdir -p /relocate/bin /relocate/sbin /relocate/etc /relocate/var/lib/ssl /relocate/usr/bin /relocate/usr/sbin /relocate/usr/share
+    - cp -pr /tmp /relocate
+    - cp -pr /etc/passwd /etc/group /etc/hostname /etc/hosts /etc/shadow /etc/protocols /etc/services /etc/nsswitch.conf /etc/netconfig /relocate/etc
+    - cp -pr /usr/share/ca-certificates /relocate/usr/share
+    - cp -pr /usr/share/zoneinfo /relocate/usr/share
+    - cp -pr /var/lib/ssl/cert.pem /relocate/var/lib/ssl
+    - cp -pr /var/lib/ssl/certs /relocate/var/lib/ssl
+    - echo "deckhouse:x:{{ $.Root.DECKHOUSE_UID_GID }}:{{ $.Root.DECKHOUSE_UID_GID }}:deckhouse:/:/sbin/nologin" >> /relocate/etc/passwd
+    - echo "deckhouse:x:{{ $.Root.DECKHOUSE_UID_GID }}:" >> /relocate/etc/group
+    - echo "deckhouse:!::0:::::" >> /relocate/etc/shadow
+
+---
+image: {{ $.ImageName }}-distroless
+from: {{ $.Root.BASE_SCRATCH }}
+final: false
+
+import:
+  - image: {{ $.ImageName }}-distroless-artifact
+    add: /relocate
+    to: /
+    before: setup
+
+---
+image: {{ $.ImageName }}
+fromImage: {{ $.ImageName }}-distroless
+
+import:
+  - image: {{ $.ImageName }}-binaries-artifact
+    stage: beforeSetup
+    add: /relocate
+    to: /
+    before: setup
+
+  - image: {{ $.ImageName }}-binaries-artifact
+    stage: setup
+    add: /opt/deckhouse/csi/bin
+    to:  /opt/deckhouse/csi/bin
+    before: setup
