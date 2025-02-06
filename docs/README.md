@@ -51,7 +51,7 @@ Note that all commands must be run on a machine that has administrator access to
    EOF
    ```
 
-1. Wait for the module to become `Ready`:
+2. Wait for the module to become `Ready`:
 
    ```shell
    kubectl get module csi-nfs -w
