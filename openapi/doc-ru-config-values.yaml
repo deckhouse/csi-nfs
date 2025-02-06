@@ -3,7 +3,7 @@ properties:
   logLevel:
     description: Уровень логирования модуля.
   v3support:
-    description: Поддержка NFS версии v3.
+    description: Поддержка NFS версии v3. При включении данного параметра на узлы будет установлен пакет rpcbind. Обратите внимание, что пакет НЕ будет удален после выключения этого параметра.
   tlsParameters:
     description: |
       **Доступно в SE, SE+, EE, FE.**
