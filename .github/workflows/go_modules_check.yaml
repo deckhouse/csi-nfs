@@ -74,7 +74,6 @@ jobs:
               else
                 echo "No api directory in $repository"
               fi
-              
               rm -rf "$temp_dir/$repository"
             fi
             done < "$go_mod_file"
