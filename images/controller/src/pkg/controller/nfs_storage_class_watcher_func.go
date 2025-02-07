@@ -724,8 +724,11 @@ func configureSecret(nsc *v1alpha1.NFSStorageClass, controllerNamespace string) 
 		},
 		StringData: map[string]string{
 			MountOptionsSecretKey: strings.Join(mountOptions, ","),
-			secureEraseMethodKey:  nsc.Spec.SecureErase,
 		},
+	}
+
+	if nsc.Spec.SecureErase != "" {
+		secret.StringData[secureEraseMethodKey] = nsc.Spec.SecureErase
 	}
 
 	return secret

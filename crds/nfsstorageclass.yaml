@@ -41,7 +41,7 @@ spec:
                 - volumeBindingMode
               x-kubernetes-validations:
                 - rule: "self.reclaimPolicy != 'Retain' || self.secureErase == 'Disable'"
-                  message: "If reclaimPolicy is 'Retain', secureErase must be set to 'Disable'."
+                  message: "If reclaimPolicy is 'Retain', secureErase must be set to 'Disable' or omitted."
                 - rule: "self.connection.nfsVersion == '4.2' || self.secureErase != 'Discard'"
                   message: "Discard mode is only available when connection.nfsVersion is '4.2'."
               properties:
@@ -199,13 +199,18 @@ spec:
                 secureErase:
                   type: string
                   description: |
-                    Secure erase mode for PVs subdirectory
+                    Secure erase mode for the PV’s subdirectory content.
+                    This option determines the method used to securely erase data from the subdirectory when a Persistent Volume Claim is deleted.
+                    Valid options are:
+                    - Disable: No secure erase is performed; the subdirectory is removed immediately. This is the default behavior.
+                    - Discard: Uses the filesystem’s discard (trim) functionality to free data blocks (only available when supported, e.g. with NFSv4.2).
+                    - SinglePass: Overwrites the file’s content once with random data before deletion.
+                    - ThreePass: Overwrites the file’s content three times with random data before deletion.
                   enum:
                     - Disable
                     - Discard
                     - SinglePass
                     - ThreePass
-                  default: "Disable"
             status:
               type: object
               description: |
