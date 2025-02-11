@@ -166,7 +166,10 @@ index 00000000..8dd3c2a9
 +	fd := int(file.Fd())
 +	klog.V(4).Infof("Sending FALLOC_FL_PUNCH_HOLE|FALLOC_FL_KEEP_SIZE for file %s with size %d", filePath, fileSize)
 +	if err := unix.Fallocate(fd, unix.FALLOC_FL_PUNCH_HOLE|unix.FALLOC_FL_KEEP_SIZE, 0, fileSize); err != nil {
-+		return fmt.Errorf("discard (punch hole) failed for file %s: %w", filePath, err)
++		klog.V(4).Infof("Punch hole has failed. Sending FALLOC_FL_ZERO_RANGE|FALLOC_FL_KEEP_SIZE for file %s with size %d", filePath, fileSize)
++		if err := unix.Fallocate(fd, unix.FALLOC_FL_ZERO_RANGE|unix.FALLOC_FL_KEEP_SIZE, 0, fileSize); err != nil {
++			return fmt.Errorf("zero range failed for file %s: %w", filePath, err)
++		}
 +	}
 +
 +	klog.V(4).Infof("Discarding file %s completed.", filePath)
