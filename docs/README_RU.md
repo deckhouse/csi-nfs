@@ -1,7 +1,6 @@
 ---
 title: "Модуль csi-nfs"
 description: "Модуль csi-nfs: общие концепции и положения."
-moduleStatus: experimental
 ---
 
 Модуль предоставляет CSI для управления NFS-томами и позволяет создавать StorageClass в Kubernetes через [пользовательские ресурсы Kubernetes](./cr.html#nfsstorageclass) `NFSStorageClass`.

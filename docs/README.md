@@ -1,7 +1,6 @@
 ---
 title: "The csi-nfs module"
 description: "The csi-nfs module: General Concepts and Principles."
-moduleStatus: experimental
 ---
 
 The module provides CSI for managing NFS volumes and allows creating StorageClass in Kubernetes through [Custom Resources](./cr.html#nfsstorageclass) `NFSStorageClass`.
