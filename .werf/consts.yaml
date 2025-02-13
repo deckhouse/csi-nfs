@@ -19,4 +19,5 @@
 # custom constants
 {{- $_ := set $ "DEV_PACKAGES" "make automake pkg-config gcc libtool git curl" }}
 {{- $_ := set $ "DECKHOUSE_UID_GID" "64535" }}
+{{- $_ := set $ "ALT_BASE_PACKAGES" "openssl libtirpc tzdata" }}
 {{- $_ := set $ "ALT_CLEANUP_CMD" "rm -rf /var/lib/apt/lists/* /var/cache/apt/* && mkdir -p /var/lib/apt/lists/partial /var/cache/apt/archives/partial" }}
