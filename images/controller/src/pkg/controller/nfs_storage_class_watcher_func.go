@@ -727,8 +727,8 @@ func configureSecret(nsc *v1alpha1.NFSStorageClass, controllerNamespace string) 
 		},
 	}
 
-	if nsc.Spec.SecureErase != "" {
-		secret.StringData[secureEraseMethodKey] = nsc.Spec.SecureErase
+	if nsc.Spec.VolumeCleanup != "" {
+		secret.StringData[volumeCleanupMethodKey] = nsc.Spec.VolumeCleanup
 	}
 
 	return secret

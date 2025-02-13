@@ -76,7 +76,7 @@ const (
 	StorageClassSecretNameKey   = "csi.storage.k8s.io/provisioner-secret-name"
 	StorageClassSecretNSKey     = "csi.storage.k8s.io/provisioner-secret-namespace"
 
-	secureEraseMethodKey = "secureErase"
+	volumeCleanupMethodKey = "volumeCleanup"
 )
 
 var (
