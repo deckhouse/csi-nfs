@@ -591,7 +591,7 @@ func GetSCMountOptions(nsc *v1alpha1.NFSStorageClass) []string {
 		mountOptions = append(mountOptions, "nfsvers="+nsc.Spec.Connection.NFSVersion)
 	}
 
-	if commonfeature.TLSEnabled {
+	if commonfeature.TLSEnabled() {
 		if nsc.Spec.Connection.Mtls {
 			mountOptions = append(mountOptions, "xprtsec=mtls")
 		} else if nsc.Spec.Connection.Tls {

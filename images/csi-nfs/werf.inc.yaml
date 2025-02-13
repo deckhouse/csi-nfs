@@ -25,6 +25,13 @@ git:
     stageDependencies:
       install:
         - '**/*'
+  - add: /
+    to: /src/csi-nfs/lib/go/common
+    includePaths:
+      - lib/go
+    stageDependencies:
+      install:
+        - '**/*'
 shell:
   beforeInstall:
     - apt-get update
@@ -105,7 +112,7 @@ shell:
     - cd /src/csi-driver-nfs
     - export CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO_VERSION={{ env "GOLANG_VERSION" }} GOPROXY={{ env "GOPROXY" }}
     - go mod vendor
-    - go build -ldflags="-s -w" -o /nfsplugin ./cmd/nfsplugin
+    - go build -ldflags="-s -w" -tags {{ $.Root.MODULE_EDITION }} -o /nfsplugin ./cmd/nfsplugin
     - chmod +x /nfsplugin
 
 ---

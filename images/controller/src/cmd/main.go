@@ -65,7 +65,7 @@ func main() {
 	log.Info(fmt.Sprintf("[main] Go Version:%s ", goruntime.Version()))
 	log.Info(fmt.Sprintf("[main] OS/Arch:Go OS/Arch:%s/%s ", goruntime.GOOS, goruntime.GOARCH))
 
-	log.Info(fmt.Sprintf("[main] Feature TLSEnabled:%v", commonfeature.TLSEnabled))
+	log.Info(fmt.Sprintf("[main] Feature TLSEnabled:%t", commonfeature.TLSEnabled()))
 
 	log.Info("[main] CfgParams has been successfully created")
 	log.Info(fmt.Sprintf("[main] %s = %s", config.LogLevelEnvName, cfgParams.Loglevel))

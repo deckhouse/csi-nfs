@@ -1,17 +1,9 @@
+//go:build !ce
+
 /*
-Copyright 2025 The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+Copyright 2025 Flant JSC
+Licensed under the Deckhouse Platform Enterprise Edition (EE) license.
+See https://github.com/deckhouse/deckhouse/blob/main/ee/LICENSE
 */
 
 package nfs
@@ -23,42 +15,23 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	commonfeature "github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature"
 	"golang.org/x/sys/unix"
 
 	"k8s.io/klog/v2"
 )
 
-const (
-	secureEraseMethodKey        = "secureErase"
-	secureEraseMethodDisable    = "Disable"
-	secureEraseMethodDiscard    = "Discard"
-	secureEraseMethodSinglePass = "SinglePass"
-	secureEraseMethodThreePass  = "ThreePass"
-)
-
-func getSecureEraseMethod(context map[string]string) (string, bool, error) {
-	val, ok := context[secureEraseMethodKey]
-	if !ok {
-		return "", false, nil
-	}
-	if val == secureEraseMethodDisable {
-		return "", false, nil
+func cleanupVolume(volumePath, volumeCleanupMethod string) error {
+	if !commonfeature.VolumeCleanupEnabled() {
+		klog.Error("Volume cleanup enabled with method %s, but volume cleanup is not supported in your edition", volumeCleanupMethod)
+		return nil
 	}
 
-	switch val {
-	case secureEraseMethodDiscard, secureEraseMethodSinglePass, secureEraseMethodThreePass:
-		return val, true, nil
-	default:
-		return "", false, fmt.Errorf("invalid secure erase method %s", val)
-	}
-}
-
-func secureEraseVolume(volumePath, secureEraseMethod string) error {
+	klog.V(2).Infof("volume cleanup enabled, using method %v. Cleanup subdirectory at %v", volumeCleanupMethod, volumePath)
 	absPath, err := filepath.Abs(volumePath)
 	if err != nil {
 		return fmt.Errorf("getting absolute path for %s: %w", volumePath, err)
 	}
-	klog.V(4).Infof("Secure erasing volume %s with method %s", absPath, secureEraseMethod)
 
 	err = filepath.Walk(absPath, func(path string, info fs.FileInfo, walkErr error) error {
 		if walkErr != nil {
@@ -66,8 +39,8 @@ func secureEraseVolume(volumePath, secureEraseMethod string) error {
 		}
 
 		if !info.IsDir() {
-			klog.V(4).Infof("Secure erasing file %s", path)
-			return secureEraseFile(path, secureEraseMethod)
+			klog.V(4).Infof("Cleanup file %s", path)
+			return cleanupFile(path, volumeCleanupMethod)
 		} else {
 			klog.V(4).Infof("Skipping directory %s", path)
 		}
@@ -80,7 +53,7 @@ func secureEraseVolume(volumePath, secureEraseMethod string) error {
 	return nil
 }
 
-func secureEraseFile(filePath, secureEraseMethod string) error {
+func cleanupFile(filePath, volumeCleanupMethod string) error {
 	info, err := os.Stat(filePath)
 	if err != nil {
 		return fmt.Errorf("failed to stat file %s: %w", filePath, err)
@@ -91,15 +64,15 @@ func secureEraseFile(filePath, secureEraseMethod string) error {
 		return nil
 	}
 
-	switch secureEraseMethod {
-	case secureEraseMethodDiscard:
+	switch volumeCleanupMethod {
+	case volumeCleanupMethodDiscard:
 		return discardFile(filePath, info)
-	case secureEraseMethodSinglePass:
+	case volumeCleanupMethodSinglePass:
 		return shredFile(filePath, info, 1)
-	case secureEraseMethodThreePass:
+	case volumeCleanupMethodThreePass:
 		return shredFile(filePath, info, 3)
 	default:
-		return fmt.Errorf("invalid secure erase method %s", secureEraseMethod)
+		return fmt.Errorf("invalid volume cleanup method %s", volumeCleanupMethod)
 	}
 }
 
