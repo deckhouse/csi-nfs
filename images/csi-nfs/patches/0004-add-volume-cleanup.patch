@@ -1,13 +1,13 @@
-From c1743186a58e3d3168bcdf8047a6555555664814 Mon Sep 17 00:00:00 2001
+From f7a51a79fcb0a9249a55c8a2b4a0719831c5bb84 Mon Sep 17 00:00:00 2001
 From: Aleksandr Zimin <alexandr.zimin@flant.com>
-Date: Thu, 13 Feb 2025 22:37:13 +0300
-Subject: [PATCH] Add volume cleanup
+Date: Fri, 14 Feb 2025 02:12:45 +0300
+Subject: [PATCH] add volume cleanup
 
 Signed-off-by: Aleksandr Zimin <alexandr.zimin@flant.com>
 ---
  go.mod                                        |   59 +-
  go.sum                                        |   97 +-
- pkg/nfs/controllerserver.go                   |   20 +-
+ pkg/nfs/controllerserver.go                   |   12 +
  .../lib/go/common/pkg/feature/const_ce.go     |   23 +
  .../lib/go/common/pkg/feature/const_csepro.go |   14 +
  .../lib/go/common/pkg/feature/const_ee.go     |   14 +
@@ -522,7 +522,7 @@ Signed-off-by: Aleksandr Zimin <alexandr.zimin@flant.com>
  .../v4/value/reflectcache.go                  |   67 +-
  .../structured-merge-diff/v4/value/scalar.go  |    2 +-
  .../structured-merge-diff/v4/value/value.go   |    2 +-
- 517 files changed, 34469 insertions(+), 13700 deletions(-)
+ 517 files changed, 34465 insertions(+), 13696 deletions(-)
  create mode 100644 vendor/github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature/const_ce.go
  create mode 100644 vendor/github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature/const_csepro.go
  create mode 100644 vendor/github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature/const_ee.go
@@ -1042,17 +1042,13 @@ index 1566701e..ff671294 100644
  sigs.k8s.io/yaml v1.2.0/go.mod h1:yfXDCHCao9+ENCvLSE62v9VSji2MKu5jeNfTrofGhJc=
  sigs.k8s.io/yaml v1.4.0 h1:Mk1wCc2gy/F0THH0TAp1QYyJNzRm2KCLy3o5ASXVI5E=
 diff --git a/pkg/nfs/controllerserver.go b/pkg/nfs/controllerserver.go
-index d8af15da..a78f5110 100644
+index d8af15da..23cb1866 100644
 --- a/pkg/nfs/controllerserver.go
 +++ b/pkg/nfs/controllerserver.go
-@@ -258,11 +258,23 @@ func (cs *ControllerServer) DeleteVolume(ctx context.Context, req *csi.DeleteVol
+@@ -258,6 +258,18 @@ func (cs *ControllerServer) DeleteVolume(ctx context.Context, req *csi.DeleteVol
  				return nil, status.Errorf(codes.Internal, "archive subdirectory(%s, %s) failed with %v", internalVolumePath, archivedInternalVolumePath, err.Error())
  			}
  		} else {
--			// delete subdirectory under base-dir
--			klog.V(2).Infof("removing subdirectory at %v", internalVolumePath)
--			if err = os.RemoveAll(internalVolumePath); err != nil {
--				return nil, status.Errorf(codes.Internal, "delete subdirectory(%s) failed with %v", internalVolumePath, err.Error())
 +			volumeCleanupMethod, volumeCleanupEnabled, err := getVolumeCleanupMethod(req.GetSecrets())
 +			if err != nil {
 +				return nil, status.Errorf(codes.Internal, "failed to get volume cleanup method: %v", err.Error())
@@ -1063,16 +1059,11 @@ index d8af15da..a78f5110 100644
 +				if err != nil {
 +					return nil, status.Errorf(codes.Internal, "Volume cleanup failed with %v", err.Error())
 +				}
- 			}
++			}
 +
-+			// delete subdirectory under base-dir
-+			// klog.V(2).Infof("removing subdirectory at %v", internalVolumePath)
-+			// if err = os.RemoveAll(internalVolumePath); err != nil {
-+			// 	return nil, status.Errorf(codes.Internal, "delete subdirectory(%s) failed with %v", internalVolumePath, err.Error())
-+			// }
- 		}
- 	} else {
- 		klog.V(2).Infof("DeleteVolume: volume(%s) is set to retain, not deleting/archiving subdirectory", volumeID)
+ 			// delete subdirectory under base-dir
+ 			klog.V(2).Infof("removing subdirectory at %v", internalVolumePath)
+ 			if err = os.RemoveAll(internalVolumePath); err != nil {
 diff --git a/vendor/github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature/const_ce.go b/vendor/github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature/const_ce.go
 new file mode 100644
 index 00000000..0aed5d9a
