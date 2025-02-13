@@ -33,6 +33,7 @@ shell:
   install:
     - cd /src/csi-driver-nfs
     - for patchfile in /patches/images/{{ $.ImageName }}/patches/*.patch; do echo "Apply ${patchfile} ... "; git apply ${patchfile} --verbose; done
+    - cp -R /patches/images/{{ $.ImageName }}/patches/csi-driver-nfs/* ./
     - rm -rf /src/csi-driver-nfs/.git
     - rm -rf /src/nfs-utils/.git
 
