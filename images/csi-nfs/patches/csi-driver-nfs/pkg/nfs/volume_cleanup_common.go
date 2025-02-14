@@ -15,6 +15,8 @@ package nfs
 
 import (
 	"fmt"
+
+	"k8s.io/klog/v2"
 )
 
 const (
@@ -25,6 +27,7 @@ const (
 )
 
 func getVolumeCleanupMethod(context map[string]string) (string, bool, error) {
+	klog.V(4).Infof("getVolumeCleanupMethod: %v", context)
 	val, ok := context[volumeCleanupMethodKey]
 	if !ok {
 		return "", false, nil
