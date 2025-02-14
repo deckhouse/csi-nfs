@@ -35,7 +35,7 @@ git:
 shell:
   beforeInstall:
     - apt-get update
-    - apt-get install -y git
+    - apt-get install -y git go
     - {{ $.Root.ALT_CLEANUP_CMD }}
   install:
     - cd /src/csi-driver-nfs
