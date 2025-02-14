@@ -36,13 +36,13 @@ index d8af15da..a5439430 100644
  		} else {
 +			volumeCleanupMethod, volumeCleanupEnabled, err := getVolumeCleanupMethod(req.GetSecrets())
 +			if err != nil {
-+				return nil, status.Errorf(codes.Internal, "failed to get volume cleanup method: %v", err.Error())
++				return nil, status.Errorf(codes.Internal, "failed to get volume cleanup method: %v", err)
 +			}
 +
 +			if volumeCleanupEnabled {
 +				err = cleanupVolume(internalVolumePath, volumeCleanupMethod)
 +				if err != nil {
-+					return nil, status.Errorf(codes.Internal, "Volume cleanup failed with %v", err.Error())
++					return nil, status.Errorf(codes.Internal, "Volume cleanup failed with %v", err)
 +				}
 +			}
 +
@@ -56,13 +56,13 @@ index d8af15da..a5439430 100644
 +
 +	volumeCleanupMethod, volumeCleanupEnabled, err := getVolumeCleanupMethod(req.GetSecrets())
 +	if err != nil {
-+		return nil, status.Errorf(codes.Internal, "failed to get volume cleanup method: %v", err.Error())
++		return nil, status.Errorf(codes.Internal, "failed to get volume cleanup method: %v", err)
 +	}
 +
 +	if volumeCleanupEnabled {
 +		err = cleanupVolume(internalVolumePath, volumeCleanupMethod)
 +		if err != nil {
-+			return nil, status.Errorf(codes.Internal, "Volume cleanup failed with %v", err.Error())
++			return nil, status.Errorf(codes.Internal, "Volume cleanup failed with %v", err)
 +		}
 +	}
 +

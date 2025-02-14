@@ -45,7 +45,7 @@ func cleanupVolume(volumePath, volumeCleanupMethod string) error {
 
 		if !info.IsDir() {
 			klog.V(4).Infof("Cleanup file %s", path)
-			return cleanupFile(path, volumeCleanupMethod)
+			return cleanupFile(info, path, volumeCleanupMethod)
 		} else {
 			klog.V(4).Infof("Skipping directory %s", path)
 		}
@@ -59,12 +59,7 @@ func cleanupVolume(volumePath, volumeCleanupMethod string) error {
 	return nil
 }
 
-func cleanupFile(filePath, volumeCleanupMethod string) error {
-	info, err := os.Stat(filePath)
-	if err != nil {
-		return fmt.Errorf("failed to stat file %s: %w", filePath, err)
-	}
-
+func cleanupFile(info fs.FileInfo, filePath, volumeCleanupMethod string) error {
 	if !info.Mode().IsRegular() {
 		klog.V(4).Infof("Skipping non-regular file %s", filePath)
 		return nil
