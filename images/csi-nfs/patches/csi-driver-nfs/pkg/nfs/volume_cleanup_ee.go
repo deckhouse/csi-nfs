@@ -33,6 +33,11 @@ func cleanupVolume(volumePath, volumeCleanupMethod string) error {
 		return fmt.Errorf("getting absolute path for %s: %w", volumePath, err)
 	}
 
+	if _, err := os.Stat(absPath); os.IsNotExist(err) {
+		klog.Warning("Volume directory %s does not exist, skipping cleanup", absPath)
+		return nil
+	}
+
 	err = filepath.Walk(absPath, func(path string, info fs.FileInfo, walkErr error) error {
 		if walkErr != nil {
 			return fmt.Errorf("walking error for %s: %w", path, walkErr)
@@ -50,6 +55,7 @@ func cleanupVolume(volumePath, volumeCleanupMethod string) error {
 		return fmt.Errorf("error while walking through volume directory %s: %w", absPath, err)
 	}
 
+	klog.V(2).Infof("Volume cleanup completed for %s", volumePath)
 	return nil
 }
 
