@@ -40,9 +40,9 @@ spec:
                 - reclaimPolicy
                 - volumeBindingMode
               x-kubernetes-validations:
-                - rule: "self.reclaimPolicy != 'Retain' || self.volumeCleanup == 'Disable'"
-                  message: "If reclaimPolicy is 'Retain', volumeCleanup must be set to 'Disable' or omitted."
-                - rule: "self.connection.nfsVersion == '4.2' || self.volumeCleanup != 'Discard'"
+                - rule: "self.reclaimPolicy != 'Retain' || !has(self.volumeCleanup)"
+                  message: "If reclaimPolicy is 'Retain', volumeCleanup must be omitted."
+                - rule: "self.connection.nfsVersion == '4.2' || !has(self.volumeCleanup)|| self.volumeCleanup != 'Discard'"
                   message: "Discard mode is only available when connection.nfsVersion is '4.2'."
               properties:
                 connection:
