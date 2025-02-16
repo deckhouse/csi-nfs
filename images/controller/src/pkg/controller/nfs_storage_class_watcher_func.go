@@ -355,6 +355,7 @@ func findStorageClass(scList *storagev1.StorageClassList, name string) *storagev
 	return nil
 }
 
+// nolint:unparam
 func removeFinalizerIfExists(ctx context.Context, cl client.Client, obj metav1.Object, finalizerName string) (bool, error) {
 	removed := false
 	finalizers := obj.GetFinalizers()
