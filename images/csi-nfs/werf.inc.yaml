@@ -25,19 +25,28 @@ git:
     stageDependencies:
       install:
         - '**/*'
+  - add: /
+    to: /src/csi-nfs
+    includePaths:
+      - lib/go
+    stageDependencies:
+      install:
+        - '**/*'
 shell:
   beforeInstall:
     - apt-get update
-    - apt-get install -y git
+    - apt-get install -y git go
     - {{ $.Root.ALT_CLEANUP_CMD }}
   install:
     - cd /src/csi-driver-nfs
     - for patchfile in /patches/images/{{ $.ImageName }}/patches/*.patch; do echo "Apply ${patchfile} ... "; git apply ${patchfile} --verbose; done
+    - cp -R /patches/images/{{ $.ImageName }}/patches/csi-driver-nfs/* ./
+    - go mod vendor
     - rm -rf /src/csi-driver-nfs/.git
     - rm -rf /src/nfs-utils/.git
 
 ---
-{{- $csiBinaries := "/nfs-utils/sbin/* /nfs-utils/usr/bin/* /nfs-utils/usr/sbin/* /lib64/libnss_files.so.2 /lib64/libnss_dns.so.2 /bin/cp /bin/mount /bin/umount" }}
+{{- $csiBinaries := "/nfs-utils/sbin/* /nfs-utils/usr/bin/* /nfs-utils/usr/sbin/* /lib64/libnss_files.so.2 /lib64/libnss_dns.so.2 /bin/cp /bin/mount /bin/umount /usr/bin/shred" }}
 image: {{ $.ImageName }}-binaries-artifact
 from: {{ $.Root.BASE_ALT_P11 }}
 final: false
@@ -103,8 +112,7 @@ shell:
   setup:
     - cd /src/csi-driver-nfs
     - export CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO_VERSION={{ env "GOLANG_VERSION" }} GOPROXY={{ env "GOPROXY" }}
-    - go mod vendor
-    - go build -ldflags="-s -w" -o /nfsplugin ./cmd/nfsplugin
+    - go build -ldflags="-s -w" -tags {{ $.Root.MODULE_EDITION }} -o /nfsplugin ./cmd/nfsplugin
     - chmod +x /nfsplugin
 
 ---
@@ -114,7 +122,7 @@ final: false
 shell:
   beforeInstall:
     - apt-get update
-    - apt-get install -y openssl libtirpc
+    - apt-get install -y {{ $.Root.ALT_BASE_PACKAGES }}
     - {{ $.Root.ALT_CLEANUP_CMD }}
   install:
     - mkdir -p /relocate/bin /relocate/sbin /relocate/etc /relocate/var/lib/ssl /relocate/usr/bin /relocate/usr/sbin /relocate/usr/share

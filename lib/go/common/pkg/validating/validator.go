@@ -40,7 +40,7 @@ func ValidateNFSStorageClass(nfsModuleConfig *cn.ModuleConfig, nsc *cn.NFSStorag
 		}
 	}
 
-	if feature.TLSEnabled {
+	if feature.TLSEnabled() {
 		if nsc.Spec.Connection.Tls || nsc.Spec.Connection.Mtls {
 			var tlsParameters map[string]any
 

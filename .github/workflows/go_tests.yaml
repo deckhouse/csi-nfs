@@ -1,7 +1,7 @@
 name: Go tests for images
 
 env:
-  GO_BUILD_TAGS: "EE CE"
+  GO_BUILD_TAGS: "ee ce se seplus csepro"
 
 on:
   pull_request:

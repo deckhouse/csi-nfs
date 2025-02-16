@@ -88,7 +88,7 @@ final: false
 shell:
   beforeInstall:
     - apt-get update
-    - apt-get install -y openssl libtirpc
+    - apt-get install -y {{ $.Root.ALT_BASE_PACKAGES }}
     - {{ $.Root.ALT_CLEANUP_CMD }}
   install:
     - mkdir -p /relocate/bin /relocate/sbin /relocate/etc /relocate/var/lib/ssl /relocate/usr/bin /relocate/usr/sbin /relocate/usr/share

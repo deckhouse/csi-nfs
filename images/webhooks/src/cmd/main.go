@@ -89,7 +89,7 @@ func main() {
 	mux.Handle("/mc-validate", mcValidatingWebhookHandler)
 	mux.HandleFunc("/healthz", httpHandlerHealthz)
 
-	logger.Infof("Feature TLSEnabled:%v", commonfeature.TLSEnabled)
+	logger.Infof("Feature TLSEnabled:%t", commonfeature.TLSEnabled())
 
 	logger.Infof("Listening on %s", port)
 	err = http.ListenAndServeTLS(port, cfg.certFile, cfg.keyFile, mux)
