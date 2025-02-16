@@ -229,9 +229,6 @@ func RunEventReconcile(ctx context.Context, cl client.Client, log logger.Logger,
 	}
 
 	reconcileTypeForSecret, err := IdentifyReconcileFuncForSecret(log, secretList, nsc, controllerNamespace)
-	// if reconcileTypeForSecret != CreateReconcile {
-	// 	return false, fmt.Errorf("[runEventReconcile]reconcileTypeForSecret: %s", reconcileTypeForSecret)
-	// }
 
 	if err != nil {
 		log.Error(err, fmt.Sprintf("[runEventReconcile] error occurred while identifying the reconcile function for the Secret %q", SecretForMountOptionsPrefix+nsc.Name))
@@ -298,7 +295,7 @@ func RunEventReconcile(ctx context.Context, cl client.Client, log logger.Logger,
 	// 	return shouldRequeue, err
 	// }
 
-	if nsc.DeletionTimestamp != nil {
+	if nsc.DeletionTimestamp == nil {
 		err = updateNFSStorageClassPhase(ctx, cl, nsc, CreatedStatusPhase, "")
 		if err != nil {
 			err = fmt.Errorf("[runEventReconcile] unable to update the NFSStorageClass %s: %w", nsc.Name, err)

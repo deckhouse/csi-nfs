@@ -299,7 +299,7 @@ func IdentifyReconcileFuncForStorageClass(log logger.Logger, scList *storagev1.S
 		return CreateReconcile, nil, newSC
 	}
 
-	updateType := shouldReconcileStorageClassByUpdateFunc(log, oldSC, newSC, nsc, controllerNamespace)
+	updateType := shouldReconcileStorageClassByRecreateOrUpdateFunc(log, oldSC, newSC, nsc)
 
 	if updateType != "" {
 		return updateType, oldSC, newSC
@@ -320,7 +320,7 @@ func shouldReconcileStorageClassByCreateFunc(oldSC *storagev1.StorageClass, nsc 
 	return true
 }
 
-func shouldReconcileStorageClassByUpdateFunc(log logger.Logger, oldSC, newSC *storagev1.StorageClass, nsc *v1alpha1.NFSStorageClass, controllerNamespace string) string {
+func shouldReconcileStorageClassByRecreateOrUpdateFunc(log logger.Logger, oldSC, newSC *storagev1.StorageClass, nsc *v1alpha1.NFSStorageClass) string {
 	if nsc.DeletionTimestamp != nil {
 		return ""
 	}
@@ -404,6 +404,11 @@ func CompareStorageClasses(sc, newSC *storagev1.StorageClass) (bool, string) {
 		diffs = append(diffs,
 			fmt.Sprintf("Parameters diff: %s", cmp.Diff(sc.Parameters, newSC.Parameters)))
 		needRecreate = true
+	}
+
+	if !cmp.Equal(sc.MountOptions, newSC.MountOptions) {
+		diffs = append(diffs,
+			fmt.Sprintf("MountOptions diff: %s", cmp.Diff(sc.MountOptions, newSC.MountOptions)))
 	}
 
 	if !cmp.Equal(sc.ObjectMeta.Labels, newSC.ObjectMeta.Labels) {
