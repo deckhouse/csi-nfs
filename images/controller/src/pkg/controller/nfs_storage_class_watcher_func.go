@@ -27,8 +27,10 @@ import (
 
 	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	commonfeature "github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature"
+	"github.com/google/go-cmp/cmp"
+	snapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/storage/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -40,27 +42,13 @@ func ReconcileStorageClassCreateFunc(
 	ctx context.Context,
 	cl client.Client,
 	log logger.Logger,
-	scList *v1.StorageClassList,
+	newSC *storagev1.StorageClass,
 	nsc *v1alpha1.NFSStorageClass,
-	controllerNamespace string,
 ) (bool, error) {
-	log.Debug(fmt.Sprintf("[reconcileStorageClassCreateFunc] starts for NFSStorageClass %q", nsc.Name))
-	log.Debug(fmt.Sprintf("[reconcileStorageClassCreateFunc] starts storage class configuration for the NFSStorageClass, name: %s", nsc.Name))
-	newSC, err := ConfigureStorageClass(nsc, controllerNamespace)
-	if err != nil {
-		err = fmt.Errorf("[reconcileStorageClassCreateFunc] unable to configure a Storage Class for the NFSStorageClass %s: %w", nsc.Name, err)
-		upError := updateNFSStorageClassPhase(ctx, cl, nsc, FailedStatusPhase, err.Error())
-		if upError != nil {
-			upError = fmt.Errorf("[reconcileStorageClassCreateFunc] unable to update the NFSStorageClass %s: %w", nsc.Name, upError)
-			err = errors.Join(err, upError)
-		}
-		return false, err
-	}
-
-	log.Debug(fmt.Sprintf("[reconcileStorageClassCreateFunc] successfully configurated storage class for the NFSStorageClass, name: %s", nsc.Name))
+	log.Debug(fmt.Sprintf("[reconcileStorageClassCreateFunc] starts for StorageClass %q", newSC.Name))
 	log.Trace(fmt.Sprintf("[reconcileStorageClassCreateFunc] storage class: %+v", newSC))
 
-	created, err := createStorageClassIfNotExists(ctx, cl, scList, newSC)
+	err := cl.Create(ctx, newSC)
 	if err != nil {
 		err = fmt.Errorf("[reconcileStorageClassCreateFunc] unable to create a Storage Class %s: %w", newSC.Name, err)
 		upError := updateNFSStorageClassPhase(ctx, cl, nsc, FailedStatusPhase, err.Error())
@@ -70,13 +58,34 @@ func ReconcileStorageClassCreateFunc(
 		}
 		return true, err
 	}
-	log.Debug(fmt.Sprintf("[reconcileStorageClassCreateFunc] a storage class %s was created: %t", newSC.Name, created))
-	if created {
-		log.Info(fmt.Sprintf("[reconcileStorageClassCreateFunc] successfully create storage class, name: %s", newSC.Name))
-	} else {
-		log.Warning(fmt.Sprintf("[reconcileStorageClassCreateFunc] Storage class %s already exists. Adding event to requeue.", newSC.Name))
-		return true, nil
+
+	log.Info(fmt.Sprintf("[reconcileStorageClassCreateFunc] successfully create storage class, name: %s", newSC.Name))
+
+	return false, nil
+}
+
+func reconcileStorageClassRecreateFunc(
+	ctx context.Context,
+	cl client.Client,
+	log logger.Logger,
+	oldSC *storagev1.StorageClass,
+	newSC *storagev1.StorageClass,
+	nsc *v1alpha1.NFSStorageClass,
+) (bool, error) {
+	log.Info(fmt.Sprintf("[reconcileStorageClassRecreateFunc] starts for NFSStorageClass %q", nsc.Name))
+
+	err := recreateStorageClass(ctx, cl, oldSC, newSC)
+	if err != nil {
+		err = fmt.Errorf("[reconcileStorageClassRecreateFunc] unable to recreate a Storage Class %s: %w", newSC.Name, err)
+		upError := updateNFSStorageClassPhase(ctx, cl, nsc, FailedStatusPhase, err.Error())
+		if upError != nil {
+			upError = fmt.Errorf("[reconcileStorageClassRecreateFunc] unable to update the NFSStorageClass %s: %w", nsc.Name, upError)
+			err = errors.Join(err, upError)
+		}
+		return true, err
 	}
+
+	log.Info(fmt.Sprintf("[reconcileStorageClassRecreateFunc] a Storage Class %s was successfully recreated", newSC.Name))
 
 	return false, nil
 }
@@ -85,23 +94,16 @@ func reconcileStorageClassUpdateFunc(
 	ctx context.Context,
 	cl client.Client,
 	log logger.Logger,
-	scList *v1.StorageClassList,
+	oldSC *storagev1.StorageClass,
+	newSC *storagev1.StorageClass,
 	nsc *v1alpha1.NFSStorageClass,
-	controllerNamespace string,
 ) (bool, error) {
-	log.Debug(fmt.Sprintf("[reconcileStorageClassUpdateFunc] starts for NFSStorageClass %q", nsc.Name))
+	log.Info(fmt.Sprintf("[reconcileStorageClassUpdateFunc] starts for NFSStorageClass %q", nsc.Name))
 
-	var oldSC *v1.StorageClass
-	for _, s := range scList.Items {
-		if s.Name == nsc.Name {
-			oldSC = &s
-			break
-		}
-	}
-
-	if oldSC == nil {
-		err := fmt.Errorf("a storage class %s does not exist", nsc.Name)
-		err = fmt.Errorf("[reconcileStorageClassUpdateFunc] unable to find a storage class for the NFSStorageClass %s: %w", nsc.Name, err)
+	newSC.ObjectMeta.ResourceVersion = oldSC.ObjectMeta.ResourceVersion
+	err := cl.Update(ctx, newSC)
+	if err != nil {
+		err = fmt.Errorf("[reconcileStorageClassUpdateFunc] unable to update a Storage Class %s: %w", newSC.Name, err)
 		upError := updateNFSStorageClassPhase(ctx, cl, nsc, FailedStatusPhase, err.Error())
 		if upError != nil {
 			upError = fmt.Errorf("[reconcileStorageClassUpdateFunc] unable to update the NFSStorageClass %s: %w", nsc.Name, upError)
@@ -110,47 +112,7 @@ func reconcileStorageClassUpdateFunc(
 		return true, err
 	}
 
-	log.Debug(fmt.Sprintf("[reconcileStorageClassUpdateFunc] successfully found a storage class for the NFSStorageClass, name: %s", nsc.Name))
-
-	log.Trace(fmt.Sprintf("[reconcileStorageClassUpdateFunc] storage class: %+v", oldSC))
-	newSC, err := updateStorageClass(nsc, oldSC, controllerNamespace)
-	if err != nil {
-		err = fmt.Errorf("[reconcileStorageClassUpdateFunc] unable to configure a Storage Class for the NFSStorageClass %s: %w", nsc.Name, err)
-		upError := updateNFSStorageClassPhase(ctx, cl, nsc, FailedStatusPhase, err.Error())
-		if upError != nil {
-			upError = fmt.Errorf("[reconcileStorageClassUpdateFunc] unable to update the NFSStorageClass %s: %w", nsc.Name, upError)
-			err = errors.Join(err, upError)
-		}
-		return false, err
-	}
-
-	diff, err := GetSCDiff(oldSC, newSC)
-	if err != nil {
-		err = fmt.Errorf("[reconcileStorageClassUpdateFunc] error occurred while identifying the difference between the existed StorageClass %s and the new one: %w", newSC.Name, err)
-		upError := updateNFSStorageClassPhase(ctx, cl, nsc, FailedStatusPhase, err.Error())
-		if upError != nil {
-			upError = fmt.Errorf("[reconcileStorageClassUpdateFunc] unable to update the NFSStorageClass %s: %w", nsc.Name, upError)
-			err = errors.Join(err, upError)
-		}
-		return true, err
-	}
-
-	if diff != "" {
-		log.Info(fmt.Sprintf("[reconcileStorageClassUpdateFunc] current Storage Class LVMVolumeGroups do not match NFSStorageClass ones. The Storage Class %s will be recreated with new ones", nsc.Name))
-
-		err = recreateStorageClass(ctx, cl, oldSC, newSC)
-		if err != nil {
-			err = fmt.Errorf("[reconcileStorageClassUpdateFunc] unable to recreate a Storage Class %s: %w", newSC.Name, err)
-			upError := updateNFSStorageClassPhase(ctx, cl, nsc, FailedStatusPhase, err.Error())
-			if upError != nil {
-				upError = fmt.Errorf("[reconcileStorageClassUpdateFunc] unable to update the NFSStorageClass %s: %w", nsc.Name, upError)
-				err = errors.Join(err, upError)
-			}
-			return true, err
-		}
-
-		log.Info(fmt.Sprintf("[reconcileStorageClassUpdateFunc] a Storage Class %s was successfully recreated", newSC.Name))
-	}
+	log.Info(fmt.Sprintf("[reconcileStorageClassUpdateFunc] successfully updated a Storage Class, name: %s", newSC.Name))
 
 	return false, nil
 }
@@ -159,45 +121,36 @@ func reconcileStorageClassDeleteFunc(
 	ctx context.Context,
 	cl client.Client,
 	log logger.Logger,
-	scList *v1.StorageClassList,
+	oldSC *storagev1.StorageClass,
 	nsc *v1alpha1.NFSStorageClass,
 ) (bool, error) {
-	log.Debug(fmt.Sprintf("[reconcileStorageClassDeleteFunc] tries to find a storage class for the NFSStorageClass %s", nsc.Name))
-	var sc *v1.StorageClass
-	for _, s := range scList.Items {
-		if s.Name == nsc.Name {
-			sc = &s
-			break
-		}
-	}
-	if sc == nil {
+	log.Info(fmt.Sprintf("[reconcileStorageClassDeleteFunc] starts for NFSStorageClass %q", nsc.Name))
+
+	if oldSC == nil {
 		log.Info(fmt.Sprintf("[reconcileStorageClassDeleteFunc] no storage class found for the NFSStorageClass, name: %s", nsc.Name))
+		log.Debug("[reconcileStorageClassDeleteFunc] ends the reconciliation")
+		return false, nil
 	}
 
-	if sc != nil {
-		log.Info(fmt.Sprintf("[reconcileStorageClassDeleteFunc] successfully found a storage class for the NFSStorageClass %s", nsc.Name))
-		log.Debug(fmt.Sprintf("[reconcileStorageClassDeleteFunc] starts identifying a provisioner for the storage class %s", sc.Name))
+	log.Info(fmt.Sprintf("[reconcileStorageClassDeleteFunc] successfully found a storage class %s for the NFSStorageClass %s", oldSC.Name, nsc.Name))
+	log.Trace(fmt.Sprintf("[reconcileStorageClassDeleteFunc] storage class: %+v", oldSC))
 
-		if slices.Contains(allowedProvisioners, sc.Provisioner) {
-			log.Info(fmt.Sprintf("[reconcileStorageClassDeleteFunc] the storage class %s provisioner %s belongs to allowed provisioners: %v", sc.Name, sc.Provisioner, allowedProvisioners))
-
-			err := deleteStorageClass(ctx, cl, sc)
-			if err != nil {
-				err = fmt.Errorf("[reconcileStorageClassDeleteFunc] unable to delete a storage class %s: %w", sc.Name, err)
-				upErr := updateNFSStorageClassPhase(ctx, cl, nsc, FailedStatusPhase, fmt.Sprintf("Unable to delete a storage class, err: %s", err.Error()))
-				if upErr != nil {
-					upErr = fmt.Errorf("[reconcileStorageClassDeleteFunc] unable to update the NFSStorageClass %s: %w", nsc.Name, upErr)
-					err = errors.Join(err, upErr)
-				}
-				return true, err
-			}
-			log.Info(fmt.Sprintf("[reconcileStorageClassDeleteFunc] successfully deleted a storage class, name: %s", sc.Name))
-		}
-
-		if !slices.Contains(allowedProvisioners, sc.Provisioner) {
-			log.Info(fmt.Sprintf("[reconcileStorageClassDeleteFunc] the storage class %s provisioner %s does not belong to allowed provisioners: %v", sc.Name, sc.Provisioner, allowedProvisioners))
-		}
+	if !slices.Contains(allowedProvisioners, oldSC.Provisioner) {
+		log.Info(fmt.Sprintf("[reconcileStorageClassDeleteFunc] the storage class %s provisioner %s does not belong to allowed provisioners: %v. Skip deletion", oldSC.Name, oldSC.Provisioner, allowedProvisioners))
+		return false, nil
 	}
+
+	err := deleteStorageClass(ctx, cl, oldSC)
+	if err != nil {
+		err = fmt.Errorf("[reconcileStorageClassDeleteFunc] unable to delete a storage class %s: %w", oldSC.Name, err)
+		upErr := updateNFSStorageClassPhase(ctx, cl, nsc, FailedStatusPhase, fmt.Sprintf("Unable to delete a storage class, err: %s", err.Error()))
+		if upErr != nil {
+			upErr = fmt.Errorf("[reconcileStorageClassDeleteFunc] unable to update the NFSStorageClass %s: %w", nsc.Name, upErr)
+			err = errors.Join(err, upErr)
+		}
+		return true, err
+	}
+	log.Info(fmt.Sprintf("[reconcileStorageClassDeleteFunc] successfully deleted a storage class, name: %s", oldSC.Name))
 
 	log.Debug("[reconcileStorageClassDeleteFunc] ends the reconciliation")
 	return false, nil
@@ -325,86 +278,81 @@ func reconcileSecretDeleteFunc(ctx context.Context, cl client.Client, log logger
 	return false, nil
 }
 
-func IdentifyReconcileFuncForStorageClass(log logger.Logger, scList *v1.StorageClassList, nsc *v1alpha1.NFSStorageClass, controllerNamespace string) (reconcileType string, err error) {
+func IdentifyReconcileFuncForStorageClass(log logger.Logger, scList *storagev1.StorageClassList, nsc *v1alpha1.NFSStorageClass, controllerNamespace string) (reconcileType string, oldSC, newSC *storagev1.StorageClass) {
+	oldSC = findStorageClass(scList, nsc.Name)
+	if oldSC == nil {
+		log.Debug(fmt.Sprintf("[IdentifyReconcileFuncForStorageClass] no storage class found for the NFSStorageClass %s", nsc.Name))
+	} else {
+		log.Debug(fmt.Sprintf("[IdentifyReconcileFuncForStorageClass] finds old storage class for the NFSStorageClass %s", nsc.Name))
+		log.Trace(fmt.Sprintf("[IdentifyReconcileFuncForStorageClass] old storage class: %+v", oldSC))
+	}
+
 	if shouldReconcileByDeleteFunc(nsc) {
-		return DeleteReconcile, nil
+		return DeleteReconcile, oldSC, nil
 	}
 
-	if shouldReconcileStorageClassByCreateFunc(scList, nsc) {
-		return CreateReconcile, nil
+	newSC = ConfigureStorageClass(oldSC, nsc, controllerNamespace)
+	log.Debug(fmt.Sprintf("[IdentifyReconcileFuncForStorageClass] successfully configurated new storage class for the NFSStorageClass %s", nsc.Name))
+	log.Trace(fmt.Sprintf("[IdentifyReconcileFuncForStorageClass] new storage class: %+v", newSC))
+
+	if shouldReconcileStorageClassByCreateFunc(oldSC, nsc) {
+		return CreateReconcile, nil, newSC
 	}
 
-	should, err := shouldReconcileStorageClassByUpdateFunc(log, scList, nsc, controllerNamespace)
-	if err != nil {
-		return "", err
-	}
-	if should {
-		return UpdateReconcile, nil
+	updateType := shouldReconcileStorageClassByUpdateFunc(log, oldSC, newSC, nsc, controllerNamespace)
+
+	if updateType != "" {
+		return updateType, oldSC, newSC
 	}
 
-	return "", nil
+	return "", oldSC, newSC
 }
 
-func shouldReconcileStorageClassByCreateFunc(scList *v1.StorageClassList, nsc *v1alpha1.NFSStorageClass) bool {
+func shouldReconcileStorageClassByCreateFunc(oldSC *storagev1.StorageClass, nsc *v1alpha1.NFSStorageClass) bool {
 	if nsc.DeletionTimestamp != nil {
 		return false
 	}
 
-	for _, sc := range scList.Items {
-		if sc.Name == nsc.Name {
-			return false
-		}
+	if oldSC != nil {
+		return false
 	}
 
 	return true
 }
 
-func shouldReconcileStorageClassByUpdateFunc(log logger.Logger, scList *v1.StorageClassList, nsc *v1alpha1.NFSStorageClass, controllerNamespace string) (bool, error) {
+func shouldReconcileStorageClassByUpdateFunc(log logger.Logger, oldSC, newSC *storagev1.StorageClass, nsc *v1alpha1.NFSStorageClass, controllerNamespace string) string {
 	if nsc.DeletionTimestamp != nil {
-		return false, nil
+		return ""
 	}
 
-	for _, oldSC := range scList.Items {
-		if oldSC.Name != nsc.Name {
-			continue
-		}
-
-		if !slices.Contains(allowedProvisioners, oldSC.Provisioner) {
-			return false, fmt.Errorf(
-				"a storage class %s with provisioner % s does not belong to allowed provisioners: %v",
-				oldSC.Name,
-				oldSC.Provisioner,
-				allowedProvisioners,
-			)
-		}
-
-		newSC, err := updateStorageClass(nsc, &oldSC, controllerNamespace)
-		if err != nil {
-			return false, err
-		}
-
-		diff, err := GetSCDiff(&oldSC, newSC)
-		if err != nil {
-			return false, err
-		}
-
-		if diff != "" {
-			log.Debug(fmt.Sprintf("[shouldReconcileStorageClassByUpdateFunc] a storage class %s should be updated. Diff: %s", oldSC.Name, diff))
-			return true, nil
-		}
-
-		if nsc.Status != nil && nsc.Status.Phase == FailedStatusPhase {
-			return true, nil
-		}
-
-		return false, nil
+	if oldSC == nil {
+		return ""
 	}
 
-	return false, fmt.Errorf("a storage class %s does not exist", nsc.Name)
+	needRecreate, diff := CompareStorageClasses(oldSC, newSC)
+	if diff != "" {
+		if needRecreate {
+			log.Debug(fmt.Sprintf("[shouldReconcileStorageClassByUpdateFunc] a storage class %s should be recreated. Diff: %s", oldSC.Name, diff))
+			return RecreateReconcile
+		}
+		log.Debug(fmt.Sprintf("[shouldReconcileStorageClassByUpdateFunc] a storage class %s should be updated. Diff: %s", oldSC.Name, diff))
+		return UpdateReconcile
+	}
+
+	return ""
 }
 
 func shouldReconcileByDeleteFunc(obj metav1.Object) bool {
 	return obj.GetDeletionTimestamp() != nil
+}
+
+func findStorageClass(scList *storagev1.StorageClassList, name string) *storagev1.StorageClass {
+	for _, sc := range scList.Items {
+		if sc.Name == name {
+			return &sc
+		}
+	}
+	return nil
 }
 
 func removeFinalizerIfExists(ctx context.Context, cl client.Client, obj metav1.Object, finalizerName string) (bool, error) {
@@ -429,53 +377,46 @@ func removeFinalizerIfExists(ctx context.Context, cl client.Client, obj metav1.O
 	return removed, nil
 }
 
-func GetSCDiff(oldSC, newSC *v1.StorageClass) (string, error) {
-	if oldSC.Provisioner != newSC.Provisioner {
-		err := fmt.Errorf("NFSStorageClass %q: the provisioner field is different in the StorageClass %q", newSC.Name, oldSC.Name)
-		return "", err
+func CompareStorageClasses(sc, newSC *storagev1.StorageClass) (bool, string) {
+	var diffs []string
+	needRecreate := false
+
+	if sc.ReclaimPolicy != nil && newSC.ReclaimPolicy != nil && *sc.ReclaimPolicy != *newSC.ReclaimPolicy {
+		diffs = append(diffs, fmt.Sprintf("ReclaimPolicy: %s -> %s", *sc.ReclaimPolicy, *newSC.ReclaimPolicy))
+		needRecreate = true
 	}
 
-	if *oldSC.ReclaimPolicy != *newSC.ReclaimPolicy {
-		diff := fmt.Sprintf("ReclaimPolicy: %q -> %q", *oldSC.ReclaimPolicy, *newSC.ReclaimPolicy)
-		return diff, nil
+	if sc.AllowVolumeExpansion != nil &&
+		newSC.AllowVolumeExpansion != nil &&
+		*sc.AllowVolumeExpansion != *newSC.AllowVolumeExpansion {
+		diffs = append(diffs,
+			fmt.Sprintf("AllowVolumeExpansion: %t -> %t", *sc.AllowVolumeExpansion, *newSC.AllowVolumeExpansion))
+		needRecreate = true
 	}
 
-	if *oldSC.VolumeBindingMode != *newSC.VolumeBindingMode {
-		diff := fmt.Sprintf("VolumeBindingMode: %q -> %q", *oldSC.VolumeBindingMode, *newSC.VolumeBindingMode)
-		return diff, nil
+	if sc.VolumeBindingMode != nil && newSC.VolumeBindingMode != nil && *sc.VolumeBindingMode != *newSC.VolumeBindingMode {
+		diffs = append(diffs,
+			fmt.Sprintf("VolumeBindingMode: %s -> %s", *sc.VolumeBindingMode, *newSC.VolumeBindingMode))
+		needRecreate = true
 	}
 
-	if *oldSC.AllowVolumeExpansion != *newSC.AllowVolumeExpansion {
-		diff := fmt.Sprintf("AllowVolumeExpansion: %t -> %t", *oldSC.AllowVolumeExpansion, *newSC.AllowVolumeExpansion)
-		return diff, nil
+	if !cmp.Equal(sc.Parameters, newSC.Parameters) {
+		diffs = append(diffs,
+			fmt.Sprintf("Parameters diff: %s", cmp.Diff(sc.Parameters, newSC.Parameters)))
+		needRecreate = true
 	}
 
-	if !reflect.DeepEqual(oldSC.Parameters, newSC.Parameters) {
-		diff := fmt.Sprintf("Parameters: %+v -> %+v", oldSC.Parameters, newSC.Parameters)
-		return diff, nil
+	if !cmp.Equal(sc.ObjectMeta.Labels, newSC.ObjectMeta.Labels) {
+		diffs = append(diffs,
+			fmt.Sprintf("Labels diff: %s", cmp.Diff(sc.ObjectMeta.Labels, newSC.ObjectMeta.Labels)))
 	}
 
-	if !reflect.DeepEqual(oldSC.MountOptions, newSC.MountOptions) {
-		diff := fmt.Sprintf("MountOptions: %v -> %v", oldSC.MountOptions, newSC.MountOptions)
-		return diff, nil
+	if !cmp.Equal(sc.ObjectMeta.Annotations, newSC.ObjectMeta.Annotations) {
+		diffs = append(diffs,
+			fmt.Sprintf("Annotations diff: %s", cmp.Diff(sc.ObjectMeta.Annotations, newSC.ObjectMeta.Annotations)))
 	}
 
-	return "", nil
-}
-
-func createStorageClassIfNotExists(ctx context.Context, cl client.Client, scList *v1.StorageClassList, sc *v1.StorageClass) (bool, error) {
-	for _, s := range scList.Items {
-		if s.Name == sc.Name {
-			return false, nil
-		}
-	}
-
-	err := cl.Create(ctx, sc)
-	if err != nil {
-		return false, err
-	}
-
-	return true, err
+	return needRecreate, strings.Join(diffs, ", ")
 }
 
 func addFinalizerIfNotExists(ctx context.Context, cl client.Client, obj metav1.Object, finalizerName string) (bool, error) {
@@ -496,28 +437,22 @@ func addFinalizerIfNotExists(ctx context.Context, cl client.Client, obj metav1.O
 	return true, nil
 }
 
-func ConfigureStorageClass(nsc *v1alpha1.NFSStorageClass, controllerNamespace string) (*v1.StorageClass, error) {
-	if nsc.Spec.ReclaimPolicy == "" {
-		err := fmt.Errorf("NFSStorageClass %q: the ReclaimPolicy field is empty", nsc.Name)
-		return nil, err
-	}
-	if nsc.Spec.VolumeBindingMode == "" {
-		err := fmt.Errorf("NFSStorageClass %q: the VolumeBindingMode field is empty", nsc.Name)
-		return nil, err
-	}
-
+func ConfigureStorageClass(oldSC *storagev1.StorageClass, nsc *v1alpha1.NFSStorageClass, controllerNamespace string) *storagev1.StorageClass {
 	reclaimPolicy := corev1.PersistentVolumeReclaimPolicy(nsc.Spec.ReclaimPolicy)
-	volumeBindingMode := v1.VolumeBindingMode(nsc.Spec.VolumeBindingMode)
+	volumeBindingMode := storagev1.VolumeBindingMode(nsc.Spec.VolumeBindingMode)
 	AllowVolumeExpansion := AllowVolumeExpansionDefaultValue
 
-	sc := &v1.StorageClass{
+	newSc := &storagev1.StorageClass{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       StorageClassKind,
 			APIVersion: StorageClassAPIVersion,
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:       nsc.Name,
-			Namespace:  nsc.Namespace,
+			Name:      nsc.Name,
+			Namespace: nsc.Namespace,
+			Labels: map[string]string{
+				NFSStorageClassManagedLabelKey: NFSStorageClassManagedLabelValue,
+			},
 			Finalizers: []string{NFSStorageClassControllerFinalizerName},
 		},
 		Parameters:           GetSCParams(nsc, controllerNamespace),
@@ -528,7 +463,16 @@ func ConfigureStorageClass(nsc *v1alpha1.NFSStorageClass, controllerNamespace st
 		AllowVolumeExpansion: &AllowVolumeExpansion,
 	}
 
-	return sc, nil
+	if oldSC != nil {
+		if oldSC.Labels != nil {
+			newSc.Labels = labels.Merge(oldSC.Labels, newSc.Labels)
+		}
+		if oldSC.Annotations != nil {
+			newSc.Annotations = oldSC.Annotations
+		}
+	}
+
+	return newSc
 }
 
 func updateNFSStorageClassPhase(ctx context.Context, cl client.Client, nsc *v1alpha1.NFSStorageClass, phase, reason string) error {
@@ -547,7 +491,7 @@ func updateNFSStorageClassPhase(ctx context.Context, cl client.Client, nsc *v1al
 	return nil
 }
 
-func recreateStorageClass(ctx context.Context, cl client.Client, oldSC, newSC *v1.StorageClass) error {
+func recreateStorageClass(ctx context.Context, cl client.Client, oldSC, newSC *storagev1.StorageClass) error {
 	// It is necessary to pass the original StorageClass to the delete operation because
 	// the deletion will not succeed if the fields in the StorageClass provided to delete
 	// differ from those currently in the cluster.
@@ -566,7 +510,7 @@ func recreateStorageClass(ctx context.Context, cl client.Client, oldSC, newSC *v
 	return nil
 }
 
-func deleteStorageClass(ctx context.Context, cl client.Client, sc *v1.StorageClass) error {
+func deleteStorageClass(ctx context.Context, cl client.Client, sc *storagev1.StorageClass) error {
 	if !slices.Contains(allowedProvisioners, sc.Provisioner) {
 		return fmt.Errorf("a storage class %s with provisioner %s does not belong to allowed provisioners: %v", sc.Name, sc.Provisioner, allowedProvisioners)
 	}
@@ -629,8 +573,8 @@ func GetSCParams(nsc *v1alpha1.NFSStorageClass, controllerNamespace string) map[
 
 	params[serverParamKey] = nsc.Spec.Connection.Host
 	params[shareParamKey] = nsc.Spec.Connection.Share
-	params[StorageClassSecretNameKey] = SecretForMountOptionsPrefix + nsc.Name
-	params[StorageClassSecretNSKey] = controllerNamespace
+	params[ProvisionerSecretNameKey] = SecretForMountOptionsPrefix + nsc.Name
+	params[ProvisionerSecretNamespaceKey] = controllerNamespace
 
 	if nsc.Spec.ChmodPermissions != "" {
 		params[MountPermissionsParamKey] = nsc.Spec.ChmodPermissions
@@ -703,7 +647,8 @@ func shouldReconcileSecretByUpdateFunc(log logger.Logger, secretList *corev1.Sec
 		}
 	}
 
-	log.Debug(fmt.Sprintf("[shouldReconcileSecretByUpdateFunc] a secret %s not found in the list: %+v. It should be created", SecretForMountOptionsPrefix+nsc.Name, secretList.Items))
+	log.Debug(fmt.Sprintf("[shouldReconcileSecretByUpdateFunc] a secret %s not found. It should be created", SecretForMountOptionsPrefix+nsc.Name))
+	log.Trace(fmt.Sprintf("[shouldReconcileSecretByUpdateFunc] secret list: %+v", secretList))
 	return true, nil
 }
 
@@ -734,15 +679,92 @@ func configureSecret(nsc *v1alpha1.NFSStorageClass, controllerNamespace string) 
 	return secret
 }
 
-func updateStorageClass(nsc *v1alpha1.NFSStorageClass, oldSC *v1.StorageClass, controllerNamespace string) (*v1.StorageClass, error) {
-	newSC, err := ConfigureStorageClass(nsc, controllerNamespace)
-	if err != nil {
-		return nil, err
+// VolumeSnaphotClass
+func IdentifyReconcileFuncForVSClass(log logger.Logger, vsClassList *snapshotv1.VolumeSnapshotClassList, nsc *v1alpha1.NFSStorageClass, controllerNamespace string) (reconcileType string, err error) {
+	if shouldReconcileByDeleteFunc(nsc) {
+		return DeleteReconcile, nil
 	}
 
-	if oldSC.Annotations != nil {
-		newSC.Annotations = oldSC.Annotations
+	if shouldReconcileVSClassByCreateFunc(vsClassList, nsc) {
+		return CreateReconcile, nil
 	}
 
-	return newSC, nil
+	should, err := shouldReconcileVSClassByUpdateFunc(log, vsClassList, nsc, controllerNamespace)
+	if should {
+		return UpdateReconcile, nil
+	}
+
+	return "", nil
+}
+
+func shouldReconcileVSClassByCreateFunc(vsClassList *snapshotv1.VolumeSnapshotClassList, nsc *v1alpha1.NFSStorageClass) bool {
+	if nsc.DeletionTimestamp != nil {
+		return false
+	}
+
+	for _, vsClass := range vsClassList.Items {
+		if vsClass.Name == nsc.Name {
+			return false
+		}
+	}
+
+	return true
+}
+
+func shouldReconcileVSClassByUpdateFunc(log logger.Logger, vsClassList *snapshotv1.VolumeSnapshotClassList, nsc *v1alpha1.NFSStorageClass, controllerNamespace string) (bool, error) {
+	if nsc.DeletionTimestamp != nil {
+		return false, nil
+	}
+
+	for _, oldVSClass := range vsClassList.Items {
+		if oldVSClass.Name != nsc.Name {
+			continue
+		}
+
+		if !slices.Contains(allowedProvisioners, oldVSClass.Driver) {
+			return false, fmt.Errorf(
+				"a volume snapshot class %s with provisioner % s does not belong to allowed provisioners: %v",
+				oldVSClass.Name,
+				oldVSClass.Driver,
+				allowedProvisioners,
+			)
+		}
+
+		// newVSClass := configureVSClass(nsc, controllerNamespace)
+
+		// diff := GetVSClassDiff(&oldVSClass, newVSClass)
+
+		// if diff != "" {
+		// 	log.Debug(fmt.Sprintf("[shouldReconcileVSClassByUpdateFunc] a volume snapshot class %s should be updated. Diff: %s", oldSC.Name, diff))
+		// 	return true, nil
+		// }
+
+		// if nsc.Status != nil && nsc.Status.Phase == FailedStatusPhase {
+		// 	return true, nil
+		// }
+
+		return false, nil
+	}
+
+	return false, fmt.Errorf("a volume snapshot class %s does not exist", nsc.Name)
+}
+
+func configureVSClass(nsc *v1alpha1.NFSStorageClass, controllerNamespace string) *snapshotv1.VolumeSnapshotClass {
+	deletionPolicy := snapshotv1.DeletionPolicy(nsc.Spec.ReclaimPolicy)
+
+	newVSClass := &snapshotv1.VolumeSnapshotClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       nsc.Name,
+			Namespace:  nsc.Namespace,
+			Finalizers: []string{NFSStorageClassControllerFinalizerName},
+		},
+		Driver:         NFSStorageClassProvisioner,
+		DeletionPolicy: deletionPolicy,
+		Parameters: map[string]string{
+			SnapshotterSecretNameKey:      SecretForMountOptionsPrefix + nsc.Name,
+			SnapshotterSecretNamespaceKey: controllerNamespace,
+		},
+	}
+
+	return newVSClass
 }

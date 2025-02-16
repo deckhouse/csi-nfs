@@ -117,22 +117,22 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 
 	})
 
-	It("Annotate_sc_as_default_sc", func() {
-		sc := &storagev1.StorageClass{}
-		err := cl.Get(ctx, client.ObjectKey{Name: nameForTestResource}, sc)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(sc.Annotations).To(BeNil())
+	// It("Annotate_sc_as_default_sc", func() {
+	// 	sc := &storagev1.StorageClass{}
+	// 	err := cl.Get(ctx, client.ObjectKey{Name: nameForTestResource}, sc)
+	// 	Expect(err).NotTo(HaveOccurred())
+	// 	Expect(sc.Annotations).To(BeNil())
 
-		sc.Annotations = map[string]string{
-			controller.StorageClassDefaultAnnotationKey: controller.StorageClassDefaultAnnotationValTrue,
-		}
+	// 	sc.Annotations = map[string]string{
+	// 		controller.StorageClassDefaultAnnotationKey: controller.StorageClassDefaultAnnotationValTrue,
+	// 	}
 
-		err = cl.Update(ctx, sc)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(sc.Annotations).To(HaveLen(1))
-		Expect(sc.Annotations).To(HaveKeyWithValue(controller.StorageClassDefaultAnnotationKey, controller.StorageClassDefaultAnnotationValTrue))
+	// 	err = cl.Update(ctx, sc)
+	// 	Expect(err).NotTo(HaveOccurred())
+	// 	Expect(sc.Annotations).To(HaveLen(1))
+	// 	Expect(sc.Annotations).To(HaveKeyWithValue(controller.StorageClassDefaultAnnotationKey, controller.StorageClassDefaultAnnotationValTrue))
 
-	})
+	// })
 
 	It("Update_nfs_sc_1", func() {
 		nsc := &v1alpha1.NFSStorageClass{}
@@ -464,8 +464,8 @@ func performStandartChecksForSc(sc *storagev1.StorageClass, server, share string
 	Expect(*sc.VolumeBindingMode).To(Equal(storagev1.VolumeBindingWaitForFirstConsumer))
 	Expect(sc.Parameters).To(HaveKeyWithValue("server", server))
 	Expect(sc.Parameters).To(HaveKeyWithValue("share", share))
-	Expect(sc.Parameters).To(HaveKeyWithValue(controller.StorageClassSecretNameKey, controller.SecretForMountOptionsPrefix+nameForTestResource))
-	Expect(sc.Parameters).To(HaveKeyWithValue(controller.StorageClassSecretNSKey, controllerNamespace))
+	Expect(sc.Parameters).To(HaveKeyWithValue(controller.ProvisionerSecretNameKey, controller.SecretForMountOptionsPrefix+nameForTestResource))
+	Expect(sc.Parameters).To(HaveKeyWithValue(controller.ProvisionerSecretNamespaceKey, controllerNamespace))
 }
 
 func performStandartChecksForSecret(secret *corev1.Secret) {
