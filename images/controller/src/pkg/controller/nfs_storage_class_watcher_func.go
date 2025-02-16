@@ -38,7 +38,7 @@ import (
 	"d8-controller/pkg/logger"
 )
 
-func ReconcileStorageClassCreateFunc(
+func reconcileStorageClassCreateFunc(
 	ctx context.Context,
 	cl client.Client,
 	log logger.Logger,
@@ -156,7 +156,7 @@ func reconcileStorageClassDeleteFunc(
 	return false, nil
 }
 
-func ReconcileSecretCreateFunc(ctx context.Context, cl client.Client, log logger.Logger, nsc *v1alpha1.NFSStorageClass, controllerNamespace string) (bool, error) {
+func reconcileSecretCreateFunc(ctx context.Context, cl client.Client, log logger.Logger, nsc *v1alpha1.NFSStorageClass, controllerNamespace string) (bool, error) {
 	log.Debug(fmt.Sprintf("[reconcileSecretCreateFunc] starts for NFSStorageClass %q", nsc.Name))
 
 	newSecret := configureSecret(nsc, controllerNamespace)
@@ -685,82 +685,84 @@ func configureSecret(nsc *v1alpha1.NFSStorageClass, controllerNamespace string) 
 }
 
 // VolumeSnaphotClass
-func IdentifyReconcileFuncForVSClass(log logger.Logger, vsClassList *snapshotv1.VolumeSnapshotClassList, nsc *v1alpha1.NFSStorageClass, controllerNamespace string) (reconcileType string, err error) {
+func IdentifyReconcileFuncForVSClass(log logger.Logger, vsClassList *snapshotv1.VolumeSnapshotClassList, nsc *v1alpha1.NFSStorageClass, controllerNamespace string) (reconcileType string, oldVSClass, newVSClass *snapshotv1.VolumeSnapshotClass) {
+	oldVSClass = findVSClass(vsClassList, nsc.Name)
+
+	if oldVSClass == nil {
+		log.Debug(fmt.Sprintf("[IdentifyReconcileFuncForVSClass] no volume snapshot class found for the NFSStorageClass %s", nsc.Name))
+	} else {
+		log.Debug(fmt.Sprintf("[IdentifyReconcileFuncForVSClass] finds old volume snapshot class for the NFSStorageClass %s", nsc.Name))
+		log.Trace(fmt.Sprintf("[IdentifyReconcileFuncForVSClass] old volume snapshot class: %+v", oldVSClass))
+	}
+
 	if shouldReconcileByDeleteFunc(nsc) {
-		return DeleteReconcile, nil
+		return DeleteReconcile, oldVSClass, nil
 	}
 
-	if shouldReconcileVSClassByCreateFunc(vsClassList, nsc) {
-		return CreateReconcile, nil
+	newVSClass = ConfigureVSClass(oldVSClass, nsc, controllerNamespace)
+	log.Debug(fmt.Sprintf("[IdentifyReconcileFuncForVSClass] successfully configurated new volume snapshot class for the NFSStorageClass %s", nsc.Name))
+	log.Trace(fmt.Sprintf("[IdentifyReconcileFuncForVSClass] new volume snapshot class: %+v", newVSClass))
+
+	if shouldReconcileVSClassByCreateFunc(oldVSClass, nsc) {
+		return CreateReconcile, nil, newVSClass
 	}
 
-	should, err := shouldReconcileVSClassByUpdateFunc(log, vsClassList, nsc, controllerNamespace)
-	if should {
-		return UpdateReconcile, nil
+	if shouldReconcileVSClassByUpdateFunc(log, oldVSClass, newVSClass, nsc) {
+		return UpdateReconcile, oldVSClass, newVSClass
 	}
 
-	return "", nil
+	return "", oldVSClass, newVSClass
 }
 
-func shouldReconcileVSClassByCreateFunc(vsClassList *snapshotv1.VolumeSnapshotClassList, nsc *v1alpha1.NFSStorageClass) bool {
+func shouldReconcileVSClassByCreateFunc(oldVSClass *snapshotv1.VolumeSnapshotClass, nsc *v1alpha1.NFSStorageClass) bool {
 	if nsc.DeletionTimestamp != nil {
 		return false
 	}
 
-	for _, vsClass := range vsClassList.Items {
-		if vsClass.Name == nsc.Name {
-			return false
-		}
+	if oldVSClass != nil {
+		return false
 	}
 
 	return true
 }
 
-func shouldReconcileVSClassByUpdateFunc(log logger.Logger, vsClassList *snapshotv1.VolumeSnapshotClassList, nsc *v1alpha1.NFSStorageClass, controllerNamespace string) (bool, error) {
+func shouldReconcileVSClassByUpdateFunc(log logger.Logger, oldVSClass, newVSClass *snapshotv1.VolumeSnapshotClass, nsc *v1alpha1.NFSStorageClass) bool {
 	if nsc.DeletionTimestamp != nil {
-		return false, nil
+		return false
 	}
 
-	for _, oldVSClass := range vsClassList.Items {
-		if oldVSClass.Name != nsc.Name {
-			continue
-		}
-
-		if !slices.Contains(allowedProvisioners, oldVSClass.Driver) {
-			return false, fmt.Errorf(
-				"a volume snapshot class %s with provisioner % s does not belong to allowed provisioners: %v",
-				oldVSClass.Name,
-				oldVSClass.Driver,
-				allowedProvisioners,
-			)
-		}
-
-		// newVSClass := configureVSClass(nsc, controllerNamespace)
-
-		// diff := GetVSClassDiff(&oldVSClass, newVSClass)
-
-		// if diff != "" {
-		// 	log.Debug(fmt.Sprintf("[shouldReconcileVSClassByUpdateFunc] a volume snapshot class %s should be updated. Diff: %s", oldSC.Name, diff))
-		// 	return true, nil
-		// }
-
-		// if nsc.Status != nil && nsc.Status.Phase == FailedStatusPhase {
-		// 	return true, nil
-		// }
-
-		return false, nil
+	if oldVSClass == nil {
+		return false
 	}
 
-	return false, fmt.Errorf("a volume snapshot class %s does not exist", nsc.Name)
+	diff := CompareVSClasses(oldVSClass, newVSClass)
+	if diff != "" {
+		log.Debug(fmt.Sprintf("[shouldReconcileVSClassByUpdateFunc] a volume snapshot class %s should be updated. Diff: %s", oldVSClass.Name, diff))
+		return true
+	}
+
+	return false
 }
 
-func configureVSClass(nsc *v1alpha1.NFSStorageClass, controllerNamespace string) *snapshotv1.VolumeSnapshotClass {
+func findVSClass(vsClassList *snapshotv1.VolumeSnapshotClassList, name string) *snapshotv1.VolumeSnapshotClass {
+	for _, vsClass := range vsClassList.Items {
+		if vsClass.Name == name {
+			return &vsClass
+		}
+	}
+	return nil
+}
+
+func ConfigureVSClass(oldVSClass *snapshotv1.VolumeSnapshotClass, nsc *v1alpha1.NFSStorageClass, controllerNamespace string) *snapshotv1.VolumeSnapshotClass {
 	deletionPolicy := snapshotv1.DeletionPolicy(nsc.Spec.ReclaimPolicy)
 
 	newVSClass := &snapshotv1.VolumeSnapshotClass{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:       nsc.Name,
-			Namespace:  nsc.Namespace,
+			Name:      nsc.Name,
+			Namespace: nsc.Namespace,
+			Labels: map[string]string{
+				NFSStorageClassManagedLabelKey: NFSStorageClassManagedLabelValue,
+			},
 			Finalizers: []string{NFSStorageClassControllerFinalizerName},
 		},
 		Driver:         NFSStorageClassProvisioner,
@@ -771,5 +773,150 @@ func configureVSClass(nsc *v1alpha1.NFSStorageClass, controllerNamespace string)
 		},
 	}
 
+	if oldVSClass != nil {
+		if oldVSClass.Labels != nil {
+			newVSClass.Labels = labels.Merge(oldVSClass.Labels, newVSClass.Labels)
+		}
+		if oldVSClass.Annotations != nil {
+			newVSClass.Annotations = oldVSClass.Annotations
+		}
+	}
+
 	return newVSClass
+}
+
+func CompareVSClasses(vsClass, newVSClass *snapshotv1.VolumeSnapshotClass) string {
+	var diffs []string
+
+	if vsClass.DeletionPolicy != newVSClass.DeletionPolicy {
+		diffs = append(diffs, fmt.Sprintf("DeletionPolicy: %s -> %s", vsClass.DeletionPolicy, newVSClass.DeletionPolicy))
+	}
+
+	if !cmp.Equal(vsClass.Parameters, newVSClass.Parameters) {
+		diffs = append(diffs,
+			fmt.Sprintf("Parameters diff: %s", cmp.Diff(vsClass.Parameters, newVSClass.Parameters)))
+	}
+
+	if !cmp.Equal(vsClass.ObjectMeta.Labels, newVSClass.ObjectMeta.Labels) {
+		diffs = append(diffs,
+			fmt.Sprintf("Labels diff: %s", cmp.Diff(vsClass.ObjectMeta.Labels, newVSClass.ObjectMeta.Labels)))
+	}
+
+	if !cmp.Equal(vsClass.ObjectMeta.Annotations, newVSClass.ObjectMeta.Annotations) {
+		diffs = append(diffs,
+			fmt.Sprintf("Annotations diff: %s", cmp.Diff(vsClass.ObjectMeta.Annotations, newVSClass.ObjectMeta.Annotations)))
+	}
+
+	return strings.Join(diffs, ", ")
+}
+
+func reconcileVolumeSnapshotClassCreateFunc(
+	ctx context.Context,
+	cl client.Client,
+	log logger.Logger,
+	newVSClass *snapshotv1.VolumeSnapshotClass,
+	nsc *v1alpha1.NFSStorageClass,
+) (bool, error) {
+	log.Debug(fmt.Sprintf("[reconcileVolumeSnapshotClassCreateFunc] starts for VolumeSnapshotClass %q", newVSClass.Name))
+	log.Trace(fmt.Sprintf("[reconcileVolumeSnapshotClassCreateFunc] volume snapshot class: %+v", newVSClass))
+
+	err := cl.Create(ctx, newVSClass)
+	if err != nil {
+		err = fmt.Errorf("[reconcileVolumeSnapshotClassCreateFunc] unable to create a VolumeSnapshotClass %s: %w", newVSClass.Name, err)
+		upError := updateNFSStorageClassPhase(ctx, cl, nsc, FailedStatusPhase, err.Error())
+		if upError != nil {
+			upError = fmt.Errorf("[reconcileVolumeSnapshotClassCreateFunc] unable to update the NFSStorageClass %s: %w", nsc.Name, upError)
+			err = errors.Join(err, upError)
+		}
+		return true, err
+	}
+
+	log.Info(fmt.Sprintf("[reconcileVolumeSnapshotClassCreateFunc] successfully create volume snapshot class, name: %s", newVSClass.Name))
+
+	return false, nil
+}
+
+func reconcileVolumeSnapshotClassUpdateFunc(
+	ctx context.Context,
+	cl client.Client,
+	log logger.Logger,
+	oldVSClass *snapshotv1.VolumeSnapshotClass,
+	newVSClass *snapshotv1.VolumeSnapshotClass,
+	nsc *v1alpha1.NFSStorageClass,
+) (bool, error) {
+	log.Debug(fmt.Sprintf("[reconcileVolumeSnapshotClassUpdateFunc] starts for VolumeSnapshotClass %q", newVSClass.Name))
+
+	newVSClass.ObjectMeta.ResourceVersion = oldVSClass.ObjectMeta.ResourceVersion
+	err := cl.Update(ctx, newVSClass)
+	if err != nil {
+		err = fmt.Errorf("[reconcileVolumeSnapshotClassUpdateFunc] unable to update a VolumeSnapshotClass %s: %w", newVSClass.Name, err)
+		upError := updateNFSStorageClassPhase(ctx, cl, nsc, FailedStatusPhase, err.Error())
+		if upError != nil {
+			upError = fmt.Errorf("[reconcileVolumeSnapshotClassUpdateFunc] unable to update the NFSStorageClass %s: %w", nsc.Name, upError)
+			err = errors.Join(err, upError)
+		}
+		return true, err
+	}
+
+	log.Info(fmt.Sprintf("[reconcileVolumeSnapshotClassUpdateFunc] successfully updated a VolumeSnapshotClass, name: %s", newVSClass.Name))
+
+	return false, nil
+}
+
+func reconcileVolumeSnapshotClassDeleteFunc(
+	ctx context.Context,
+	cl client.Client,
+	log logger.Logger,
+	oldVSClass *snapshotv1.VolumeSnapshotClass,
+	nsc *v1alpha1.NFSStorageClass,
+) (bool, error) {
+	log.Debug(fmt.Sprintf("[reconcileVolumeSnapshotClassDeleteFunc] starts for VolumeSnapshotClass %q", nsc.Name))
+
+	if oldVSClass == nil {
+		log.Info(fmt.Sprintf("[reconcileVolumeSnapshotClassDeleteFunc] no volume snapshot class found for the NFSStorageClass, name: %s", nsc.Name))
+		log.Debug("[reconcileVolumeSnapshotClassDeleteFunc] ends the reconciliation")
+		return false, nil
+	}
+
+	log.Info(fmt.Sprintf("[reconcileVolumeSnapshotClassDeleteFunc] successfully found a volume snapshot class %s for the NFSStorageClass %s", oldVSClass.Name, nsc.Name))
+	log.Trace(fmt.Sprintf("[reconcileVolumeSnapshotClassDeleteFunc] volume snapshot class: %+v", oldVSClass))
+
+	if !slices.Contains(allowedProvisioners, oldVSClass.Driver) {
+		log.Info(fmt.Sprintf("[reconcileVolumeSnapshotClassDeleteFunc] the volume snapshot class %s driver %s does not belong to allowed provisioners: %v. Skip deletion", oldVSClass.Name, oldVSClass.Driver, allowedProvisioners))
+		return false, nil
+	}
+
+	err := deleteVolumeSnapshotClass(ctx, cl, oldVSClass)
+	if err != nil {
+		err = fmt.Errorf("[reconcileVolumeSnapshotClassDeleteFunc] unable to delete a volume snapshot class %s: %w", oldVSClass.Name, err)
+		upError := updateNFSStorageClassPhase(ctx, cl, nsc, FailedStatusPhase, err.Error())
+		if upError != nil {
+			upError = fmt.Errorf("[reconcileVolumeSnapshotClassDeleteFunc] unable to update the NFSStorageClass %s: %w", nsc.Name, upError)
+			err = errors.Join(err, upError)
+		}
+		return true, err
+	}
+
+	log.Info(fmt.Sprintf("[reconcileVolumeSnapshotClassDeleteFunc] successfully deleted a volume snapshot class, name: %s", oldVSClass.Name))
+
+	log.Debug("[reconcileVolumeSnapshotClassDeleteFunc] ends the reconciliation")
+	return false, nil
+}
+
+func deleteVolumeSnapshotClass(ctx context.Context, cl client.Client, vsClass *snapshotv1.VolumeSnapshotClass) error {
+	if !slices.Contains(allowedProvisioners, vsClass.Driver) {
+		return fmt.Errorf("a volume snapshot class %s with driver %s does not belong to allowed provisioners: %v", vsClass.Name, vsClass.Driver, allowedProvisioners)
+	}
+
+	_, err := removeFinalizerIfExists(ctx, cl, vsClass, NFSStorageClassControllerFinalizerName)
+	if err != nil {
+		return err
+	}
+
+	err = cl.Delete(ctx, vsClass)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

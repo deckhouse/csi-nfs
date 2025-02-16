@@ -25,6 +25,7 @@ import (
 
 	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	commonvalidating "github.com/deckhouse/csi-nfs/lib/go/common/pkg/validating"
+	snapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/storage/v1"
 	k8serr "k8s.io/apimachinery/pkg/api/errors"
@@ -197,7 +198,7 @@ func RunEventReconcile(ctx context.Context, cl client.Client, log logger.Logger,
 	switch reconcileTypeForStorageClass {
 	case CreateReconcile:
 		log.Debug(fmt.Sprintf("[runEventReconcile] CreateReconcile starts reconciliataion of StorageClass, name: %s", nsc.Name))
-		shouldRequeue, err = ReconcileStorageClassCreateFunc(ctx, cl, log, newSC, nsc)
+		shouldRequeue, err = reconcileStorageClassCreateFunc(ctx, cl, log, newSC, nsc)
 	case RecreateReconcile:
 		log.Debug(fmt.Sprintf("[runEventReconcile] RecreateReconcile starts reconciliataion of StorageClass, name: %s", nsc.Name))
 		shouldRequeue, err = reconcileStorageClassRecreateFunc(ctx, cl, log, oldSC, newSC, nsc)
@@ -239,7 +240,7 @@ func RunEventReconcile(ctx context.Context, cl client.Client, log logger.Logger,
 	switch reconcileTypeForSecret {
 	case CreateReconcile:
 		log.Debug(fmt.Sprintf("[runEventReconcile] CreateReconcile starts reconciliataion of Secret, name: %s", SecretForMountOptionsPrefix+nsc.Name))
-		shouldRequeue, err = ReconcileSecretCreateFunc(ctx, cl, log, nsc, controllerNamespace)
+		shouldRequeue, err = reconcileSecretCreateFunc(ctx, cl, log, nsc, controllerNamespace)
 	case UpdateReconcile:
 		log.Debug(fmt.Sprintf("[runEventReconcile] UpdateReconcile starts reconciliataion of Secret, name: %s", SecretForMountOptionsPrefix+nsc.Name))
 		shouldRequeue, err = reconcileSecretUpdateFunc(ctx, cl, log, secretList, nsc, controllerNamespace)
@@ -256,44 +257,37 @@ func RunEventReconcile(ctx context.Context, cl client.Client, log logger.Logger,
 		return shouldRequeue, err
 	}
 
-	// vsClassList := &snapshotv1.VolumeSnapshotClassList{}
-	// err = cl.List(ctx, vsClassList)
-	// if err != nil {
-	// 	err = fmt.Errorf("[runEventReconcile] unable to list VolumeSnapshotClasses: %w", err)
-	// 	upError := updateNFSStorageClassPhase(ctx, cl, nsc, FailedStatusPhase, err.Error())
-	// 	if upError != nil {
-	// 		upError = fmt.Errorf("[reconcileStorageClassCreateFunc] unable to update the NFSStorageClass %s: %w", nsc.Name, upError)
-	// 		err = errors.Join(err, upError)
-	// 	}
-	// 	return true, err
-	// }
+	vsClassList := &snapshotv1.VolumeSnapshotClassList{}
+	err = cl.List(ctx, vsClassList)
+	if err != nil {
+		err = fmt.Errorf("[runEventReconcile] unable to list VolumeSnapshotClasses: %w", err)
+		upError := updateNFSStorageClassPhase(ctx, cl, nsc, FailedStatusPhase, err.Error())
+		if upError != nil {
+			upError = fmt.Errorf("[reconcileStorageClassCreateFunc] unable to update the NFSStorageClass %s: %w", nsc.Name, upError)
+			err = errors.Join(err, upError)
+		}
+		return true, err
+	}
 
-	// reconcileTypeForVSClass, err := IdentifyReconcileFuncForVSClass(log, vsClassList, nsc, controllerNamespace)
-	// if err != nil {
-	// 	log.Error(err, fmt.Sprintf("[runEventReconcile] error occurred while identifying the reconcile function for the Secret %q", SecretForMountOptionsPrefix+nsc.Name))
-	// 	return true, err
-	// }
+	reconcileTypeForVSClass, oldVSClass, newVSClass := IdentifyReconcileFuncForVSClass(log, vsClassList, nsc, controllerNamespace)
 
-	// log.Debug(fmt.Sprintf("[runEventReconcile] reconcile operation for Secret %q: %q", SecretForMountOptionsPrefix+nsc.Name, reconcileTypeForSecret))
-	// switch reconcileTypeForVSClass {
-	// case CreateReconcile:
-	// 	log.Debug(fmt.Sprintf("[runEventReconcile] CreateReconcile starts reconciliataion of Secret, name: %s", SecretForMountOptionsPrefix+nsc.Name))
-	// 	shouldRequeue, err = ReconcileSecretCreateFunc(ctx, cl, log, nsc, controllerNamespace)
-	// case UpdateReconcile:
-	// 	log.Debug(fmt.Sprintf("[runEventReconcile] UpdateReconcile starts reconciliataion of Secret, name: %s", SecretForMountOptionsPrefix+nsc.Name))
-	// 	shouldRequeue, err = reconcileSecretUpdateFunc(ctx, cl, log, secretList, nsc, controllerNamespace)
-	// case DeleteReconcile:
-	// 	log.Debug(fmt.Sprintf("[runEventReconcile] DeleteReconcile starts reconciliataion of Secret, name: %s", SecretForMountOptionsPrefix+nsc.Name))
-	// 	shouldRequeue, err = reconcileSecretDeleteFunc(ctx, cl, log, secretList, nsc)
-	// default:
-	// 	log.Debug(fmt.Sprintf("[runEventReconcile] Secret %q should not be reconciled", SecretForMountOptionsPrefix+nsc.Name))
-	// }
+	log.Debug(fmt.Sprintf("[runEventReconcile] reconcile operation for VolumeSnapshotClass %q: %q", nsc.Name, reconcileTypeForVSClass))
+	switch reconcileTypeForVSClass {
+	case CreateReconcile:
+		shouldRequeue, err = reconcileVolumeSnapshotClassCreateFunc(ctx, cl, log, newVSClass, nsc)
+	case UpdateReconcile:
+		shouldRequeue, err = reconcileVolumeSnapshotClassUpdateFunc(ctx, cl, log, oldVSClass, newVSClass, nsc)
+	case DeleteReconcile:
+		shouldRequeue, err = reconcileVolumeSnapshotClassDeleteFunc(ctx, cl, log, oldVSClass, nsc)
+	default:
+		log.Debug(fmt.Sprintf("[runEventReconcile] VolumeSnapshotClass %q should not be reconciled", nsc.Name))
+	}
 
-	// log.Debug(fmt.Sprintf("[runEventReconcile] ends reconciliataion of Secret, name: %s, shouldRequeue: %t, err: %v", SecretForMountOptionsPrefix+nsc.Name, shouldRequeue, err))
+	log.Debug(fmt.Sprintf("[runEventReconcile] ends reconciliataion of Secret, name: %s, shouldRequeue: %t, err: %v", SecretForMountOptionsPrefix+nsc.Name, shouldRequeue, err))
 
-	// if err != nil || shouldRequeue {
-	// 	return shouldRequeue, err
-	// }
+	if err != nil || shouldRequeue {
+		return shouldRequeue, err
+	}
 
 	if nsc.DeletionTimestamp == nil {
 		err = updateNFSStorageClassPhase(ctx, cl, nsc, CreatedStatusPhase, "")
