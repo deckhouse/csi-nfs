@@ -1,0 +1,54 @@
+diff --git a/pkg/nfs/nfs.go b/pkg/nfs/nfs.go
+index e91093d..4114aba 100644
+--- a/pkg/nfs/nfs.go
++++ b/pkg/nfs/nfs.go
+@@ -106,6 +106,7 @@ func NewDriver(options *DriverOptions) *Driver {
+ 		csi.NodeServiceCapability_RPC_GET_VOLUME_STATS,
+ 		csi.NodeServiceCapability_RPC_SINGLE_NODE_MULTI_WRITER,
+ 		csi.NodeServiceCapability_RPC_UNKNOWN,
++		csi.NodeServiceCapability_RPC_VOLUME_MOUNT_GROUP,
+ 	})
+ 	n.volumeLocks = NewVolumeLocks()
+ 
+diff --git a/pkg/nfs/nodeserver.go b/pkg/nfs/nodeserver.go
+index 76e0d67..b10d58e 100644
+--- a/pkg/nfs/nodeserver.go
++++ b/pkg/nfs/nodeserver.go
+@@ -19,6 +19,7 @@ package nfs
+ import (
+ 	"fmt"
+ 	"os"
++	"os/user"
+ 	"strconv"
+ 	"strings"
+ 	"time"
+@@ -141,6 +142,8 @@ func (ns *NodeServer) NodePublishVolume(_ context.Context, req *csi.NodePublishV
+ 		return nil, status.Error(codes.Internal, err.Error())
+ 	}
+ 
++	//
++
+ 	if mountPermissions > 0 {
+ 		if err := chmodIfPermissionMismatch(targetPath, os.FileMode(mountPermissions)); err != nil {
+ 			return nil, status.Error(codes.Internal, err.Error())
+@@ -148,6 +151,20 @@ func (ns *NodeServer) NodePublishVolume(_ context.Context, req *csi.NodePublishV
+ 	} else {
+ 		klog.V(2).Infof("skip chmod on targetPath(%s) since mountPermissions is set as 0", targetPath)
+ 	}
++
++	// TODO
++	grp, err := user.LookupGroup(volCap.GetMount().VolumeMountGroup)
++	if err != nil {
++		return nil, status.Error(codes.Internal, err.Error())
++	}
++	gid, err := strconv.Atoi(grp.Gid)
++	if err != nil {
++		return nil, status.Error(codes.Internal, err.Error())
++	}
++	if err := os.Chown(targetPath, -1, gid); err != nil {
++		return nil, status.Error(codes.Internal, err.Error())
++	}
++
+ 	klog.V(2).Infof("volume(%s) mount %s on %s succeeded", volumeID, source, targetPath)
+ 	return &csi.NodePublishVolumeResponse{}, nil
+ }
