@@ -11,7 +11,7 @@ index e91093d..4114aba 100644
  	n.volumeLocks = NewVolumeLocks()
  
 diff --git a/pkg/nfs/nodeserver.go b/pkg/nfs/nodeserver.go
-index 76e0d67..b10d58e 100644
+index 76e0d67..6135899 100644
 --- a/pkg/nfs/nodeserver.go
 +++ b/pkg/nfs/nodeserver.go
 @@ -19,6 +19,7 @@ package nfs
@@ -22,16 +22,17 @@ index 76e0d67..b10d58e 100644
  	"strconv"
  	"strings"
  	"time"
-@@ -141,6 +142,8 @@ func (ns *NodeServer) NodePublishVolume(_ context.Context, req *csi.NodePublishV
+@@ -141,6 +142,9 @@ func (ns *NodeServer) NodePublishVolume(_ context.Context, req *csi.NodePublishV
  		return nil, status.Error(codes.Internal, err.Error())
  	}
  
-+	//
++	// TODO
++	mountPermissions = mountPermissions &^ uint64(os.ModeSetgid)
 +
  	if mountPermissions > 0 {
  		if err := chmodIfPermissionMismatch(targetPath, os.FileMode(mountPermissions)); err != nil {
  			return nil, status.Error(codes.Internal, err.Error())
-@@ -148,6 +151,20 @@ func (ns *NodeServer) NodePublishVolume(_ context.Context, req *csi.NodePublishV
+@@ -148,6 +152,20 @@ func (ns *NodeServer) NodePublishVolume(_ context.Context, req *csi.NodePublishV
  	} else {
  		klog.V(2).Infof("skip chmod on targetPath(%s) since mountPermissions is set as 0", targetPath)
  	}
