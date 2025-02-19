@@ -20,14 +20,13 @@ import (
 	"context"
 	"fmt"
 
+	"csi-nfs-scheduler-extender/pkg/logger"
 	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"csi-nfs-scheduler-extender/pkg/logger"
 )
 
 const (
@@ -52,13 +51,13 @@ func shouldProcessPod(ctx context.Context, cl client.Client, log logger.Logger, 
 	pvcs := &corev1.PersistentVolumeClaimList{}
 	err := cl.List(ctx, pvcs, client.InNamespace(pod.Namespace))
 	if err != nil {
-        return false, nil, fmt.Errorf("[ShouldProcessPod] error getting PVCs in namespace %s: %v", pod.Namespace, err)
-    }
+		return false, nil, fmt.Errorf("[ShouldProcessPod] error getting PVCs in namespace %s: %v", pod.Namespace, err)
+	}
 
 	pvcMap := make(map[string]*corev1.PersistentVolumeClaim, len(pvcs.Items))
-    for _, pvc := range pvcs.Items {
-        pvcMap[pvc.Name] = &pvc
-    }
+	for _, pvc := range pvcs.Items {
+		pvcMap[pvc.Name] = &pvc
+	}
 
 	for _, volume := range pod.Spec.Volumes {
 		if volume.PersistentVolumeClaim == nil {
