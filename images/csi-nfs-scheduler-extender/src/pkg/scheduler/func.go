@@ -49,6 +49,17 @@ func shouldProcessPod(ctx context.Context, cl client.Client, log logger.Logger, 
 	shouldProcessPod := false
 	targetProvisionerVolumes := make([]corev1.Volume, 0)
 
+	pvcs := &corev1.PersistentVolumeClaimList{}
+	err := cl.List(ctx, pvcs, client.InNamespace(pod.Namespace))
+	if err != nil {
+        return false, nil, fmt.Errorf("[ShouldProcessPod] error getting PVCs in namespace %s: %v", pod.Namespace, err)
+    }
+
+	pvcMap := make(map[string]*corev1.PersistentVolumeClaim, len(pvcs.Items))
+    for _, pvc := range pvcs.Items {
+        pvcMap[pvc.Name] = &pvc
+    }
+
 	for _, volume := range pod.Spec.Volumes {
 		if volume.PersistentVolumeClaim == nil {
 			log.Trace(fmt.Sprintf("[ShouldProcessPod] skip volume %s because it doesn't have PVC", volume.Name))
@@ -57,10 +68,9 @@ func shouldProcessPod(ctx context.Context, cl client.Client, log logger.Logger, 
 
 		log.Trace(fmt.Sprintf("[ShouldProcessPod] process volume: %+v that has pvc: %+v", volume, volume.PersistentVolumeClaim))
 		pvcName := volume.PersistentVolumeClaim.ClaimName
-		pvc := &corev1.PersistentVolumeClaim{}
-		err := cl.Get(ctx, client.ObjectKey{Namespace: pod.Namespace, Name: pvcName}, pvc)
-		if err != nil {
-			return false, nil, fmt.Errorf("[ShouldProcessPod] error getting PVC %s/%s: %v", pod.Namespace, pvcName, err)
+		pvc, found := pvcMap[pvcName]
+		if !found {
+			return false, nil, fmt.Errorf("[ShouldProcessPod] found no pvc %s in namespace %s", pvcName, pod.Namespace)
 		}
 
 		log.Trace(fmt.Sprintf("[ShouldProcessPod] Successfully get PVC %s/%s: %+v", pod.Namespace, pvcName, pvc))
