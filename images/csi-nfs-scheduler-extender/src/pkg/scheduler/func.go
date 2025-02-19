@@ -20,13 +20,14 @@ import (
 	"context"
 	"fmt"
 
-	"csi-nfs-scheduler-extender/pkg/logger"
 	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"csi-nfs-scheduler-extender/pkg/logger"
 )
 
 const (
