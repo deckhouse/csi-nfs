@@ -81,3 +81,49 @@ A directory `<directory from share>/<PV name>` will be created for each PV.
 ### Checking module health
 
 You can verify the functionality of the module using the instructions [in FAQ](./faq.html#how-to-check-module-health).
+
+### Selects the method to clean the volume before deleting the PV
+
+Files with user data may remain on the volume to be deleted. These files will be deleted and will not be accessible to other users via NFS.
+
+However, the deleted files' data may be available to other clients if the server grants block-level access to its storage.
+
+The `volumeCleanup` parameter will help you choose how to clean the volume before deleting it.
+
+> **Caution!** This option does not affect files already deleted by the client application.
+
+> **Caution!** This option affects only commands sent via the NFS protocol. The server-side execution of these commands is defined by:
+>
+> - NFS server service;
+> - the file system;
+> - the level of block devices and their virtualization (e.g. LVM);
+> - the physical devices themselves.
+>
+> Make sure the server is trusted. Do not send sensitive data to servers that you are not sure of.
+
+#### `SinglePass` method
+
+Used if `volumeCleanup` is set to `RandomFillSinglePass`.
+
+The contents of the files are overwritten with a random sequence before deletion. The random sequence is transmitted over the network.
+
+#### `ThreePass` method
+
+Used if `volumeCleanup` is set to `RandomFillThreePass`.
+
+The contents of the files are overwritten three times with a random sequence before deletion. The three random sequences are transmitted over the network.
+
+#### `Discard` method
+
+Used if `volumeCleanup` is set to `Discard`.
+
+Many file systems implement support for solid-state drives, allowing the space occupied by a file to be freed at the block level without writing new data to extend the life of the solid-state drive. However, not all solid-state drives guarantee that the freed block data is inaccessible.
+
+If `volumeCleanup` is set to `Discard`, file contents are marked as free via the `falloc` system call with the `FALLOC_FL_PUNCH_HOLE` flag. The file system will free the blocks fully used by the file, via the `blkdiscard` call, and the remaining space will be overwritten with zeros.
+
+Advantages of this method:
+
+- the amount of traffic does not depend on the size of the files, only on the number of files;
+- the method can make old data unavailable in some server configurations;
+- works for both hard disks and SSDs;
+- can maximize SSD lifetime.
