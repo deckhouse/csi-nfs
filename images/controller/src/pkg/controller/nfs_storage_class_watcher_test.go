@@ -61,6 +61,63 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		chmodPermissions           = "0777"
 	)
 
+	// newSC: &StorageClass{ObjectMeta:{example      0 0001-01-01 00:00:00 +0000 UTC <nil> <nil> map[storage.deckhouse.io/managed-by:nfs-storage-class-controller] map[] [] [storage.deckhouse.io/nfs-storage-class-controller] []},Provisioner:nfs.csi.k8s.io,Parameters:map[string]string{csi.storage.k8s.io/provisioner-secret-name: nfs-mount-options-
+	// 	for-example,csi.storage.k8s.io/provisioner-secret-namespace: test-namespace,mountPermissions: 0777,server: 192.168.1.100,share: /data,},ReclaimPolicy:*Delete,MountOptions:[nfsvers=4.1 soft retrans=3],AllowVolumeExpansion:*true,VolumeBindingMode:*WaitForFirstConsumer,AllowedTopologies:[]TopologySelectorTerm{},}
+
+	It("Check function CompareStorageClasses", func() {
+		reclaimPolicy := corev1.PersistentVolumeReclaimDelete
+		volumeBindingMode := storagev1.VolumeBindingWaitForFirstConsumer
+
+		sc1 := &storagev1.StorageClass{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: nameForTestResource,
+			},
+			Provisioner: "test-provisioner",
+			Parameters: map[string]string{
+				"server": server,
+				"share":  share,
+			},
+			MountOptions: []string{
+				mountOptForNFSVer,
+				mountMode,
+				mountOptForTimeout,
+				mountOptForRetransmissions,
+			},
+			ReclaimPolicy:     &reclaimPolicy,
+			VolumeBindingMode: &volumeBindingMode,
+		}
+
+		sc2 := &storagev1.StorageClass{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: nameForTestResource,
+			},
+			Provisioner: "test-provisioner",
+			Parameters: map[string]string{
+				"server": server,
+				"share":  share,
+			},
+			MountOptions: []string{
+				mountOptForNFSVer,
+				mountMode,
+				mountOptForTimeout,
+				mountOptForRetransmissions,
+			},
+			ReclaimPolicy:     &reclaimPolicy,
+			VolumeBindingMode: &volumeBindingMode,
+		}
+
+		needRecreate, diff := controller.CompareStorageClasses(sc1, sc2)
+		Expect(needRecreate).To(BeFalse())
+		Expect(diff).To(BeEmpty())
+
+		sc2.MountOptions = append(sc2.MountOptions, "new-mount-option")
+
+		needRecreate, diff = controller.CompareStorageClasses(sc1, sc2)
+		Expect(needRecreate).To(BeFalse())
+		Expect(diff).NotTo(BeEmpty())
+
+	})
+
 	It("Create_nfs_sc_with_all_options", func() {
 		nfsSCtemplate := generateNFSStorageClass(NFSStorageClassConfig{
 			Name:              nameForTestResource,
@@ -464,8 +521,8 @@ func performStandartChecksForSc(sc *storagev1.StorageClass, server, share string
 	Expect(*sc.VolumeBindingMode).To(Equal(storagev1.VolumeBindingWaitForFirstConsumer))
 	Expect(sc.Parameters).To(HaveKeyWithValue("server", server))
 	Expect(sc.Parameters).To(HaveKeyWithValue("share", share))
-	Expect(sc.Parameters).To(HaveKeyWithValue(controller.StorageClassSecretNameKey, controller.SecretForMountOptionsPrefix+nameForTestResource))
-	Expect(sc.Parameters).To(HaveKeyWithValue(controller.StorageClassSecretNSKey, controllerNamespace))
+	Expect(sc.Parameters).To(HaveKeyWithValue(controller.ProvisionerSecretNameKey, controller.SecretForMountOptionsPrefix+nameForTestResource))
+	Expect(sc.Parameters).To(HaveKeyWithValue(controller.ProvisionerSecretNamespaceKey, controllerNamespace))
 }
 
 func performStandartChecksForSecret(secret *corev1.Secret) {

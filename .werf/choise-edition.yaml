@@ -2,7 +2,7 @@
 ---
 image: choise-edition
 from: {{ $.BASE_ALT_P11 }}
-fromCacheVersion: 2025-01-31.1
+fromCacheVersion: 2025-02-10.1
 git:
   - add: /
     to: /
@@ -11,5 +11,6 @@ git:
 shell:
   setup:
     - cd /openapi
-    - cp -v values_{{ .MODULE_EDITION }}.yaml values.yaml
+    # - cp -v values_{{ .MODULE_EDITION }}.yaml values.yaml
+    - if [[ {{ .MODULE_EDITION }} == "ce" ]]; then cp -v values_ce.yaml values.yaml; else cp -v values_ee.yaml values.yaml; fi
     - rm -rf values_*.yaml

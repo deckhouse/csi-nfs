@@ -1,12 +1,12 @@
 # base images
-{{- $_ := set . "BASE_GOLANG_1_23" "registry.deckhouse.io/base_images/golang:1.23.4-bookworm@sha256:a9147a48ac5e925a66764afae7cf4b1cfd37a6e94ad7519eca74c1fd8993ae45" }}
+{{- $_ := set . "BASE_GOLANG_1_23" "registry.deckhouse.io/base_images/golang:1.23.6-alpine3.20@sha256:3058c63e0e2532881949c4186414baa24a0f9a8f9349b1853daa49be816f42e9" }}
 {{- $_ := set . "BASE_SCRATCH" "registry.deckhouse.io/base_images/scratch@sha256:653ae76965c98c8cd1c8c9ff7725316d2983986f896655b30e0f44d2f8b2dd7e" }}
-{{- $_ := set . "BASE_ALT_P11" "registry.deckhouse.io/base_images/alt:p11@sha256:e47d84424485d3674240cb2f67d3a1801b37d327e6d1eb8cc8d01be8ed3b34f3" }}
+{{- $_ := set . "BASE_ALT_P11" "registry.deckhouse.io/base_images/alt:p11@sha256:b630220d83798057e1c67fe6f712a49e9c3abb377f0bd7183bba0ba541fc4081" }}
 {{- $_ := set . "BASE_ALPINE_3_16" "registry.deckhouse.io/base_images/alpine:3.16.3" }}
 {{- $_ := set . "BASE_ALPINE_3_20" "registry.deckhouse.io/base_images/alpine:3.20.3@sha256:41628df7c9b935d248f64542634e7a843f9bc7f2252d7f878e77f7b79a947466" }}
 
-# Edition module settings, default EE
-{{- $_ := set . "MODULE_EDITION" (env "MODULE_EDITION" "EE") }}
+# Edition module settings, default ee
+{{- $_ := set . "MODULE_EDITION" (env "MODULE_EDITION" "ee") }}
 
 # component versions
 {{- $versions := dict }}
@@ -19,4 +19,5 @@
 # custom constants
 {{- $_ := set $ "DEV_PACKAGES" "make automake pkg-config gcc libtool git curl" }}
 {{- $_ := set $ "DECKHOUSE_UID_GID" "64535" }}
+{{- $_ := set $ "ALT_BASE_PACKAGES" "openssl libtirpc tzdata" }}
 {{- $_ := set $ "ALT_CLEANUP_CMD" "rm -rf /var/lib/apt/lists/* /var/cache/apt/* && mkdir -p /var/lib/apt/lists/partial /var/cache/apt/archives/partial" }}

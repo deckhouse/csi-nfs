@@ -100,6 +100,17 @@ rules:
       - list
       - watch
   - apiGroups:
+      - snapshot.storage.k8s.io
+    resources:
+      - volumesnapshotclasses
+    verbs:
+      - create
+      - delete
+      - list
+      - get
+      - watch
+      - update
+  - apiGroups:
       - ""
     resources:
       - persistentvolumeclaims
