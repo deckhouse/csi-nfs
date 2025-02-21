@@ -90,9 +90,9 @@ However, the deleted files' data may be available to other clients if the server
 
 The `volumeCleanup` parameter will help you choose how to clean the volume before deleting it.
 
-> **Caution!** This option does not affect files already deleted by the client application.
+> **Caution.** This option does not affect files already deleted by the client application.
 
-> **Caution!** This option affects only commands sent via the NFS protocol. The server-side execution of these commands is defined by:
+> **Caution.** This option affects only commands sent via the NFS protocol. The server-side execution of these commands is defined by:
 >
 > - NFS server service;
 > - the file system;
