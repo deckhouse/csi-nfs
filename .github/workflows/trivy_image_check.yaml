@@ -17,7 +17,7 @@ jobs:
     if: github.event_name == 'pull_request'
     uses: ./.github/workflows/build_dev.yml
     secrets: inherit
-  test_on_pr:
+  cve_scan_on_pr:
     if: github.event_name == 'pull_request'
     name: Trivy images check
     runs-on: [self-hosted, regular]
@@ -36,7 +36,7 @@ jobs:
           TRIVY_REGISTRY_PASSWORD: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}
           TRIVY_TOKEN: ${{secrets.FOX_ACCESS_TOKEN}}
           DECKHOUSE_PRIVATE_REPO: ${{secrets.DECKHOUSE_PRIVATE_REPO}}
-  test:
+  cve_scan:
     if: github.event_name != 'pull_request'
     name: Trivy images check
     runs-on: [self-hosted, regular]
