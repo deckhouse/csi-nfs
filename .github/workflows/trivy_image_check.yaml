@@ -34,6 +34,8 @@ jobs:
           TRIVY_REGISTRY: ${{ vars.PROD_REGISTRY }}
           TRIVY_REGISTRY_USER: ${{ vars.PROD_MODULES_REGISTRY_LOGIN }}
           TRIVY_REGISTRY_PASSWORD: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}
+          TRIVY_TOKEN: ${{secrets.FOX_ACCESS_TOKEN}}
+          DECKHOUSE_PRIVATE_REPO: ${{secrets.DECKHOUSE_PRIVATE_REPO}}
   test:
     if: github.event_name != 'pull_request'
     name: Trivy images check
@@ -54,3 +56,5 @@ jobs:
           TRIVY_REGISTRY: ${{ vars.PROD_REGISTRY }}
           TRIVY_REGISTRY_USER: ${{ vars.PROD_MODULES_REGISTRY_LOGIN }}
           TRIVY_REGISTRY_PASSWORD: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}
+          TRIVY_TOKEN: ${{secrets.FOX_ACCESS_TOKEN}}
+          DECKHOUSE_PRIVATE_REPO: ${{secrets.DECKHOUSE_PRIVATE_REPO}}
