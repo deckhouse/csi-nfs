@@ -85,5 +85,5 @@ jobs:
           echo MODULE_EDITION=$MODULE_EDITION
 
       - uses: actions/checkout@v4
-      - uses: deckhouse/modules-actions/setup@v1
-      - uses: deckhouse/modules-actions/build@v1
+      - uses: deckhouse/modules-actions/setup@v2
+      - uses: deckhouse/modules-actions/build@v2

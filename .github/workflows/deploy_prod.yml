@@ -74,12 +74,12 @@ jobs:
         run: |
           echo $MODULES_MODULE_SOURCE
       - uses: actions/checkout@v4
-      - uses: deckhouse/modules-actions/setup@v1
+      - uses: deckhouse/modules-actions/setup@v2
       - name: Check previous release
         run: |
           chmod +x .github/check_previous_channel_release.sh
           .github/check_previous_channel_release.sh $MODULES_MODULE_NAME ce $RELEASE_CHANNEL $MODULES_MODULE_TAG license-token $MODULES_READ_REGISTRY_PASSWORD
-      - uses: deckhouse/modules-actions/deploy@v1
+      - uses: deckhouse/modules-actions/deploy@v2
 
   job-EE:
     name: Edition EE
@@ -94,12 +94,12 @@ jobs:
         run: |
           echo $MODULES_MODULE_SOURCE
       - uses: actions/checkout@v4
-      - uses: deckhouse/modules-actions/setup@v1
+      - uses: deckhouse/modules-actions/setup@v2
       - name: Check previous release
         run: |
           chmod +x .github/check_previous_channel_release.sh
           .github/check_previous_channel_release.sh $MODULES_MODULE_NAME ee $RELEASE_CHANNEL $MODULES_MODULE_TAG license-token $MODULES_READ_REGISTRY_PASSWORD
-      - uses: deckhouse/modules-actions/deploy@v1
+      - uses: deckhouse/modules-actions/deploy@v2
 
   job-FE:
     name: Edition FE
@@ -114,12 +114,12 @@ jobs:
         run: |
           echo $MODULES_MODULE_SOURCE
       - uses: actions/checkout@v4
-      - uses: deckhouse/modules-actions/setup@v1
+      - uses: deckhouse/modules-actions/setup@v2
       - name: Check previous release
         run: |
           chmod +x .github/check_previous_channel_release.sh
           .github/check_previous_channel_release.sh $MODULES_MODULE_NAME fe $RELEASE_CHANNEL $MODULES_MODULE_TAG license-token $MODULES_READ_REGISTRY_PASSWORD
-      - uses: deckhouse/modules-actions/deploy@v1
+      - uses: deckhouse/modules-actions/deploy@v2
 
   job-SE:
     name: Edition SE
@@ -134,12 +134,12 @@ jobs:
         run: |
           echo $MODULES_MODULE_SOURCE
       - uses: actions/checkout@v4
-      - uses: deckhouse/modules-actions/setup@v1
+      - uses: deckhouse/modules-actions/setup@v2
       - name: Check previous release
         run: |
           chmod +x .github/check_previous_channel_release.sh
           .github/check_previous_channel_release.sh $MODULES_MODULE_NAME se $RELEASE_CHANNEL $MODULES_MODULE_TAG license-token $MODULES_READ_REGISTRY_PASSWORD
-      - uses: deckhouse/modules-actions/deploy@v1
+      - uses: deckhouse/modules-actions/deploy@v2
 
   job-SE-plus:
     name: Edition SE+
@@ -154,9 +154,9 @@ jobs:
         run: |
           echo $MODULES_MODULE_SOURCE
       - uses: actions/checkout@v4
-      - uses: deckhouse/modules-actions/setup@v1
+      - uses: deckhouse/modules-actions/setup@v2
       - name: Check previous release
         run: |
           chmod +x .github/check_previous_channel_release.sh
           .github/check_previous_channel_release.sh $MODULES_MODULE_NAME se-plus $RELEASE_CHANNEL $MODULES_MODULE_TAG license-token $MODULES_READ_REGISTRY_PASSWORD
-      - uses: deckhouse/modules-actions/deploy@v1
+      - uses: deckhouse/modules-actions/deploy@v2
