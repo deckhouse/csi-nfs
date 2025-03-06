@@ -75,6 +75,10 @@ jobs:
           echo $MODULES_MODULE_SOURCE
       - uses: actions/checkout@v4
       - uses: deckhouse/modules-actions/setup@v2
+        with:
+          registry: ${{ vars.PROD_REGISTRY }}
+          registry_login: ${{ vars.PROD_MODULES_REGISTRY_LOGIN }}
+          registry_password: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}      
       - name: Check previous release
         run: |
           chmod +x .github/check_previous_channel_release.sh
@@ -95,6 +99,10 @@ jobs:
           echo $MODULES_MODULE_SOURCE
       - uses: actions/checkout@v4
       - uses: deckhouse/modules-actions/setup@v2
+        with:
+          registry: ${{ vars.PROD_REGISTRY }}
+          registry_login: ${{ vars.PROD_MODULES_REGISTRY_LOGIN }}
+          registry_password: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}      
       - name: Check previous release
         run: |
           chmod +x .github/check_previous_channel_release.sh
@@ -115,6 +123,10 @@ jobs:
           echo $MODULES_MODULE_SOURCE
       - uses: actions/checkout@v4
       - uses: deckhouse/modules-actions/setup@v2
+        with:
+          registry: ${{ vars.PROD_REGISTRY }}
+          registry_login: ${{ vars.PROD_MODULES_REGISTRY_LOGIN }}
+          registry_password: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}      
       - name: Check previous release
         run: |
           chmod +x .github/check_previous_channel_release.sh
@@ -135,6 +147,10 @@ jobs:
           echo $MODULES_MODULE_SOURCE
       - uses: actions/checkout@v4
       - uses: deckhouse/modules-actions/setup@v2
+        with:
+          registry: ${{ vars.PROD_REGISTRY }}
+          registry_login: ${{ vars.PROD_MODULES_REGISTRY_LOGIN }}
+          registry_password: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}      
       - name: Check previous release
         run: |
           chmod +x .github/check_previous_channel_release.sh
@@ -155,6 +171,10 @@ jobs:
           echo $MODULES_MODULE_SOURCE
       - uses: actions/checkout@v4
       - uses: deckhouse/modules-actions/setup@v2
+        with:
+          registry: ${{ vars.PROD_REGISTRY }}
+          registry_login: ${{ vars.PROD_MODULES_REGISTRY_LOGIN }}
+          registry_password: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}      
       - name: Check previous release
         run: |
           chmod +x .github/check_previous_channel_release.sh
