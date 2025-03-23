@@ -18,8 +18,8 @@ import:
   add: /usr/local/bin/go-hooks
   to: /hooks/go-hooks
   after: setup    
-# Rendering .werf/choise-edition.yaml is required!
-- image: choise-edition
+# Rendering .werf/choice-edition.yaml is required!
+- image: choice-edition
   add: /openapi
   to: /openapi
   after: setup

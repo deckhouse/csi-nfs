@@ -33,8 +33,8 @@ shell:
   setup:
     - cd /src/images/{{ $.ImageName }}/cmd
     - export CGO_ENABLED=0 GOOS=linux GOARCH=amd64
-    - go build -ldflags="-s -w" -tags {{ $.Root.MODULE_EDITION }} -o /controller
-    - chmod +x /controller
+    - go build -ldflags="-s -w" -tags {{ $.Root.MODULE_EDITION }} -o /{{ $.ImageName }}
+    - chmod +x /{{ $.ImageName }}
 
 ---
 image: {{ $.ImageName }}-distroless-artifact
@@ -72,9 +72,9 @@ image: {{ $.ImageName }}
 fromImage: {{ $.ImageName }}-distroless
 import:
   - image: {{ $.ImageName }}-golang-artifact
-    add: /controller
-    to: /controller
+    add: /{{ $.ImageName }}
+    to: /{{ $.ImageName }}
     before: setup
 docker:
-  ENTRYPOINT: ["/controller"]
+  ENTRYPOINT: ["/{{ $.ImageName }}"]
   USER: deckhouse:deckhouse
