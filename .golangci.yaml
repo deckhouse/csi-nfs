@@ -13,28 +13,26 @@ linters-settings:
     sections:
       - standard
       - default
-      - prefix(d8-controller)
-      - prefix(csi-nfs-scheduler-extender)
-      - prefix(webhooks)
+      - prefix(github.com/deckhouse)
 
 linters:
   disable-all: true
   enable:
-  - dogsled
-  - errcheck
-  - gci
-  - gocritic
-  - gofmt
-#  - goimports
-  - gosimple
-  - govet
-  - ineffassign
-  - misspell
-  - revive
-  - staticcheck
-#  - structcheck
-  - typecheck
-  - unconvert
-  - unparam
-  - whitespace
-  - copyloopvar
+    - dogsled
+    - errcheck
+    - gci
+    - gocritic
+    - gofmt
+    #  - goimports
+    - gosimple
+    - govet
+    - ineffassign
+    - misspell
+    - revive
+    - staticcheck
+    #  - structcheck
+    - typecheck
+    - unconvert
+    - unparam
+    - whitespace
+    - copyloopvar
