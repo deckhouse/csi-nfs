@@ -7,6 +7,8 @@ git:
   - add: /
     to: /src
     includePaths:
+      - api
+      - lib/go
       - images/{{ $.ImageName }}/src
     stageDependencies:
       install:
@@ -31,8 +33,8 @@ shell:
   setup:
     - cd /src/images/{{ $.ImageName }}/src/cmd
     - export CGO_ENABLED=0 GOOS=linux GOARCH=amd64
-    - go build -ldflags="-s -w" -o /wait-rpcbind
-    - chmod +x /wait-rpcbind
+    - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o /{{ $.ImageName }}
+    - chmod +x /{{ $.ImageName }}
 
 ---
 image: {{ $.ImageName }}-distroless-artifact
@@ -68,11 +70,13 @@ import:
 ---
 image: {{ $.ImageName }}
 fromImage: {{ $.ImageName }}-distroless
+
 import:
   - image: {{ $.ImageName }}-golang-artifact
-    add: /wait-rpcbind
-    to: /wait-rpcbind
+    add: /{{ $.ImageName }}
+    to: /{{ $.ImageName }}
     before: setup
+
 docker:
-  ENTRYPOINT: ["/wait-rpcbind"]
+  ENTRYPOINT: ["/{{ $.ImageName }}"]
   USER: deckhouse:deckhouse
