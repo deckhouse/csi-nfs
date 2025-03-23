@@ -16,8 +16,7 @@ webhooks:
         namespace: "d8-{{ .Chart.Name }}"
         name: "webhooks"
         path: "/sc-validate"
-      caBundle: |
-        {{ .Values.csiNfs.internal.customWebhookCert.ca | b64enc | quote }}
+      caBundle: {{ .Values.csiNfs.internal.customWebhookCert.ca | b64enc | quote }}
     admissionReviewVersions: ["v1", "v1beta1"]
     sideEffects: None
     timeoutSeconds: 5
@@ -39,8 +38,7 @@ webhooks:
         namespace: "d8-{{ .Chart.Name }}"
         name: "webhooks"
         path: "/nsc-validate"
-      caBundle: |
-        {{ .Values.csiNfs.internal.customWebhookCert.ca | b64enc | quote }}
+      caBundle: {{ .Values.csiNfs.internal.customWebhookCert.ca | b64enc | quote }}
     admissionReviewVersions: ["v1", "v1beta1"]
     sideEffects: None
     timeoutSeconds: 5
@@ -62,8 +60,7 @@ webhooks:
         namespace: "d8-{{ .Chart.Name }}"
         name: "webhooks"
         path: "/mc-validate"
-      caBundle: |
-        {{ .Values.csiNfs.internal.customWebhookCert.ca | b64enc | quote }}
+      caBundle: {{ .Values.csiNfs.internal.customWebhookCert.ca | b64enc | quote }}
     admissionReviewVersions: ["v1", "v1beta1"]
     sideEffects: None
     timeoutSeconds: 5
