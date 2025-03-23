@@ -9,7 +9,7 @@ git:
     includePaths:
       - api
       - lib/go
-      - images/{{ $.ImageName }}/src
+      - images/{{ $.ImageName }}
     stageDependencies:
       install:
         - '**/*'
@@ -31,7 +31,7 @@ mount:
     to: /go/pkg
 shell:
   setup:
-    - cd /src/images/{{ $.ImageName }}/src/cmd
+    - cd /src/images/{{ $.ImageName }}/cmd
     - export CGO_ENABLED=0 GOOS=linux GOARCH=amd64
     - go build -ldflags="-s -w" -tags {{ $.Root.MODULE_EDITION }} -o /controller
     - chmod +x /controller
