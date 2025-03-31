@@ -14,12 +14,15 @@ git:
   - add: /
     to: /src
     includePaths:
-      - images/{{ $.ImageName }}/src
+      - api
+      - lib/go
+      - images/{{ $.ImageName }}
     stageDependencies:
       install:
         - '**/*'
 shell:
   install:
+    - rm -rf /src/.git
     - rm -rf /src/ktls-utils/.git
 
 ---
@@ -62,23 +65,20 @@ shell:
 image: {{ $.ImageName }}-golang-artifact
 from: {{ $.Root.BASE_GOLANG_1_23 }}
 final: false
-
 import:
   - image: {{ $.ImageName }}-src-artifact
     add: /src
     to: /src
-    before: install
-
+    before: setup
 mount:
   - fromPath: ~/go-pkg-cache
     to: /go/pkg
-
 shell:
   setup:
-    - cd /src/images/{{ $.ImageName }}/src/cmd
+    - cd /src/images/{{ $.ImageName }}/cmd
     - export CGO_ENABLED=0 GOOS=linux GOARCH=amd64
-    - go build -ldflags="-s -w" -o /go-tlshd
-    - chmod +x /go-tlshd
+    - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o /{{ $.ImageName }}
+    - chmod +x /{{ $.ImageName }}
 
 ---
 image: {{ $.ImageName }}-distroless-artifact
@@ -124,6 +124,6 @@ import:
     before: setup
 
   - image: {{ $.ImageName }}-golang-artifact
-    add: /go-tlshd
-    to: /go-tlshd
+    add: /{{ $.ImageName }}
+    to: /{{ $.ImageName }}
     before: setup

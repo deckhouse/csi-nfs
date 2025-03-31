@@ -34,6 +34,7 @@ git:
         - '**/*'
 shell:
   beforeInstall:
+    - echo "preparing image"
     - apt-get update
     - apt-get install -y git go
     - {{ $.Root.ALT_CLEANUP_CMD }}
@@ -41,6 +42,7 @@ shell:
     - cd /src/csi-driver-nfs
     - for patchfile in /patches/images/{{ $.ImageName }}/patches/*.patch; do echo "Apply ${patchfile} ... "; git apply ${patchfile} --verbose; done
     - cp -R /patches/images/{{ $.ImageName }}/patches/csi-driver-nfs/* ./
+    - go mod tidy
     - go mod vendor
     - rm -rf /src/csi-driver-nfs/.git
     - rm -rf /src/nfs-utils/.git

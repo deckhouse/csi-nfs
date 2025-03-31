@@ -39,7 +39,7 @@ on:
         description: SE
       se-plus:
         type: boolean
-        description: SE
+        description: SE+
 
       tag:
         description: "Tag of the module, example v1.21.1"
@@ -78,7 +78,7 @@ jobs:
         with:
           registry: ${{ vars.PROD_REGISTRY }}
           registry_login: ${{ vars.PROD_MODULES_REGISTRY_LOGIN }}
-          registry_password: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}      
+          registry_password: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}
       - name: Check previous release
         run: |
           chmod +x .github/check_previous_channel_release.sh
@@ -107,7 +107,7 @@ jobs:
         with:
           registry: ${{ vars.PROD_REGISTRY }}
           registry_login: ${{ vars.PROD_MODULES_REGISTRY_LOGIN }}
-          registry_password: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}      
+          registry_password: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}
       - name: Check previous release
         run: |
           chmod +x .github/check_previous_channel_release.sh
@@ -136,7 +136,7 @@ jobs:
         with:
           registry: ${{ vars.PROD_REGISTRY }}
           registry_login: ${{ vars.PROD_MODULES_REGISTRY_LOGIN }}
-          registry_password: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}      
+          registry_password: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}
       - name: Check previous release
         run: |
           chmod +x .github/check_previous_channel_release.sh
@@ -165,7 +165,7 @@ jobs:
         with:
           registry: ${{ vars.PROD_REGISTRY }}
           registry_login: ${{ vars.PROD_MODULES_REGISTRY_LOGIN }}
-          registry_password: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}      
+          registry_password: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}
       - name: Check previous release
         run: |
           chmod +x .github/check_previous_channel_release.sh
@@ -194,7 +194,7 @@ jobs:
         with:
           registry: ${{ vars.PROD_REGISTRY }}
           registry_login: ${{ vars.PROD_MODULES_REGISTRY_LOGIN }}
-          registry_password: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}      
+          registry_password: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}
       - name: Check previous release
         run: |
           chmod +x .github/check_previous_channel_release.sh

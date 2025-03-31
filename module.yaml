@@ -1,2 +1,3 @@
+name: csi-nfs
 weight: 910
 description: "CSI NFS module"

@@ -15,10 +15,10 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	commonfeature "github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature"
 	"golang.org/x/sys/unix"
-
 	"k8s.io/klog/v2"
+
+	commonfeature "github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature"
 )
 
 func cleanupVolume(volumePath, volumeCleanupMethod string) error {
