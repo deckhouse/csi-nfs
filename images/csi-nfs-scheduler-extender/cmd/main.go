@@ -27,7 +27,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/deckhouse/csi-nfs/api/v1alpha1"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -37,6 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/yaml"
 
+	"github.com/deckhouse/csi-nfs/api/v1alpha1"
 	"github.com/deckhouse/csi-nfs/images/csi-nfs-scheduler-extender/pkg/kubutils"
 	"github.com/deckhouse/csi-nfs/images/csi-nfs-scheduler-extender/pkg/logger"
 	"github.com/deckhouse/csi-nfs/images/csi-nfs-scheduler-extender/pkg/scheduler"

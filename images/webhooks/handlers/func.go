@@ -21,8 +21,6 @@ import (
 	"net/http"
 	"os"
 
-	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
-	commonvalidating "github.com/deckhouse/csi-nfs/lib/go/common/pkg/validating"
 	"github.com/go-logr/logr"
 	kwhhttp "github.com/slok/kubewebhook/v2/pkg/http"
 	"github.com/slok/kubewebhook/v2/pkg/log"
@@ -41,6 +39,9 @@ import (
 	controllerruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
+
+	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
+	commonvalidating "github.com/deckhouse/csi-nfs/lib/go/common/pkg/validating"
 )
 
 func NewKubeClient(kubeconfigPath string) (client.Client, error) {

@@ -22,8 +22,6 @@ import (
 	"reflect"
 	"time"
 
-	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
-	commonvalidating "github.com/deckhouse/csi-nfs/lib/go/common/pkg/validating"
 	storagev1 "k8s.io/api/storage/v1"
 	k8serr "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -36,8 +34,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	"github.com/deckhouse/csi-nfs/images/controller/pkg/config"
 	"github.com/deckhouse/csi-nfs/images/controller/pkg/logger"
+	commonvalidating "github.com/deckhouse/csi-nfs/lib/go/common/pkg/validating"
 )
 
 const (

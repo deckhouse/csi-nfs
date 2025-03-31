@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"time"
 
-	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	snapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumesnapshot/v1"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -32,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
+	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	"github.com/deckhouse/csi-nfs/images/controller/pkg/config"
 	"github.com/deckhouse/csi-nfs/images/controller/pkg/logger"
 )

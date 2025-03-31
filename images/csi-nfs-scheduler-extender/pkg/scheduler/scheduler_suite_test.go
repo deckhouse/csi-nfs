@@ -21,7 +21,6 @@ import (
 	"os"
 	"testing"
 
-	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/apps/v1"
@@ -31,6 +30,8 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
 )
 
 func TestController(t *testing.T) {
