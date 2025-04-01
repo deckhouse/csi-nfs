@@ -17,7 +17,7 @@ properties:
   tlsParameters:
     type: object
     default: {}
-    x-doc-d8editions: [se,se-plus,ee,fe]
+    x-doc-d8editions: [se, se-plus, ee, fe]
     description: |
       **This feature is available in SE, SE+, EE, and FE.**
 
@@ -26,6 +26,7 @@ properties:
       ca:
         type: string
         description: Root certificate in PEM format, encoded in Base64, which can be used to verify the NFS server certificate.
+        pattern: "^[A-Za-z0-9+/]*={0,2}$"
       mtls:
         type: object
         default: {}
@@ -34,6 +35,8 @@ properties:
           clientCert:
             type: string
             description: Client certificate in PEM format, encoded in Base64.
+            pattern: "^[A-Za-z0-9+/]*={0,2}$"
           clientKey:
             type: string
             description: Client key in PEM format, encoded in Base64.
+            pattern: "^[A-Za-z0-9+/]*={0,2}$"
