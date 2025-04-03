@@ -3,14 +3,15 @@ package hooks_common
 import (
 	"fmt"
 
-	consts "github.com/deckhouse/csi-nfs/hooks/go/consts"
 	tlscertificate "github.com/deckhouse/module-sdk/common-hooks/tls-certificate"
+	consts "github.com/deckhouse/csi-nfs/hooks/go/consts"
 )
 
 var _ = tlscertificate.RegisterInternalTLSHookEM(tlscertificate.GenSelfSignedTLSHookConf{
-	CN:            consts.WebhookCertCn,
-	TLSSecretName: fmt.Sprintf("%s-webhook-cert", consts.WebhookCertCn),
-	Namespace:     consts.ModuleNamespace,
+	CommonCACanonicalName: fmt.Sprintf("%s-%s", consts.ModulePluralName, consts.WebhookCertCn),
+	CN:                    consts.WebhookCertCn,
+	TLSSecretName:         fmt.Sprintf("%s-https-certs", consts.WebhookCertCn),
+	Namespace:             consts.ModuleNamespace,
 	SANs: tlscertificate.DefaultSANs([]string{
 		consts.WebhookCertCn,
 		fmt.Sprintf("%s.%s", consts.WebhookCertCn, consts.ModuleNamespace),
