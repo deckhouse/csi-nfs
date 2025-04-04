@@ -41,11 +41,9 @@ spec:
 
     UNIT_FILE=tlshd.service
 
-    systemctl is-enabled $UNIT_FILE >/dev/null || {
-      if [ $? -eq 4 ]; then
-        bb-log-info "The unit file '$UNIT_FILE' doesn't exist. Skipping masking."
-        exit 0
-      fi
+    systemctl list-unit-files $UNIT_FILE >/dev/null || {
+      bb-log-info "The unit file '$UNIT_FILE' doesn't exist. Skipping masking."
+      exit 0
     }
 
     bb-log-info "The unit $UNIT_FILE is stopping."
