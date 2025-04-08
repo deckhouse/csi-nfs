@@ -283,7 +283,7 @@ func RunEventReconcile(ctx context.Context, cl client.Client, log logger.Logger,
 		log.Debug(fmt.Sprintf("[runEventReconcile] VolumeSnapshotClass %q should not be reconciled", nsc.Name))
 	}
 
-	log.Debug(fmt.Sprintf("[runEventReconcile] ends reconciliataion of Secret, name: %s, shouldRequeue: %t, err: %v", SecretForMountOptionsPrefix+nsc.Name, shouldRequeue, err))
+	log.Debug(fmt.Sprintf("[runEventReconcile] ends reconciliataion of VolumeSnapshotClass, name: %s, shouldRequeue: %t, err: %v", nsc.Name, shouldRequeue, err))
 
 	if err != nil || shouldRequeue {
 		return shouldRequeue, err
