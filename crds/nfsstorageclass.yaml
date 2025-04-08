@@ -121,12 +121,12 @@ spec:
                     timeout:
                       type: integer
                       description: |
-                        NFS server timeout.
+                        The time in tenths of a second (600 is 60 seconds) during which the NFS client waits for a response before repeating the NFS request.
                       minimum: 1
                     retransmissions:
                       type: integer
                       description: |
-                        NFS retries before fail.
+                        The number of repeated attempts by the NFS client to execute the request before it takes further steps to restore the connection.
                       minimum: 1
                     readOnly:
                       type: boolean

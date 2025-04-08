@@ -127,3 +127,6 @@ import:
     add: /{{ $.ImageName }}
     to: /{{ $.ImageName }}
     before: setup
+
+docker:
+  ENTRYPOINT: ["/{{ $.ImageName }}"]

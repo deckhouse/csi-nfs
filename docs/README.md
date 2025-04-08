@@ -23,7 +23,6 @@ For module pods to restart when the `tlsParameters` parameter is changed in the 
 
 ## RPC-with-TLS mode limitations
 
-- Only one certificate authority (CA) is supported.
 - For the `mtls` security policy, only one client certificate is supported.
 - A single NFS server cannot simultaneously operate in different security modes: `tls`, `mtls`, and standard (non-TLS) mode.
 - The `tlshd` daemon must not be running on the cluster nodes, otherwise it will conflict with the daemon of our module. To prevent conflicts when enabling TLS, the third-party `tlshd` is automatically stopped on the nodes and its autostart is disabled.

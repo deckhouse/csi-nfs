@@ -75,3 +75,8 @@ cat CA1.crt CA2.crt CA3.crt | base64 -w0
 ```
 
 - and so on
+
+## What are the requirements for a Linux distribution to deploy an NFS server with RPC-with-TLS support?
+
+- The kernel must be built with the `CONFIG_TLS` and `CONFIG_NET_HANDSHAKE` options enabled;
+- The nfs-utils package (or nfs-common in Debian-based distributions) must be version >= 2.6.3.
