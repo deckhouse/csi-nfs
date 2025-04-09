@@ -9,35 +9,6 @@ issues:
     - "exported: .*"
 
 linters-settings:
-  container:
-    exclude-rules:
-      liveness-probe:
-        - kind: Deployment
-          name: csi-controller
-          container: snapshotter
-        - kind: Deployment
-          name: csi-controller
-          container: resizer
-        - kind: Deployment
-          name: csi-controller
-          container: attacher
-        - kind: Deployment
-          name: csi-controller
-          container: provisioner
-      readiness-probe:
-        - kind: Deployment
-          name: csi-controller
-          container: snapshotter
-        - kind: Deployment
-          name: csi-controller
-          container: resizer
-        - kind: Deployment
-          name: csi-controller
-          container: attacher
-        - kind: Deployment
-          name: csi-controller
-          container: provisioner
-
   gci:
     sections:
       - standard
