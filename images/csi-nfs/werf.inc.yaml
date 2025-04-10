@@ -18,6 +18,12 @@ git:
     stageDependencies:
       install:
         - '**/*'
+  - url: https://github.com/deckhouse/sds-common-lib.git
+    add: /
+    to: /src/sds-common-lib
+    stageDependencies:
+      install:
+        - '**/*'
   - add: /
     to: /patches
     includePaths:
@@ -46,7 +52,6 @@ shell:
     - go mod vendor
     - rm -rf /src/csi-driver-nfs/.git
     - rm -rf /src/nfs-utils/.git
-    - git clone --depth 1 -b add-rpcprobe https://github.com/deckhouse/sds-common-lib.git /src/sds-common-lib
     - rm -rf /src/sds-common-lib/.git
 
 ---
