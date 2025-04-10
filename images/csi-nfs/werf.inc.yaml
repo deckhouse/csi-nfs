@@ -46,7 +46,7 @@ shell:
     - go mod vendor
     - rm -rf /src/csi-driver-nfs/.git
     - rm -rf /src/nfs-utils/.git
-    - git clone --depth 1 -b add-rpcprobe github.com/deckhouse/sds-common-lib.git /src/sds-common-lib
+    - git clone --depth 1 -b add-rpcprobe https://github.com/deckhouse/sds-common-lib.git /src/sds-common-lib
     - rm -rf /src/sds-common-lib/.git
 
 ---
