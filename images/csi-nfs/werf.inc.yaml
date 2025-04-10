@@ -46,6 +46,8 @@ shell:
     - go mod vendor
     - rm -rf /src/csi-driver-nfs/.git
     - rm -rf /src/nfs-utils/.git
+    - git clone --depth 1 -b add-rpcprobe {{ env "SOURCE_REPO" }}/deckhouse/sds-common-lib.git /src/sds-common-lib
+    - rm -rf /src/sds-common-lib/.git
 
 ---
 {{- $csiBinaries := "/nfs-utils/sbin/* /nfs-utils/usr/bin/* /nfs-utils/usr/sbin/* /lib64/libnss_files.so.2 /lib64/libnss_dns.so.2 /bin/cp /bin/mount /bin/umount /usr/bin/shred" }}
@@ -116,6 +118,10 @@ shell:
     - export CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO_VERSION={{ env "GOLANG_VERSION" }} GOPROXY={{ env "GOPROXY" }}
     - go build -ldflags="-s -w" -tags {{ $.Root.MODULE_EDITION }} -o /nfsplugin ./cmd/nfsplugin
     - chmod +x /nfsplugin
+    - cd /src/sds-common-lib/rpcbprobe
+    - export CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO_VERSION={{ env "GOLANG_VERSION" }} GOPROXY={{ env "GOPROXY" }}
+    - go build -ldflags="-s -w" -tags {{ $.Root.MODULE_EDITION }} -o /rpcprobe
+    - chmod +x /rpcprobe
 
 ---
 image: {{ $.ImageName }}-distroless-artifact
@@ -155,6 +161,10 @@ import:
   - image: {{ $.ImageName }}-golang-artifact
     add: /nfsplugin
     to: /nfsplugin
+    before: setup
+  - image: {{ $.ImageName }}-golang-artifact
+    add: /rpcprobe
+    to: /rpcprobe
     before: setup
   - image: {{ $.ImageName }}-binaries-artifact
     add: /relocate
