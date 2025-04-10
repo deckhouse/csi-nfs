@@ -1,5 +1,5 @@
 name: csi-nfs
 weight: 910
 description: "CSI NFS модуль"
-description.en: "CSI NFS module"
+descriptions.en: "CSI NFS module"
 namespace: "d8-csi-nfs"
