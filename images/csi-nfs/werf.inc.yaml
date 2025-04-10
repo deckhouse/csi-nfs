@@ -21,6 +21,7 @@ git:
   - url: https://github.com/deckhouse/sds-common-lib.git
     add: /
     to: /src/sds-common-lib
+    tag: {{ $.Versions.SDS_COMMON_LIB }}
     stageDependencies:
       install:
         - '**/*'

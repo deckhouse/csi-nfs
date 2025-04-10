@@ -13,6 +13,7 @@
 {{- $_ := set $versions "KMOD" "v33" }}
 {{- $_ := set $versions "KTLS_UTILS" "ktls-utils-0.11" }}
 {{- $_ := set $versions "CSI_DRIVER_NFS" "v4.7.0" }}
+{{- $_ := set $versions "SDS_COMMON_LIB" "v0.1" }}
 {{- $_ := set $versions "NFS_UTILS" "nfs-utils-2-7-1" }}  # must match the nfs-utils package from BASE_ALT_P11
 {{- $_ := set $ "VERSIONS" $versions }}
 
