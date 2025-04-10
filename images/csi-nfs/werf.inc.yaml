@@ -46,7 +46,7 @@ shell:
     - go mod vendor
     - rm -rf /src/csi-driver-nfs/.git
     - rm -rf /src/nfs-utils/.git
-    - git clone --depth 1 -b add-rpcprobe {{ env "SOURCE_REPO" }}/deckhouse/sds-common-lib.git /src/sds-common-lib
+    - git clone --depth 1 -b add-rpcprobe github.com/deckhouse/sds-common-lib.git /src/sds-common-lib
     - rm -rf /src/sds-common-lib/.git
 
 ---
@@ -120,7 +120,7 @@ shell:
     - chmod +x /nfsplugin
     - cd /src/sds-common-lib/rpcbprobe
     - export CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO_VERSION={{ env "GOLANG_VERSION" }} GOPROXY={{ env "GOPROXY" }}
-    - go build -ldflags="-s -w" -tags {{ $.Root.MODULE_EDITION }} -o /rpcprobe
+    - go build -ldflags="-s -w" -o /rpcprobe
     - chmod +x /rpcprobe
 
 ---
