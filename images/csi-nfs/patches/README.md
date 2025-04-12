@@ -1,5 +1,17 @@
 ## Patches
 
+# 001-add-functionality-of-the-tar-utility-improved.patch
+
+Add functionality of the tar utility for tar binary remove
+
+# 002-fake-implementation-of-ControllerExpandVolume.patch
+
+Add fake implementation of ControllerExpandVolume method
+
+# 003-add-volume-cleanup-and-feature-pkg.patch
+
+Add volume cleanup feature
+
 # 004-update-go-deps.patch
 
 It fixes https://avd.aquasec.com/nvd/2024/cve-2024-5321/
