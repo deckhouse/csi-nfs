@@ -58,7 +58,7 @@ rules:
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: {{ .Chart.Name }}:controller
+  name: d8:{{ .Chart.Name }}:controller
   {{- include "helm_lib_module_labels" (list . (dict "app" "controller")) | nindent 2 }}
 rules:
   - apiGroups:
@@ -144,13 +144,11 @@ roleRef:
   kind: Role
   name: {{ .Chart.Name }}:controller
   apiGroup: rbac.authorization.k8s.io
-
-
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: {{ .Chart.Name }}:controller
+  name: d8:{{ .Chart.Name }}:controller
   {{- include "helm_lib_module_labels" (list . (dict "app" "controller")) | nindent 2 }}
 subjects:
   - kind: ServiceAccount
@@ -158,7 +156,7 @@ subjects:
     namespace: d8-{{ .Chart.Name }}
 roleRef:
   kind: ClusterRole
-  name: {{ .Chart.Name }}:controller
+  name: d8:{{ .Chart.Name }}:controller
   apiGroup: rbac.authorization.k8s.io
 
 
