@@ -14,6 +14,9 @@ linters-settings:
         - kind: Deployment
           name: csi-controller
           container: provisioner
+        - kind: Deployment
+          name: csi-controller
+          container: livenessprobe
       readiness-probe:
         - kind: Deployment
           name: csi-controller
@@ -27,3 +30,9 @@ linters-settings:
         - kind: Deployment
           name: csi-controller
           container: provisioner
+        - kind: Deployment
+          name: csi-controller
+          container: livenessprobe
+        - kind: Deployment
+          name: csi-controller
+          container: controller
