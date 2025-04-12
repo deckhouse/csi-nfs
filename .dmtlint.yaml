@@ -36,3 +36,9 @@ linters-settings:
         - kind: Deployment
           name: csi-controller
           container: controller
+        - kind: DaemonSet
+          name: csi-nfs
+          container: node
+        - kind: DaemonSet
+          name: csi-nfs
+          container: node-driver-registrar
