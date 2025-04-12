@@ -18,13 +18,6 @@ git:
     stageDependencies:
       install:
         - '**/*'
-  - url: https://github.com/deckhouse/sds-common-lib.git
-    add: /
-    to: /src/sds-common-lib
-    tag: {{ $.Versions.SDS_COMMON_LIB }}
-    stageDependencies:
-      install:
-        - '**/*'
   - add: /
     to: /patches
     includePaths:
@@ -124,10 +117,6 @@ shell:
     - export CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO_VERSION={{ env "GOLANG_VERSION" }} GOPROXY={{ env "GOPROXY" }}
     - go build -ldflags="-s -w" -tags {{ $.Root.MODULE_EDITION }} -o /nfsplugin ./cmd/nfsplugin
     - chmod +x /nfsplugin
-    - cd /src/sds-common-lib/rpcprobe
-    - export CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO_VERSION={{ env "GOLANG_VERSION" }} GOPROXY={{ env "GOPROXY" }}
-    - go build -ldflags="-s -w" -o /rpcprobe
-    - chmod +x /rpcprobe
 
 ---
 image: {{ $.ImageName }}-distroless-artifact
@@ -167,10 +156,6 @@ import:
   - image: {{ $.ImageName }}-golang-artifact
     add: /nfsplugin
     to: /nfsplugin
-    before: setup
-  - image: {{ $.ImageName }}-golang-artifact
-    add: /rpcprobe
-    to: /rpcprobe
     before: setup
   - image: {{ $.ImageName }}-binaries-artifact
     add: /relocate
