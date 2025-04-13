@@ -21,7 +21,7 @@ jobs:
       - name: Setup Go environment
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: "1.24"
 
       - name: Install golangci-lint
         run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.5
@@ -58,7 +58,7 @@ jobs:
       - name: Setup Go environment
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23.4'
+          go-version: "1.24"
 
       - name: Run Go tests
         run: |
@@ -80,3 +80,41 @@ jobs:
           if [ $failed == 'true' ]; then
             exit 1
           fi
+
+  go_test_coverage:
+    name: Go test coverage for images
+    runs-on: [self-hosted, regular]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Setup Go environment
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
+      - name: Run Go tests
+        run: |
+          if [ ! -d "images" ]; then
+              echo "No images/ directory found. Please run this script from the root of the repository."
+              exit 1
+          fi
+
+          find images/ -type f -name "go.mod" | while read -r gomod; do
+              dir=$(dirname "$gomod")
+              
+              echo "Test coverage in $dir"
+              
+              cd "$dir" || continue
+              
+              for tag in $BUILD_TAGS; do
+                  echo "  Build tag: $tag"
+                  
+                  go test ./... -cover -tags "$tag" 
+              done
+              
+              cd - > /dev/null
+              
+              echo "----------------------------------------"
+          done
