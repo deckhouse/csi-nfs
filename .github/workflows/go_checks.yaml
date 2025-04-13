@@ -1,4 +1,4 @@
-name: Go linter for images
+name: Go checks for images
 
 env:
   GO_BUILD_TAGS: "ce ee se seplus csepro"
