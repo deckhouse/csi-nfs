@@ -108,7 +108,7 @@ jobs:
               
               cd "$dir" || continue
               
-              for tag in $BUILD_TAGS; do
+              for tag in $GO_BUILD_TAGS; do
                   echo "  Build tag: $tag"
                   
                   go test ./... -cover -tags "$tag" 
