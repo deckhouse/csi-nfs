@@ -94,7 +94,7 @@ jobs:
         with:
           go-version: "1.24"
 
-      - name: Run Go tests
+      - name: Run Go test coverage count
         run: |
           if [ ! -d "images" ]; then
               echo "No images/ directory found. Please run this script from the root of the repository."
