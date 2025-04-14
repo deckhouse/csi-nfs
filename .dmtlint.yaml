@@ -17,6 +17,9 @@ linters-settings:
         - kind: Deployment
           name: csi-controller
           container: livenessprobe
+        - kind: DaemonSet
+          name: csi-nfs
+          container: node-driver-registrar
       readiness-probe:
         - kind: Deployment
           name: csi-controller
