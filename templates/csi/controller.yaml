@@ -71,6 +71,7 @@
   imagePullPolicy: IfNotPresent
   securityContext:
     privileged: true
+    ReadOnlyRootFilesystem: true
   volumeMounts:
     - name: cm-tlshd-conf
       mountPath: /etc/tlshd.conf
