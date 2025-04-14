@@ -22,7 +22,7 @@ memory: 25Mi
   {{- $additionalNodeVolumes := $config.additionalNodeVolumes }}
   {{- $additionalNodeVolumeMounts := $config.additionalNodeVolumeMounts }}
   {{- $additionalNodeLivenessProbesCmd := $config.additionalNodeLivenessProbesCmd }}
-  {{- $nodeLivenessPort := $config.nodeLivenessPort }}
+  {{- $livenessProbePort := $config.livenessProbePort }}
   {{- $additionalNodeSelectorTerms := $config.additionalNodeSelectorTerms }}
   {{- $customNodeSelector := $config.customNodeSelector }}
   {{- $forceCsiNodeAndStaticNodesDepoloy := $config.forceCsiNodeAndStaticNodesDepoloy | default false }}
@@ -132,8 +132,8 @@ spec:
         - "--v=5"
         - "--csi-address=$(CSI_ENDPOINT)"
         - "--kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)"
-        {{- if $nodeLivenessPort }}
-        - "--http-endpoint={{ $nodeLivenessPort }}"
+        {{- if $livenessProbePort }}
+        - "--http-endpoint={{ $livenessProbePort }}"
         {{- end }}
         env:
         - name: CSI_ENDPOINT
