@@ -24,7 +24,7 @@
   imagePullPolicy: IfNotPresent
   securityContext:
     privileged: true
-    ReadOnlyRootFilesystem: true
+    readOnlyRootFilesystem: true
   volumeMounts:
     - name: host-sys
       mountPath: /sys
@@ -72,7 +72,7 @@
   imagePullPolicy: IfNotPresent
   securityContext:
     privileged: true
-    ReadOnlyRootFilesystem: true
+    readOnlyRootFilesystem: true
   resources:
     requests:
       {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 6 }}    
