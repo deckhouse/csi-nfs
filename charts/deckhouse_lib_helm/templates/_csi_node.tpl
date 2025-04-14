@@ -22,6 +22,7 @@ memory: 25Mi
   {{- $additionalNodeVolumes := $config.additionalNodeVolumes }}
   {{- $additionalNodeVolumeMounts := $config.additionalNodeVolumeMounts }}
   {{- $additionalNodeLivenessProbesCmd := $config.additionalNodeLivenessProbesCmd }}
+  {{- $nodeLivenessPort := $config.nodeLivenessPort }}
   {{- $additionalNodeSelectorTerms := $config.additionalNodeSelectorTerms }}
   {{- $customNodeSelector := $config.customNodeSelector }}
   {{- $forceCsiNodeAndStaticNodesDepoloy := $config.forceCsiNodeAndStaticNodesDepoloy | default false }}
@@ -131,6 +132,9 @@ spec:
         - "--v=5"
         - "--csi-address=$(CSI_ENDPOINT)"
         - "--kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)"
+        {{- if $nodeLivenessPort }}
+        - "--http-endpoint={{ $nodeLivenessPort }}"
+        {{- end }}
         env:
         - name: CSI_ENDPOINT
           value: "/csi/csi.sock"
@@ -173,6 +177,14 @@ spec:
         env:
         {{- $additionalNodeEnvs | toYaml | nindent 8 }}
       {{- end }}
+        {{- if $nodeLivenessPort }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: {{ $nodeLivenessPort }}
+            initialDelaySeconds: 5
+            timeoutSeconds: 5
+        {{- end }}      
         volumeMounts:
         - name: kubelet-dir
           mountPath: /var/lib/kubelet
