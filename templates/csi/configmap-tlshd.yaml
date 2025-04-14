@@ -31,20 +31,20 @@ data:
     #
     # See tlshd.conf(5) for details.
     #
-    
+
     [debug]
     loglevel=0
     tls=0
     nl=0
-    
+
     [authenticate]
     #keyrings= <keyring>;<keyring>;<keyring>
-    
+
     [authenticate.client]
     x509.truststore=/etc/ca.crt
     x509.certificate=/etc/client.crt
     x509.private_key=/etc/client.key
-    
+
     [authenticate.server]
     #x509.truststore= <pathname>
     #x509.certificate= <pathname>
