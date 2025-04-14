@@ -85,7 +85,7 @@ spec:
                         - "4.2"
                     tls:
                       type: boolean
-                      x-doc-d8editions: [se,se-plus,ee,fe]
+                      x-doc-d8editions: [se, se-plus, ee, fe]
                       x-kubernetes-validations:
                         - rule: self == oldSelf
                           message: Value is immutable.
@@ -96,7 +96,7 @@ spec:
                       default: false
                     mtls:
                       type: boolean
-                      x-doc-d8editions: [se,se-plus,ee,fe]
+                      x-doc-d8editions: [se, se-plus, ee, fe]
                       x-kubernetes-validations:
                         - rule: self == oldSelf
                           message: Value is immutable.
@@ -115,8 +115,8 @@ spec:
                       description: |
                         NFS share mount mode.
                       enum:
-                        - hard
-                        - soft
+                        - Hard
+                        - Soft
                     timeout:
                       type: integer
                       description: |
@@ -135,7 +135,7 @@ spec:
                   type: string
                   description: |
                     chmod rights for PVs subdirectory.
-                  pattern: '^[0-7]{3,4}$'
+                  pattern: "^[0-7]{3,4}$"
                 reclaimPolicy:
                   type: string
                   x-kubernetes-validations:
@@ -197,7 +197,7 @@ spec:
                                   type: string
                 volumeCleanup:
                   type: string
-                  x-doc-d8editions: [ee,fe]
+                  x-doc-d8editions: [ee, fe]
                   description: |
                     **This feature is available in Enterprise Edition.**
 
