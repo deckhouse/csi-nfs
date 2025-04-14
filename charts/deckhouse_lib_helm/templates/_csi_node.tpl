@@ -152,6 +152,8 @@ spec:
           mountPath: /csi
         - name: registration-dir
           mountPath: /registration
+        securityContext:
+          readOnlyRootFilesystem: true
         resources:
           requests:
             {{- include "helm_lib_module_ephemeral_storage_only_logs" 10 | nindent 12 }}
@@ -161,6 +163,7 @@ spec:
       - name: node
         securityContext:
           privileged: true
+          readOnlyRootFilesystem: true
         image: {{ $nodeImage }}
         args:
       {{- if $additionalNodeArgs }}
