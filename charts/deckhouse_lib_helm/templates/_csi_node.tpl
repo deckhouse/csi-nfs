@@ -177,11 +177,11 @@ spec:
         env:
         {{- $additionalNodeEnvs | toYaml | nindent 8 }}
       {{- end }}
-        {{- if $nodeLivenessPort }}
+        {{- if $livenessProbePort }}
           livenessProbe:
             httpGet:
               path: /healthz
-              port: {{ $nodeLivenessPort }}
+              port: {{ $livenessProbePort }}
             initialDelaySeconds: 5
             timeoutSeconds: 5
         {{- end }}      
