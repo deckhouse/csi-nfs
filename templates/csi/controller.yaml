@@ -24,12 +24,13 @@
   imagePullPolicy: IfNotPresent
   securityContext:
     privileged: true
+    ReadOnlyRootFilesystem: true
   volumeMounts:
     - name: host-sys
       mountPath: /sys
     - name: host-lib-modules
       mountPath: /lib/modules
-- name: net-hendshake-checker
+- name: net-handshake-checker
   image: {{ include "helm_lib_module_image" (list . "tlshd") }}
   args: ["--mode=init-containers"]
   imagePullPolicy: IfNotPresent
