@@ -73,6 +73,9 @@
   securityContext:
     privileged: true
     ReadOnlyRootFilesystem: true
+  resources:
+    requests:
+      {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 6 }}    
   volumeMounts:
     - name: cm-tlshd-conf
       mountPath: /etc/tlshd.conf
