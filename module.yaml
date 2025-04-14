@@ -1,7 +1,7 @@
 name: csi-nfs
 weight: 910
-description: "CSI NFS module"
-descriptions.en: "CSI NFS module"
+descriptions:
+  en: "CSI NFS module"
 requirements:
   bootstrapped: true
 namespace: "d8-csi-nfs"
