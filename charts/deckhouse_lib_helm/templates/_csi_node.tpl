@@ -133,7 +133,7 @@ spec:
         - "--csi-address=$(CSI_ENDPOINT)"
         - "--kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)"
         {{- if $livenessProbePort }}
-        - "--http-endpoint={{ $livenessProbePort }}"
+        - "--http-endpoint=:{{ $livenessProbePort }}"
         {{- end }}
         env:
         - name: CSI_ENDPOINT
