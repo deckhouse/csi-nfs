@@ -39,6 +39,9 @@ linters-settings:
         - kind: Deployment
           name: csi-controller
           container: controller
+        - kind: Deployment
+          name: csi-controller
+          container: tlshd
         - kind: DaemonSet
           name: csi-nfs
           container: node
