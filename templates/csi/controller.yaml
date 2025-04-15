@@ -223,6 +223,8 @@ storage.deckhouse.io/csi-nfs-node: ""
 {{- end }}
 
 {{- define "csi_node_additional_vpa" }}
+{{- if .Values.csiNfs.internal.featureTLSEnabled }}
+{{- if .Values.csiNfs.tlsParameters.ca }}
 - containerName: "tlshd"
   minAllowed:
     cpu: 12m
@@ -230,6 +232,8 @@ storage.deckhouse.io/csi-nfs-node: ""
   maxAllowed:
     cpu: 25m
     memory: 50Mi
+{{- end }}
+{{- end }}
 {{- end }}
 
 
