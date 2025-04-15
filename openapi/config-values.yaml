@@ -27,6 +27,7 @@ properties:
         type: string
         description: Root certificate in PEM format, encoded in Base64, which can be used to verify the NFS server certificate.
         pattern: "^[A-Za-z0-9+/]*={0,2}$"
+        x-dmt-default: "Um9vdCBjZXJ0aWZpY2F0ZS8pbiBQRU0gZm9ybWF0Cg=="
       mtls:
         type: object
         default: {}
@@ -36,7 +37,9 @@ properties:
             type: string
             description: Client certificate in PEM format, encoded in Base64.
             pattern: "^[A-Za-z0-9+/]*={0,2}$"
+            x-dmt-default: "Um9vdCBjZXJ0aWZpY2F0ZS8pbiBQRU0gZm9ybWF0Cg=="
           clientKey:
             type: string
             description: Client key in PEM format, encoded in Base64.
             pattern: "^[A-Za-z0-9+/]*={0,2}$"
+            x-dmt-default: "Um9vdCBjZXJ0aWZpY2F0ZS8pbiBQRU0gZm9ybWF0Cg=="
