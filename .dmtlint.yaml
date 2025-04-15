@@ -51,3 +51,7 @@ linters-settings:
         - kind: DaemonSet
           name: csi-nfs
           container: node-driver-registrar
+  openapi:
+    exclude-rules:
+      enum:
+        - spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.mountOptions.properties.mountMode.enum
