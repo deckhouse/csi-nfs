@@ -17,7 +17,7 @@ Add volume cleanup feature
 It fixes https://avd.aquasec.com/nvd/2024/cve-2024-5321/
 MUST BE removed after switching to v4.9.0
 
-# How to apply
+## How to apply
 
 ```bash
 export CSI_DRIVER_NFS_VERSION="v4.7.0"
