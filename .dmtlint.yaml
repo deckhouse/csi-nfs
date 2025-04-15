@@ -54,4 +54,4 @@ linters-settings:
   openapi:
     exclude-rules:
       enum:
-        - spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.mountOptions.properties.mountMode.enum
+        - spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.mountOptions.properties.mountMode
