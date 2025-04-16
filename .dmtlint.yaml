@@ -1,0 +1,57 @@
+linters-settings:
+  container:
+    exclude-rules:
+      liveness-probe:
+        - kind: Deployment
+          name: csi-controller
+          container: snapshotter
+        - kind: Deployment
+          name: csi-controller
+          container: resizer
+        - kind: Deployment
+          name: csi-controller
+          container: attacher
+        - kind: Deployment
+          name: csi-controller
+          container: provisioner
+        - kind: Deployment
+          name: csi-controller
+          container: livenessprobe
+        - kind: DaemonSet
+          name: csi-nfs
+          container: tlshd
+        - kind: DaemonSet
+          name: csi-nfs
+          container: node-driver-registrar
+      readiness-probe:
+        - kind: Deployment
+          name: csi-controller
+          container: snapshotter
+        - kind: Deployment
+          name: csi-controller
+          container: resizer
+        - kind: Deployment
+          name: csi-controller
+          container: attacher
+        - kind: Deployment
+          name: csi-controller
+          container: provisioner
+        - kind: Deployment
+          name: csi-controller
+          container: livenessprobe
+        - kind: Deployment
+          name: csi-controller
+          container: controller
+        - kind: DaemonSet
+          name: csi-nfs
+          container: tlshd
+        - kind: DaemonSet
+          name: csi-nfs
+          container: node
+        - kind: DaemonSet
+          name: csi-nfs
+          container: node-driver-registrar
+  openapi:
+    exclude-rules:
+      enum:
+        - spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.mountOptions.properties.mountMode

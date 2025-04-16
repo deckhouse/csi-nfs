@@ -24,12 +24,13 @@
   imagePullPolicy: IfNotPresent
   securityContext:
     privileged: true
+    readOnlyRootFilesystem: true
   volumeMounts:
     - name: host-sys
       mountPath: /sys
     - name: host-lib-modules
       mountPath: /lib/modules
-- name: net-hendshake-checker
+- name: net-handshake-checker
   image: {{ include "helm_lib_module_image" (list . "tlshd") }}
   args: ["--mode=init-containers"]
   imagePullPolicy: IfNotPresent
@@ -71,6 +72,10 @@
   imagePullPolicy: IfNotPresent
   securityContext:
     privileged: true
+    readOnlyRootFilesystem: true
+  resources:
+    requests:
+      {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 6 }}    
   volumeMounts:
     - name: cm-tlshd-conf
       mountPath: /etc/tlshd.conf
@@ -217,6 +222,21 @@ storage.deckhouse.io/csi-nfs-node: ""
   value: unix:///csi/csi.sock
 {{- end }}
 
+{{- define "csi_node_additional_vpa" }}
+{{- if .Values.csiNfs.internal.featureTLSEnabled }}
+{{- if .Values.csiNfs.tlsParameters.ca }}
+- containerName: "tlshd"
+  minAllowed:
+    cpu: 12m
+    memory: 25Mi
+  maxAllowed:
+    cpu: 25m
+    memory: 50Mi
+{{- end }}
+{{- end }}
+{{- end }}
+
+
 {{- define "csi_additional_node_volume" }}
 {{- include "csi_init_containers_volume" . }}
 {{- include "csi_tlshd_container_volume" . }}
@@ -236,6 +256,7 @@ storage.deckhouse.io/csi-nfs-node: ""
 {{- $_ := set $csiNodeConfig "nodeImage" $csiControllerImage }}
 {{- $_ := set $csiNodeConfig "driverFQDN" "nfs.csi.k8s.io" }}
 {{- $_ := set $csiNodeConfig "livenessProbePort" 4230 }}
+{{- $_ := set $csiNodeConfig "additionalNodeVPA" (include "csi_node_additional_vpa" . | fromYamlArray) }}
 {{- $_ := set $csiNodeConfig "additionalNodeArgs" (include "csi_node_args" . | fromYamlArray) }}
 {{- $_ := set $csiNodeConfig "additionalNodeEnvs" (include "csi_node_envs" . | fromYamlArray) }}
 {{- $_ := set $csiNodeConfig "additionalNodeVolumes" (include "csi_additional_node_volume" . | fromYamlArray) }}

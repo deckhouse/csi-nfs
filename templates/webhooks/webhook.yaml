@@ -3,6 +3,9 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
   name: "d8-{{ .Chart.Name }}-sc-validation"
+  labels:
+    heritage: deckhouse
+    module: "{{ .Chart.Name }}"  
 webhooks:
   - name: "d8-{{ .Chart.Name }}-sc-validation.deckhouse.io"
     rules:
@@ -25,6 +28,9 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
   name: "d8-{{ .Chart.Name }}-nsc-validation"
+  labels:
+    heritage: deckhouse
+    module: "{{ .Chart.Name }}"  
 webhooks:
   - name: "d8-{{ .Chart.Name }}-nsc-validation.deckhouse.io"
     rules:
@@ -47,6 +53,9 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
   name: "d8-{{ .Chart.Name }}-mc-validation"
+  labels:
+    heritage: deckhouse
+    module: "{{ .Chart.Name }}"
 webhooks:
   - name: "d8-{{ .Chart.Name }}-mc-validation.deckhouse.io"
     rules:

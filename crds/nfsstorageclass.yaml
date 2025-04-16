@@ -29,21 +29,20 @@ spec:
             - spec
           properties:
             spec:
+              type: object
               x-kubernetes-validations:
                 - rule: "!(self.connection.mtls == true) || (self.connection.tls == true)"
                   message: "If mtls is true, tls must also be true."
-              type: object
+                - rule: "self.reclaimPolicy != 'Retain' || !has(self.volumeCleanup)"
+                  message: "If reclaimPolicy is 'Retain', volumeCleanup must be omitted."
+                - rule: "self.connection.nfsVersion == '4.2' || !has(self.volumeCleanup)|| self.volumeCleanup != 'Discard'"
+                  message: "Discard mode is only available when connection.nfsVersion is '4.2'."
               description: |
                 Defines a Kubernetes StorageClass configuration.
               required:
                 - connection
                 - reclaimPolicy
                 - volumeBindingMode
-              x-kubernetes-validations:
-                - rule: "self.reclaimPolicy != 'Retain' || !has(self.volumeCleanup)"
-                  message: "If reclaimPolicy is 'Retain', volumeCleanup must be omitted."
-                - rule: "self.connection.nfsVersion == '4.2' || !has(self.volumeCleanup)|| self.volumeCleanup != 'Discard'"
-                  message: "Discard mode is only available when connection.nfsVersion is '4.2'."
               properties:
                 connection:
                   type: object
@@ -86,7 +85,7 @@ spec:
                         - "4.2"
                     tls:
                       type: boolean
-                      x-doc-d8editions: [se,se-plus,ee,fe]
+                      x-doc-d8editions: [se, se-plus, ee, fe]
                       x-kubernetes-validations:
                         - rule: self == oldSelf
                           message: Value is immutable.
@@ -97,7 +96,7 @@ spec:
                       default: false
                     mtls:
                       type: boolean
-                      x-doc-d8editions: [se,se-plus,ee,fe]
+                      x-doc-d8editions: [se, se-plus, ee, fe]
                       x-kubernetes-validations:
                         - rule: self == oldSelf
                           message: Value is immutable.
@@ -136,7 +135,7 @@ spec:
                   type: string
                   description: |
                     chmod rights for PVs subdirectory.
-                  pattern: '^[0-7]{3,4}$'
+                  pattern: "^[0-7]{3,4}$"
                 reclaimPolicy:
                   type: string
                   x-kubernetes-validations:
@@ -198,7 +197,7 @@ spec:
                                   type: string
                 volumeCleanup:
                   type: string
-                  x-doc-d8editions: [ee,fe]
+                  x-doc-d8editions: [ee, fe]
                   description: |
                     **This feature is available in Enterprise Edition.**
 

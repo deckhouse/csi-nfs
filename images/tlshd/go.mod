@@ -1,4 +1,4 @@
-module github.com/deckhouse/csi-nfs/images/go-tlshd
+module github.com/deckhouse/csi-nfs/images/tlshd
 
 go 1.23.6
 
