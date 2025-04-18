@@ -110,11 +110,13 @@ jobs:
           echo MODULE_EDITION=$MODULE_EDITION
 
       - uses: actions/checkout@v4
-      
+
       - name: download base images
         run: |
           wget https://fox.flant.com/api/v4/projects/deckhouse%2Fbase-images/packages/generic/base_images/v0.4.2/base_images.yml -O base_images.yaml
           cat base_images.yaml
+          pwd
+          ls -l
 
       - uses: deckhouse/modules-actions/setup@v2
         with:
