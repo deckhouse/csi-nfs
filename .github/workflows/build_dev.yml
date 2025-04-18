@@ -49,6 +49,7 @@ jobs:
         env:
           DMT_METRICS_URL: ${{ secrets.DMT_METRICS_URL }}
           DMT_METRICS_TOKEN: ${{ secrets.DMT_METRICS_TOKEN }}
+
   set_edition:
     runs-on: [self-hosted, large]
     name: Set edition
@@ -109,6 +110,11 @@ jobs:
           echo MODULE_EDITION=$MODULE_EDITION
 
       - uses: actions/checkout@v4
+      
+      - name: download base images
+        run: |
+          wget https://fox.flant.com/api/v4/projects/deckhouse%2Fbase-images/packages/generic/base_images/v0.4.2/base_images.yml -O base_images.yaml
+
       - uses: deckhouse/modules-actions/setup@v2
         with:
           registry: ${{ vars.DEV_REGISTRY }}
