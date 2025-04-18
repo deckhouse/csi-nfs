@@ -117,6 +117,7 @@ jobs:
           cat base_images.yml
           git add base_images.yml
           git commit -m "base_images.yml"
+          echo "WERF_VIRTUAL_MERGE=0" >> "$GITHUB_ENV"
 
       - uses: deckhouse/modules-actions/setup@v2
         with:
