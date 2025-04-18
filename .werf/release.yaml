@@ -1,7 +1,7 @@
 # Release image, stored in your.registry.io/modules/<module-name>/release:<semver>
 ---
 image: release-channel-version-artifact
-from: {{ $.BASE_ALPINE_3_20 }}
+fromImage: builder/alpine
 final: false
 shell:
   beforeInstall:
@@ -13,7 +13,7 @@ shell:
       yq n version "{{ env "CI_COMMIT_REF_NAME" }}" | yq r - -j > version.json
 ---
 image: release-channel-version
-from: {{ $.BASE_SCRATCH }}
+fromImage: builder/scratch
 import:
   - image: release-channel-version-artifact
     add: /

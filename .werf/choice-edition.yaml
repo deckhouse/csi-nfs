@@ -1,7 +1,7 @@
 # TODO comment here
 ---
 image: choice-edition
-from: {{ $.BASE_ALT_P11 }}
+fromImage: builder/alt
 
 git:
   - add: /
