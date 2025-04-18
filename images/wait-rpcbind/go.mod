@@ -1,3 +1,3 @@
 module github.com/deckhouse/csi-nfs/images/wait-rpcbind
 
-go 1.24.2
+go 1.23.8

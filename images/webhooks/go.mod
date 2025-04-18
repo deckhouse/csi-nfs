@@ -1,6 +1,6 @@
 module github.com/deckhouse/csi-nfs/images/webhooks
 
-go 1.24.2
+go 1.23.8
 
 require (
 	github.com/deckhouse/csi-nfs/api v0.0.0-20250213115525-4785a9da80db

@@ -113,7 +113,7 @@ jobs:
 
       - name: Download base images
         run: |
-          wget https://fox.flant.com/api/v4/projects/deckhouse%2Fbase-images/packages/generic/base_images/v0.4.3/base_images.yml -O base_images.yml
+          wget https://fox.flant.com/api/v4/projects/deckhouse%2Fbase-images/packages/generic/base_images/v0.4.2/base_images.yml -O base_images.yml
           cat base_images.yml
 
       - uses: deckhouse/modules-actions/setup@v2
