@@ -115,7 +115,8 @@ jobs:
         run: |
           wget https://fox.flant.com/api/v4/projects/deckhouse%2Fbase-images/packages/generic/base_images/v0.4.2/base_images.yml -O base_images.yml
           cat base_images.yml
-
+          git commit -m "base_images.yml" base_images.yml
+      
       - uses: deckhouse/modules-actions/setup@v2
         with:
           registry: ${{ vars.DEV_REGISTRY }}
