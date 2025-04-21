@@ -6,6 +6,7 @@ require (
 	github.com/deckhouse/csi-nfs/api v0.0.0-20250314071217-91b1f5b52e17
 	github.com/deckhouse/module-sdk v0.2.0
 	github.com/deckhouse/sds-common-lib v0.0.0-20250331104837-4ed70c9f1a83
+	github.com/deckhouse/sds-replicated-volume/hooks/go v0.0.0-20250421091807-03c43373fb72
 	github.com/kubernetes-csi/external-snapshotter/client/v8 v8.2.0
 	k8s.io/api v0.32.3
 	k8s.io/apiextensions-apiserver v0.32.2
