@@ -11,7 +11,7 @@ env:
   GOLANG_VERSION: ${{ vars.GOLANG_VERSION }}
   GOPROXY: ${{ secrets.GOPROXY }}
   SOURCE_REPO: ${{ secrets.SOURCE_REPO }}
-  BASE_IMAGES_VERSION: "v0.4.2"
+  BASE_IMAGES_VERSION: "v0.4.3"
 
 on:
   push:
