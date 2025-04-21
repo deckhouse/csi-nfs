@@ -1,6 +1,6 @@
 module github.com/deckhouse/csi-nfs/hooks/go
 
-go 1.23.8
+go 1.24.2
 
 require (
 	github.com/deckhouse/csi-nfs/api v0.0.0-20250314071217-91b1f5b52e17
