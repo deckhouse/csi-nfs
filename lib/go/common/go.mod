@@ -1,6 +1,4 @@
-module github.com/deckhouse/csi-nfs/lib/go/common
-
-go 1.24.2
+go 1.23.8
 
 require github.com/deckhouse/csi-nfs/api v0.0.0-20250116103144-d23aedd591a3
 
