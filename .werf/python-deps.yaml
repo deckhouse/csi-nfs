@@ -1,7 +1,7 @@
 # Python deps image, required to download dependencies and put it to the final module image (bundle)
 ---
 image: python-dependencies
-from: {{ $.BASE_ALPINE_3_16 }}
+fromImage: builder/alpine
 fromCacheVersion: 2024-05-26
 git:
   - add: /

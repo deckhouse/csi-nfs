@@ -172,7 +172,9 @@ jobs:
                   pseudo_tag=$(echo "$line" | awk '{print $2}')
 
                   echo "  Cloning repo $repository into $temp_dir"
-                  git clone "$repository" "$temp_dir/$repository" >/dev/null 2>&1
+                  if [ ! -d "$temp_dir/$repository" ]; then
+                    git clone "$repository" "$temp_dir/$repository" >/dev/null 2>&1
+                  fi
 
                   cd "$temp_dir/$repository" || continue
                   
@@ -182,9 +184,10 @@ jobs:
                   commit_date=$(date -u -d "$commit_date" +"%Y%m%d%H%M%S")
                   actual_pseudo_tag="v0.0.0-"$commit_date"-"$short_hash
                   pseudo_tag_date=$(echo $pseudo_tag | awk -F'-' '{ print $2 }')
-                  echo "  Latest commit in $repository: $short_hash $commit_date"
-                  
-                  if [[ "$module_version" != "$commit_date" ]]; then
+                  echo "  Latest pseudo tag for $repository: $pseudo_tag"
+                  echo "  Actual pseudo tag for $repository: $actual_pseudo_tag"
+
+                  if [[ "$pseudo_tag" != "$actual_pseudo_tag" ]]; then
                     echo "  Incorrect pseudo tag for repo $repository in file "$go_mod_file" (current: "$pseudo_tag", actual:"$actual_pseudo_tag")"
                     echo "  Incorrect pseudo tag for repo $repository in file "$go_mod_file" (current: "$pseudo_tag", actual:"$actual_pseudo_tag")" >> $temp_dir"/incorrect_alert"
                   fi
