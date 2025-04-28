@@ -16,7 +16,7 @@ limitations under the License.
 
 package generatecerts
 
-import "github.com/deckhouse/sds-replicated-volume/hooks/go/certs"
+import "github.com/deckhouse/csi-nfs/hooks/go/certs"
 
 func init() {
 	certs.RegisterSchedulerExtenderCertHook()
