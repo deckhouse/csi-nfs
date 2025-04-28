@@ -14,15 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package generatecerts
 
-import (
-	_ "github.com/deckhouse/csi-nfs/hooks/go/020-webhook-certs"
-	_ "github.com/deckhouse/csi-nfs/hooks/go/030-remove-sc-and-secrets-on-module-delete"
-	_ "github.com/deckhouse/csi-nfs/hooks/go/070-generate-certs"
-	"github.com/deckhouse/module-sdk/pkg/app"
-)
+import "github.com/deckhouse/csi-nfs/hooks/go/certs"
 
-func main() {
-	app.Run()
+func init() {
+	certs.RegisterSchedulerExtenderCertHook()
 }
