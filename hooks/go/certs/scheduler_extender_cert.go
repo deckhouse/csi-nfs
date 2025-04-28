@@ -48,8 +48,8 @@ var SchedulerExtenderCertConfig = tlscertificate.MustNewGenSelfSignedTLSGroupHoo
 			// ExtKeyUsage
 			kcertificates.UsageServerAuth,
 		},
-		CAExpiryDuration:     DefaultCertExpiredDuration,
-		CertExpiryDuration:   DefaultCertExpiredDuration,
-		CertOutdatedDuration: DefaultCertOutdatedDuration,
+		CAExpiryDuration:     tlscertificate.DefaultCAExpiryDuration,
+		CertExpiryDuration:   tlscertificate.DefaultCertExpiryDuration,
+		CertOutdatedDuration: tlscertificate.DefaultCertOutdatedDuration,
 	},
 )
