@@ -21,8 +21,6 @@ github.com/deckhouse/module-sdk v0.2.0 h1:MOK03UZ88T7T52bk+lmAz0bRJiljtN5ysq7y8F
 github.com/deckhouse/module-sdk v0.2.0/go.mod h1:fbs0X7myE8zrPKxs3eoIoFWf68E7r1tZ64uJfYJCsKc=
 github.com/deckhouse/sds-common-lib v0.0.0-20250331104837-4ed70c9f1a83 h1:TLrWAauXH4AdROgCwpTnTZqSxgAF+NMYpeIm+e9ZaqA=
 github.com/deckhouse/sds-common-lib v0.0.0-20250331104837-4ed70c9f1a83/go.mod h1:Ap+s6LamZwRMAuzhMVJkmsvQpI1O4yxgFgsTu7QQ5qI=
-github.com/deckhouse/sds-replicated-volume/hooks/go v0.0.0-20250421091807-03c43373fb72 h1:lWNOOLzHGGzID1XJsyMz0e9hZhKxd2JbQZMMUV6yN20=
-github.com/deckhouse/sds-replicated-volume/hooks/go v0.0.0-20250421091807-03c43373fb72/go.mod h1:M43bhTGU8JMGj9Ne3VoRiyiKXw4t9sXTtW6C4LM26UU=
 github.com/docker/cli v28.0.1+incompatible h1:g0h5NQNda3/CxIsaZfH4Tyf6vpxFth7PYl3hgCPOKzs=
 github.com/docker/cli v28.0.1+incompatible/go.mod h1:JLrzqnKDaYBop7H2jaqPtU4hHvMKP+vjCwu2uszcLI8=
 github.com/docker/distribution v2.8.3+incompatible h1:AtKxIZ36LoNK51+Z6RpzLpddBirtxJnzDrHLEKxTAYk=
