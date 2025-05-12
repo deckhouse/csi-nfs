@@ -17,52 +17,140 @@ limitations under the License.
 package scheduler_extender
 
 import (
-	"context"
 	"fmt"
+	"log"
 )
 
-func (h *Hook) Execute(ctx context.Context, hookCtx *hook.HookContext, bindings map[string][]types.Snapshot) error {
+type Config struct {
+	ConfigVersion string `json:"configVersion"`
+	Kubernetes    []struct {
+		Name                         string   `json:"name"`
+		APIVersion                   string   `json:"apiVersion"`
+		Kind                         string   `json:"kind"`
+		IncludeSnapshotsFrom         []string `json:"includeSnapshotsFrom"`
+		ExecuteHookOnEvent           []string `json:"executeHookOnEvent"`
+		ExecuteHookOnSynchronization bool     `json:"executeHookOnSynchronization"`
+		KeepFullObjectsInMemory      bool     `json:"keepFullObjectsInMemory"`
+		JqFilter                     string   `json:"jqFilter"`
+		Queue                        string   `json:"queue"`
+	} `json:"kubernetes"`
+	Settings struct {
+		ExecutionMinInterval string `json:"executionMinInterval"`
+		ExecutionBurst       int    `json:"executionBurst"`
+	} `json:"settings"`
+}
+
+type Snapshot struct {
+	FilterResult map[string]interface{} `json:"filterResult"`
+}
+
+type Context struct {
+	Snapshots map[string][]Snapshot
+	Values    map[string]interface{}
+}
+
+func main() {
+	config := Config{
+		ConfigVersion: "v1",
+		Kubernetes: []struct {
+			Name                         string   `json:"name"`
+			APIVersion                   string   `json:"apiVersion"`
+			Kind                         string   `json:"kind"`
+			IncludeSnapshotsFrom         []string `json:"includeSnapshotsFrom"`
+			ExecuteHookOnEvent           []string `json:"executeHookOnEvent"`
+			ExecuteHookOnSynchronization bool     `json:"executeHookOnSynchronization"`
+			KeepFullObjectsInMemory      bool     `json:"keepFullObjectsInMemory"`
+			JqFilter                     string   `json:"jqFilter"`
+			Queue                        string   `json:"queue"`
+		}{
+			{
+				Name:                         "nfs-storage-classes",
+				APIVersion:                   "storage.deckhouse.io/v1alpha1",
+				Kind:                         "NFSStorageClass",
+				IncludeSnapshotsFrom:         []string{"nfs-storage-classes"},
+				ExecuteHookOnEvent:           []string{"Added", "Modified", "Deleted"},
+				ExecuteHookOnSynchronization: true,
+				KeepFullObjectsInMemory:      false,
+				JqFilter:                     ".spec.workloadNodes",
+				Queue:                        "/modules/csi-nfs",
+			},
+		},
+		Settings: struct {
+			ExecutionMinInterval string `json:"executionMinInterval"`
+			ExecutionBurst       int    `json:"executionBurst"`
+		}{
+			ExecutionMinInterval: "3s",
+			ExecutionBurst:       1,
+		},
+	}
+
+	run(mainHook, config)
+}
+
+func run(hookFunc func(ctx Context), config Config) {
+	// Placeholder for running the hook with the provided configuration.
+
+	ctx := Context{
+		// This code assumes a context with snapshots and values.
+		// Replace these with actual context acquisition logic.
+		Snapshots: getSnapshotsFromConfig(config),
+		Values:    map[string]interface{}{},
+	}
+
+	hookFunc(ctx)
+}
+
+func getSnapshotsFromConfig(config Config) map[string][]Snapshot {
+	// Dummy data; replace with actual data retrieval.
+	return map[string][]Snapshot{
+		"nfs-storage-classes": {
+			{FilterResult: map[string]interface{}{"nodeSelector": map[string]interface{}{"key": "value"}}},
+		},
+	}
+}
+
+func mainHook(ctx Context) {
 	fmt.Println("Scheduler extender enabler hook started")
-	fmt.Printf("Bindings: %+v\n", bindings)
-
 	shouldEnable := false
-	snapshots, exists := bindings["nfs-storage-classes"]
-	if !exists || len(snapshots) == 0 {
-		fmt.Println("No snapshots found for nfs-storage-classes")
-	} else {
-		for i, snapshot := range snapshots {
-			fmt.Printf("Snapshot %d: %+v\n", i, snapshot)
-			filterResult, ok := snapshot.FilterResult.(map[string]interface{})
-			if !ok || len(filterResult) == 0 {
-				fmt.Printf("Filter result is empty or invalid: %v\n", snapshot.FilterResult)
-				continue
-			}
-			fmt.Printf("Filter result: %+v\n", filterResult)
 
-			nodeSelector, ok := filterResult["nodeSelector"].(map[string]interface{})
-			if !ok || len(nodeSelector) == 0 {
-				fmt.Printf("nodeSelector is empty or invalid: %v\n", filterResult["nodeSelector"])
-				continue
-			}
-			fmt.Println("NodeSelector is not empty. Should enable scheduler extender")
-			shouldEnable = true
-			break
+	snapshots, ok := ctx.Snapshots["nfs-storage-classes"]
+	if !ok {
+		log.Println("No snapshots found")
+		return
+	}
+
+	for _, snapshot := range snapshots {
+		fmt.Printf("get snapshot: %v\n", snapshot)
+
+		filterResult, ok := snapshot.FilterResult["filterResult"].(map[string]interface{})
+		if !ok {
+			fmt.Println("filter result is empty")
+			continue
 		}
+
+		fmt.Printf("get filter result: %v\n", filterResult)
+
+		nodeSelector, ok := filterResult["nodeSelector"].(map[string]interface{})
+		if !ok {
+			fmt.Println("nodeSelector is empty")
+			continue
+		}
+
+		fmt.Println("NodeSelector is not empty. Should enable scheduler extender")
+		shouldEnable = true
+		break
 	}
 
 	if shouldEnable {
 		fmt.Println("Enable scheduler extender")
-		err := module.SetValue("csiNfs.internal.schedulerExtenderEnabled", true, ctx.Value())
-		if err != nil {
-			return fmt.Errorf("failed to enable scheduler extender: %v", err)
-		}
+		setValue("csiNfs.internal.shedulerExtenderEnabled", ctx.Values, true)
 	} else {
 		fmt.Println("Disable scheduler extender")
-		err := module.SetValue("csiNfs.internal.schedulerExtenderEnabled", false, hookCtx.Values)
-		if err != nil {
-			return fmt.Errorf("failed to disable scheduler extender: %v", err)
-		}
+		setValue("csiNfs.internal.shedulerExtenderEnabled", ctx.Values, false)
 	}
+}
 
-	return nil
+func setValue(key string, values map[string]interface{}, value interface{}) {
+	// Sets the value for a given key in the context's values.
+	values[key] = value
 }
