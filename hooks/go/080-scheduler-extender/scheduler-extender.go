@@ -49,50 +49,9 @@ type Context struct {
 	Values    map[string]interface{}
 }
 
-func main() {
-	config := Config{
-		ConfigVersion: "v1",
-		Kubernetes: []struct {
-			Name                         string   `json:"name"`
-			APIVersion                   string   `json:"apiVersion"`
-			Kind                         string   `json:"kind"`
-			IncludeSnapshotsFrom         []string `json:"includeSnapshotsFrom"`
-			ExecuteHookOnEvent           []string `json:"executeHookOnEvent"`
-			ExecuteHookOnSynchronization bool     `json:"executeHookOnSynchronization"`
-			KeepFullObjectsInMemory      bool     `json:"keepFullObjectsInMemory"`
-			JqFilter                     string   `json:"jqFilter"`
-			Queue                        string   `json:"queue"`
-		}{
-			{
-				Name:                         "nfs-storage-classes",
-				APIVersion:                   "storage.deckhouse.io/v1alpha1",
-				Kind:                         "NFSStorageClass",
-				IncludeSnapshotsFrom:         []string{"nfs-storage-classes"},
-				ExecuteHookOnEvent:           []string{"Added", "Modified", "Deleted"},
-				ExecuteHookOnSynchronization: true,
-				KeepFullObjectsInMemory:      false,
-				JqFilter:                     ".spec.workloadNodes",
-				Queue:                        "/modules/csi-nfs",
-			},
-		},
-		Settings: struct {
-			ExecutionMinInterval string `json:"executionMinInterval"`
-			ExecutionBurst       int    `json:"executionBurst"`
-		}{
-			ExecutionMinInterval: "3s",
-			ExecutionBurst:       1,
-		},
-	}
-
-	run(mainHook, config)
-}
-
 func run(hookFunc func(ctx Context), config Config) {
-	// Placeholder for running the hook with the provided configuration.
 
 	ctx := Context{
-		// This code assumes a context with snapshots and values.
-		// Replace these with actual context acquisition logic.
 		Snapshots: getSnapshotsFromConfig(config),
 		Values:    map[string]interface{}{},
 	}
@@ -101,7 +60,6 @@ func run(hookFunc func(ctx Context), config Config) {
 }
 
 func getSnapshotsFromConfig(config Config) map[string][]Snapshot {
-	// Dummy data; replace with actual data retrieval.
 	return map[string][]Snapshot{
 		"nfs-storage-classes": {
 			{FilterResult: map[string]interface{}{"nodeSelector": map[string]interface{}{"key": "value"}}},
@@ -153,4 +111,42 @@ func mainHook(ctx Context) {
 func setValue(key string, values map[string]interface{}, value interface{}) {
 	// Sets the value for a given key in the context's values.
 	values[key] = value
+}
+
+func init() {
+	config := Config{
+		ConfigVersion: "v1",
+		Kubernetes: []struct {
+			Name                         string   `json:"name"`
+			APIVersion                   string   `json:"apiVersion"`
+			Kind                         string   `json:"kind"`
+			IncludeSnapshotsFrom         []string `json:"includeSnapshotsFrom"`
+			ExecuteHookOnEvent           []string `json:"executeHookOnEvent"`
+			ExecuteHookOnSynchronization bool     `json:"executeHookOnSynchronization"`
+			KeepFullObjectsInMemory      bool     `json:"keepFullObjectsInMemory"`
+			JqFilter                     string   `json:"jqFilter"`
+			Queue                        string   `json:"queue"`
+		}{
+			{
+				Name:                         "nfs-storage-classes",
+				APIVersion:                   "storage.deckhouse.io/v1alpha1",
+				Kind:                         "NFSStorageClass",
+				IncludeSnapshotsFrom:         []string{"nfs-storage-classes"},
+				ExecuteHookOnEvent:           []string{"Added", "Modified", "Deleted"},
+				ExecuteHookOnSynchronization: true,
+				KeepFullObjectsInMemory:      false,
+				JqFilter:                     ".spec.workloadNodes",
+				Queue:                        "/modules/csi-nfs",
+			},
+		},
+		Settings: struct {
+			ExecutionMinInterval string `json:"executionMinInterval"`
+			ExecutionBurst       int    `json:"executionBurst"`
+		}{
+			ExecutionMinInterval: "3s",
+			ExecutionBurst:       1,
+		},
+	}
+
+	run(mainHook, config)
 }
