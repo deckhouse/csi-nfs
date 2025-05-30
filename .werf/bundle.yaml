@@ -2,6 +2,7 @@
 ---
 image: bundle
 fromImage: builder/scratch
+
 import:
   # Rendering .werf/images-digests.yaml is required!
   - image: images-digests
@@ -33,9 +34,8 @@ git:
       - charts
       - crds
       - docs
-      - enabled
       - hooks
       - monitoring
-      - module.yaml
       - templates
       - Chart.yaml
+      - module.yaml
