@@ -14,15 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package consts
+package generatecerts
 
-const (
-	ModuleName       string = "csiNfs"
-	ModuleNamespace  string = "d8-csi-nfs"
-	ModulePluralName string = "csi-nfs"
-	WebhookCertCn    string = "webhooks"
-)
+import "github.com/deckhouse/csi-nfs/hooks/go/certs"
 
-var AllowedProvisioners = []string{
-	"nfs.csi.k8s.io",
+func init() {
+	certs.RegisterSchedulerExtenderCertHook()
 }
