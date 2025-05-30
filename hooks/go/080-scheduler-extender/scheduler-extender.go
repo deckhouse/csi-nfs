@@ -34,7 +34,7 @@ var (
 			Kubernetes: []pkg.KubernetesConfig{
 				{
 					Name:                         "nfs-storage-classes",
-					APIVersion:                   "storage.deckhouse.io/v1alpha1",
+					APIVersion:                   "v1alpha1",
 					Kind:                         "NFSStorageClass",
 					ExecuteHookOnEvents:          ptr(true),
 					ExecuteHookOnSynchronization: ptr(true),
