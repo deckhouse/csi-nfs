@@ -1,6 +1,6 @@
 # TODO comment here
 ---
-image: choice-edition
+image: choose-edition
 fromImage: builder/alt
 
 git:
