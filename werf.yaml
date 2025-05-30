@@ -1,4 +1,4 @@
-project: sds-replicated-volume
+project: csi-nfs
 configVersion: 1
 build:
   imageSpec:
