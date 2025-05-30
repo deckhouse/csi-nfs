@@ -84,10 +84,10 @@ func mainHook(ctx context.Context, input *pkg.HookInput) error {
 
 	if shouldEnable {
 		fmt.Println("Enable scheduler extender")
-		input.Values.Set("csiNfs.internal.schedulerExtenderEnabled", true)
+		input.Values.Set("csiNfs.internal.shedulerExtenderEnabled", true)
 	} else {
 		fmt.Println("Disable scheduler extender")
-		input.Values.Set("csiNfs.internal.schedulerExtenderEnabled", false)
+		input.Values.Set("csiNfs.internal.shedulerExtenderEnabled", false)
 	}
 	return nil
 }
