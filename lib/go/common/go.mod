@@ -1,6 +1,4 @@
-module github.com/deckhouse/csi-nfs/lib/go/common
-
-go 1.23.6
+go 1.23.8
 
 require github.com/deckhouse/csi-nfs/api v0.0.0-20250116103144-d23aedd591a3
 
@@ -13,8 +11,8 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
-	golang.org/x/net v0.36.0 // indirect
-	golang.org/x/text v0.22.0 // indirect
+	golang.org/x/net v0.38.0 // indirect
+	golang.org/x/text v0.23.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	k8s.io/apimachinery v0.32.0 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect

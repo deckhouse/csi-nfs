@@ -2,6 +2,14 @@
 ### common
 ###
 
+{{- define "additional_csi_annotations" }}
+{{- if .Values.csiNfs.internal.featureTLSEnabled }}
+{{- if .Values.csiNfs.tlsParameters.ca }}
+checksum/ca: {{ .Values.csiNfs.tlsParameters.ca | sha256sum | quote }}    
+{{- end }}
+{{- end }}
+{{- end }}
+
 {{- $csiControllerImage := include "helm_lib_module_image" (list . "csiNfs") }}
 
 
@@ -196,6 +204,7 @@ storage.deckhouse.io/csi-nfs-node: ""
 {{- $_ := set $csiControllerConfig "additionalControllerVolumeMounts" (include "csi_additional_controller_volume_mounts" . | fromYamlArray) }}
 {{- $_ := set $csiControllerConfig "initContainers" (include "csi_init_containers" . | fromYamlArray) }}
 {{- $_ := set $csiControllerConfig "customNodeSelector" (include "csi_custom_node_selector" . | fromYaml) }}
+{{- $_ := set $csiControllerConfig "additionalCsiControllerPodAnnotations" (include "additional_csi_annotations" . | fromYaml) }}
 
 {{- include "helm_lib_csi_controller_manifests" (list . $csiControllerConfig) }}
 
@@ -264,5 +273,6 @@ storage.deckhouse.io/csi-nfs-node: ""
 {{- $_ := set $csiNodeConfig "additionalContainers" (include "csi_additional_node_containers" . | fromYamlArray) }}
 {{- $_ := set $csiNodeConfig "initContainers" (include "csi_init_containers" . | fromYamlArray) }}
 {{- $_ := set $csiNodeConfig "customNodeSelector" (include "csi_custom_node_selector" . | fromYaml) }}
+{{- $_ := set $csiNodeConfig "additionalCsiNodePodAnnotations" (include "additional_csi_annotations" . | fromYaml) }}
 
 {{- include "helm_lib_csi_node_manifests" (list . $csiNodeConfig) }}

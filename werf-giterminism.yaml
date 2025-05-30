@@ -1,7 +1,7 @@
 giterminismConfigVersion: 1
 config:
-  goTemplateRendering:	# The rules for the Go-template functions to be able to pass build context to the release
-    allowEnvVariables: 
+  goTemplateRendering: # The rules for the Go-template functions to be able to pass build context to the release
+    allowEnvVariables:
       - /CI_.+/
       - MODULES_MODULE_TAG
       - WERF_DISABLE_META_TAGS
@@ -9,6 +9,8 @@ config:
       - GOPROXY
       - SOURCE_REPO
       - MODULE_EDITION
+    allowUncommittedFiles:
+      - "base_images.yml"
   stapel:
     mount:
       allowBuildDir: true
