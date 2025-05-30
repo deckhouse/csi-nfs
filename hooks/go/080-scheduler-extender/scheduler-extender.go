@@ -19,56 +19,32 @@ package scheduler_extender
 import (
 	"context"
 	"fmt"
+	"log"
+	"time"
+
 	"github.com/deckhouse/csi-nfs/api/v1alpha1"
 	"github.com/deckhouse/csi-nfs/hooks/go/consts"
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/pkg/registry"
-	"log"
 )
 
 var (
 	_ = registry.RegisterFunc(
 		&pkg.HookConfig{
-
 			Kubernetes: []pkg.KubernetesConfig{
-				{Name: "nfs-storage-classes",
-					APIVersion:        "storage.deckhouse.io/v1alpha1",
-					Kind:              "NFSStorageClass",
-					NameSelector:      "",
-					NamespaceSelector: "",
-					LabelSelector:     "",
-					FieldSelector:     "",
-					ExecuteHookOnEvents: [ 'Added', 'Modified', 'Deleted' ],
-					ExecuteHookOnSynchronization: true,
-					JqFilter: ".spec.workloadNodes",
-					AllowFailure: "",
-					ResynchronizationPeriod:
+				{
+					Name:                         "nfs-storage-classes",
+					APIVersion:                   "storage.deckhouse.io/v1alpha1",
+					Kind:                         "NFSStorageClass",
+					ExecuteHookOnEvents:          ptr(true),
+					ExecuteHookOnSynchronization: ptr(true),
+					JqFilter:                     ".spec.workloadNodes",
+					AllowFailure:                 ptr(true),
 				},
 			},
-
-
-			/*
-				configVersion: v1
-				kubernetes:
-				- name: nfs-storage-classes
-				apiVersion: storage.deckhouse.io/v1alpha1
-				kind: NFSStorageClass
-				includeSnapshotsFrom:
-				- nfs-storage-classes
-				executeHookOnEvent: [ "Added", "Modified", "Deleted" ]
-				executeHookOnSynchronization: true
-				keepFullObjectsInMemory: false
-				jqFilter: ".spec.workloadNodes"
-				queue: /modules/csi-nfs
-				settings:
-				executionMinInterval: 3s
-				executionBurst: 1
-			*/
-			Settings: struct {
-
-			}{}
-			Schedule: []pkg.ScheduleConfig{
-				{Name: "daily", Crontab: "40 12 * * *"},
+			Settings: &pkg.HookConfigSettings{
+				ExecutionMinInterval: time.Second * 3,
+				ExecutionBurst:       1,
 			},
 			Queue: fmt.Sprintf("modules/%s", consts.ModuleName),
 		},
@@ -76,14 +52,7 @@ var (
 	)
 )
 
-type WorkloadNode struct {
-	APIVersion string           `json:"apiVersion"`
-	Kind       string           `json:"kind"`
-	Metadata   NodeInfoMetadata `json:"metadata"`
-}
-
-
-func mainHook(ctx context.Context, input *pkg.HookInput)error {
+func mainHook(ctx context.Context, input *pkg.HookInput) error {
 	fmt.Println("Scheduler extender enabler hook started")
 	shouldEnable := false
 
@@ -93,28 +62,17 @@ func mainHook(ctx context.Context, input *pkg.HookInput)error {
 		return nil
 	}
 
-	nodeInfo := new(NodeInfo)
-
 	for _, snapshot := range snapshots {
 		fmt.Printf("get snapshot: %v\n", snapshot)
 
-		filterResult := snapshot.UnmarshalTo()
-		if len(snapshots) == 0 {
-			log.Println("Filter result is empty")
-			return nil
+		snapshotItem := new(v1alpha1.NFSStorageClassWorkloadNodes)
+
+		err := snapshot.UnmarshalTo(snapshotItem)
+		if err != nil {
+			return fmt.Errorf("unmarshaling snapshot item: %w", err)
 		}
 
-		fmt.Printf("get filter result: %v\n", filterResult)
-
-
-
-		nodeSelector, ok := filterResult["nodeSelector"].(map[string]interface{})
-
-
-
-
-
-		if !ok {
+		if snapshotItem.NodeSelector == nil {
 			fmt.Println("nodeSelector is empty")
 			continue
 		}
@@ -134,4 +92,6 @@ func mainHook(ctx context.Context, input *pkg.HookInput)error {
 	return nil
 }
 
-
+func ptr[T any](a T) *T {
+	return &a
+}
