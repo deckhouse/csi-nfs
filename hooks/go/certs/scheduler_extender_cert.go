@@ -41,7 +41,7 @@ var SchedulerExtenderCertConfig = tlscertificate.MustNewGenSelfSignedTLSGroupHoo
 			fmt.Sprintf("csi-nfs--scheduler-extender.%s.svc", ModuleNamespace),
 			fmt.Sprintf("%%CLUSTER_DOMAIN%%://csi-nfs--scheduler-extender.%s.svc", ModuleNamespace),
 		}),
-		FullValuesPathPrefix: fmt.Sprintf("%s.internal.customSchedulerExtenderCert", ModulePluralName),
+		FullValuesPathPrefix: fmt.Sprintf("%s.internal.customSchedulerExtenderCert", ModuleName),
 		Usages: []kcertificates.KeyUsage{
 			kcertificates.UsageKeyEncipherment,
 			kcertificates.UsageCertSign,
