@@ -84,6 +84,8 @@ func mainHook(ctx context.Context, input *pkg.HookInput) error {
 
 	enableLabel := fmt.Sprintf("%v.internal.shedulerExtenderEnabled", consts.ModuleName)
 
+	enableLabel := fmt.Sprintf("%v.internal.shedulerExtenderEnabled", consts.ModuleName)
+
 	if shouldEnable {
 		fmt.Println("Enable scheduler extender")
 		input.Values.Set(enableLabel, true)
