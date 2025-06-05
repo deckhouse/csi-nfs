@@ -21,7 +21,6 @@ const (
 	ModuleNamespace  string = "d8-csi-nfs"
 	ModulePluralName string = "csi-nfs"
 	WebhookCertCn    string = "webhooks"
-	SchedulerCertCn  string = "csi-nfs-scheduler-extender"
 )
 
 var AllowedProvisioners = []string{
