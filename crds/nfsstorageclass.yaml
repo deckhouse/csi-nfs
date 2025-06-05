@@ -4,7 +4,7 @@ metadata:
   name: nfsstorageclasses.storage.deckhouse.io
   labels:
     heritage: deckhouse
-    module: storage
+    module: csi-nfs
     backup.deckhouse.io/cluster-config: "true"
 spec:
   group: storage.deckhouse.io
