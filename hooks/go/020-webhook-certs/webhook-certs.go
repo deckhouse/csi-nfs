@@ -19,7 +19,7 @@ package hooks_common
 import (
 	"fmt"
 
-	consts "github.com/deckhouse/csi-nfs/hooks/go/consts"
+	"github.com/deckhouse/csi-nfs/hooks/go/consts"
 	tlscertificate "github.com/deckhouse/module-sdk/common-hooks/tls-certificate"
 )
 
