@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"github.com/deckhouse/csi-nfs/hooks/go/consts"
+	//tlscertificate "github.com/deckhouse/csi-nfs/hooks/go/tls-certificate"
 	tlscertificate "github.com/deckhouse/module-sdk/common-hooks/tls-certificate"
 )
 
