@@ -36,9 +36,9 @@ git:
 shell:
   beforeInstall:
     - apt-get update
-    - apt-get install -y {{ $.Root.DEV_PACKAGES }}
+    - apt-get install -y {{ .DEV_PACKAGES }}
     - apt-get install -y libzstd-devel liblzma-devel zlib-devel libssl-devel
-    - {{ $.Root.ALT_CLEANUP_CMD }}
+    - {{ .ALT_CLEANUP_CMD }}
   install:
     - cd /src
     - ./autogen.sh
