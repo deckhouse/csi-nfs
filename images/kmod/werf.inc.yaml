@@ -1,6 +1,6 @@
 ---
 # do not remove this image: used in external audits (DKP CSE)
-image: {{ $.ImageName }}-src-artifact
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 fromImage: builder/src
 final: false
 git:
@@ -16,18 +16,18 @@ shell:
     - rm -rf /src/.git
 
 ---
-image: {{ $.ImageName }}-binaries-artifact
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-binaries-artifact
 fromImage: builder/alt
 final: false
 
 import:
-  - image: {{ $.ImageName }}-src-artifact
+  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
     add: /src
     to: /src
     before: install
 
 git:
-  - add: /tools/dev_images/additional_tools/alt/binary_replace.sh
+  - add: {{ .ModuleDir }}/tools/dev_images/additional_tools/binary_replace.sh
     to: /binary_replace.sh
     stageDependencies:
       beforeSetup:
@@ -62,13 +62,13 @@ image: {{ $.ImageName }}
 fromImage: base/distroless
 
 import:
-  - image: {{ $.ImageName }}-binaries-artifact
+  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-binaries-artifact
     stage: beforeSetup
     add: /relocate
     to: /
     before: setup
 
-  - image: {{ $.ImageName }}-binaries-artifact
+  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-binaries-artifact
     stage: setup
     add: /opt/deckhouse/csi/bin
     to:  /opt/deckhouse/csi/bin

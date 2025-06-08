@@ -1,6 +1,6 @@
 ---
 # do not remove this image: used in external audits (DKP CSE)
-image: {{ $.ImageName }}-src-artifact
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 fromImage: builder/src
 final: false
 git:
@@ -49,16 +49,16 @@ shell:
 
 ---
 {{- $csiBinaries := "/nfs-utils/sbin/* /nfs-utils/usr/bin/* /nfs-utils/usr/sbin/* /lib64/libnss_files.so.2 /lib64/libnss_dns.so.2 /bin/cp /bin/mount /bin/umount /usr/bin/shred" }}
-image: {{ $.ImageName }}-binaries-artifact
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-binaries-artifact
 fromImage: builder/alt
 final: false
 import:
-  - image: {{ $.ImageName }}-src-artifact
+  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
     add: /src
     to: /src
     before: install
 git:
-  - add: /tools/dev_images/additional_tools/alt/binary_replace.sh
+  - add: {{ .ModuleDir }}/tools/dev_images/additional_tools/binary_replace.sh
     to: /binary_replace.sh
     stageDependencies:
       beforeSetup:
@@ -98,37 +98,43 @@ shell:
     - cp -av /etc/netconfig /relocate/etc/netconfig
 
 ---
-image: {{ $.ImageName }}-golang-artifact
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-golang-artifact
 fromImage: builder/golang-alpine
 final: false
+
 import:
-  - image: {{ $.ImageName }}-src-artifact
+  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
     add: /src
     to: /src
     before: install
+
 mount:
-  - fromPath: ~/go-pkg-cache
-    to: /go/pkg
+{{ include "mount points for golang builds" . }}
+
+secrets:
+- id: GOPROXY
+  value: {{ .GOPROXY }}
 
 shell:
   setup:
-    - cd /src/csi-driver-nfs
-    - export CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO_VERSION={{ env "GOLANG_VERSION" }} GOPROXY={{ env "GOPROXY" }}
-    - go build -ldflags="-s -w" -tags {{ $.Root.MODULE_EDITION }} -o /nfsplugin ./cmd/nfsplugin
-    - chmod +x /nfsplugin
+    - cd /src/images/{{ $.ImageName }}/cmd
+    - GOPROXY=$(cat /run/secrets/GOPROXY) go mod download
+    - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o /{{ $.ImageName }}
+    - chmod +x /{{ $.ImageName }}
 
 ---
 image: {{ $.ImageName }}
 fromImage: base/distroless
 import:
-  - image: {{ $.ImageName }}-golang-artifact
-    add: /nfsplugin
-    to: /nfsplugin
+  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-golang-artifact
+    add: /{{ $.ImageName }}
+    to: /{{ $.ImageName }}
     before: setup
-  - image: {{ $.ImageName }}-binaries-artifact
+  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-binaries-artifact
     add: /relocate
     to: /
     before: setup
-docker:
-  ENTRYPOINT: ["/nfsplugin"]
-  USER: deckhouse:deckhouse
+
+imageSpec:
+  config:
+    entrypoint: ["/{{ $.ImageName }}"]
