@@ -45,6 +45,7 @@ git:
 
 shell:
   beforeInstall:
+  {{- include "alt packages proxy" . | nindent 4 }}
     - apt-get update
     - apt-get install -y {{ .DEV_PACKAGES }}
     - apt-get install -y libgnutls-devel libkeyutils-devel glib2-devel libnl-devel
