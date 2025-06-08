@@ -38,7 +38,7 @@ shell:
     - echo "preparing image"
     - apt-get update
     - apt-get install -y git go
-    - {{ $.Root.ALT_CLEANUP_CMD }}
+    - rm -rf /var/lib/apt/lists/* /var/cache/apt/* && mkdir -p /var/lib/apt/lists/partial /var/cache/apt/archives/partial
   install:
     - cd /src/csi-driver-nfs
     - for patchfile in /patches/images/{{ $.ImageName }}/patches/*.patch; do echo "Apply ${patchfile} ... "; git apply ${patchfile} --verbose; done
@@ -70,13 +70,7 @@ shell:
     - apt-get update
     - apt-get install -y {{ $.Root.DEV_PACKAGES }}
     - apt-get install -y libmount-devel libnl-devel libreadline-devel libtirpc libtirpc-devel libuuid-devel libevent-devel libsqlite3x-devel libdevmapper-devel libblkid-devel libkeyutils-devel libxml2-devel mount
-    - {{ $.Root.ALT_CLEANUP_CMD }}
-      ### example werf build log
-      # ...
-      # nfs-utils-binaries-artifact/install  chmod go-rwx /nfs-utils/var/lib/nfs/sm /nfs-utils/var/lib/nfs/sm.bak /nfs-utils/var/lib/nfs/state
-      # nfs-utils-binaries-artifact/install  chown deckhouse /nfs-utils/var/lib/nfs/sm /nfs-utils/var/lib/nfs/sm.bak /nfs-utils/var/lib/nfs/state
-      # nfs-utils-binaries-artifact/install  chown: invalid user: ‘deckhouse’
-      # ...
+    - rm -rf /var/lib/apt/lists/* /var/cache/apt/* && mkdir -p /var/lib/apt/lists/partial /var/cache/apt/archives/partial
     - groupadd -g {{ $.Root.DECKHOUSE_UID_GID }} deckhouse
     - useradd -g deckhouse -u {{ $.Root.DECKHOUSE_UID_GID }} deckhouse
   install:

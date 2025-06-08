@@ -39,7 +39,7 @@ shell:
     - apt-get update
     - apt-get install -y {{ $.Root.DEV_PACKAGES }}
     - apt-get install -y libzstd-devel liblzma-devel zlib-devel libssl-devel
-    - {{ $.Root.ALT_CLEANUP_CMD }}
+    - rm -rf /var/lib/apt/lists/* /var/cache/apt/* && mkdir -p /var/lib/apt/lists/partial /var/cache/apt/archives/partial
   install:
     - cd /src
     - ./autogen.sh

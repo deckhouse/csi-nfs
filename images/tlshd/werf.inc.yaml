@@ -49,7 +49,7 @@ shell:
     - apt-get update
     - apt-get install -y {{ $.Root.DEV_PACKAGES }}
     - apt-get install -y libgnutls-devel libkeyutils-devel glib2-devel libnl-devel
-    - {{ $.Root.ALT_CLEANUP_CMD }}
+    - rm -rf /var/lib/apt/lists/* /var/cache/apt/* && mkdir -p /var/lib/apt/lists/partial /var/cache/apt/archives/partial
   install:
     - cd /src/ktls-utils
     - ./autogen.sh
