@@ -113,6 +113,7 @@ secrets:
 
 shell:
   setup:
+    - ls -l /src
     - cd /src/csi-driver-nfs
     - GOPROXY=$(cat /run/secrets/GOPROXY) go mod download
     - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -tags {{ .MODULE_EDITION }} -o /{{ $.ImageName }}
