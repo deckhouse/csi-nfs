@@ -47,7 +47,7 @@ shell:
   beforeInstall:
     {{- include "alt packages proxy" . | nindent 4 }}
     - apt-get update
-    - apt-get install -y {{ $.Root.DEV_PACKAGES }}
+    - apt-get install -y make automake pkg-config gcc libtool git curl
     - apt-get install -y libgnutls-devel libkeyutils-devel glib2-devel libnl-devel
     - rm -rf /var/lib/apt/lists/* /var/cache/apt/* && mkdir -p /var/lib/apt/lists/partial /var/cache/apt/archives/partial
   install:

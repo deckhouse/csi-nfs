@@ -68,11 +68,11 @@ shell:
   beforeInstall:
     {{- include "alt packages proxy" . | nindent 4 }}
     - apt-get update
-    - apt-get install -y {{ $.Root.DEV_PACKAGES }}
+    - apt-get install -y make automake pkg-config gcc libtool git curl
     - apt-get install -y libmount-devel libnl-devel libreadline-devel libtirpc libtirpc-devel libuuid-devel libevent-devel libsqlite3x-devel libdevmapper-devel libblkid-devel libkeyutils-devel libxml2-devel mount
     - rm -rf /var/lib/apt/lists/* /var/cache/apt/* && mkdir -p /var/lib/apt/lists/partial /var/cache/apt/archives/partial
-    - groupadd -g {{ $.Root.DECKHOUSE_UID_GID }} deckhouse
-    - useradd -g deckhouse -u {{ $.Root.DECKHOUSE_UID_GID }} deckhouse
+    - groupadd -g 64535 deckhouse
+    - useradd -g deckhouse -u 64535 deckhouse
   install:
     - cd /src/nfs-utils
     - ./autogen.sh
