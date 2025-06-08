@@ -34,10 +34,11 @@ git:
         - '**/*'
 shell:
   beforeInstall:
+    {{- include "alt packages proxy" . | nindent 4 }}
     - echo "preparing image"
     - apt-get update
     - apt-get install -y git go
-    - {{ .ALT_CLEANUP_CMD }}
+    - {{ $.Root.ALT_CLEANUP_CMD }}
   install:
     - cd /src/csi-driver-nfs
     - for patchfile in /patches/images/{{ $.ImageName }}/patches/*.patch; do echo "Apply ${patchfile} ... "; git apply ${patchfile} --verbose; done
@@ -65,19 +66,19 @@ git:
         - '**/*'
 shell:
   beforeInstall:
-  {{- include "alt packages proxy" . | nindent 4 }}
+    {{- include "alt packages proxy" . | nindent 4 }}
     - apt-get update
-    - apt-get install -y {{ .DEV_PACKAGES }}
+    - apt-get install -y {{ $.Root.DEV_PACKAGES }}
     - apt-get install -y libmount-devel libnl-devel libreadline-devel libtirpc libtirpc-devel libuuid-devel libevent-devel libsqlite3x-devel libdevmapper-devel libblkid-devel libkeyutils-devel libxml2-devel mount
-    - {{ .ALT_CLEANUP_CMD }}
+    - {{ $.Root.ALT_CLEANUP_CMD }}
       ### example werf build log
       # ...
       # nfs-utils-binaries-artifact/install  chmod go-rwx /nfs-utils/var/lib/nfs/sm /nfs-utils/var/lib/nfs/sm.bak /nfs-utils/var/lib/nfs/state
       # nfs-utils-binaries-artifact/install  chown deckhouse /nfs-utils/var/lib/nfs/sm /nfs-utils/var/lib/nfs/sm.bak /nfs-utils/var/lib/nfs/state
       # nfs-utils-binaries-artifact/install  chown: invalid user: ‘deckhouse’
       # ...
-    - groupadd -g {{ .DECKHOUSE_UID_GID }} deckhouse
-    - useradd -g deckhouse -u {{ .DECKHOUSE_UID_GID }} deckhouse
+    - groupadd -g {{ $.Root.DECKHOUSE_UID_GID }} deckhouse
+    - useradd -g deckhouse -u {{ $.Root.DECKHOUSE_UID_GID }} deckhouse
   install:
     - cd /src/nfs-utils
     - ./autogen.sh
@@ -120,7 +121,7 @@ shell:
   setup:
     - cd /src/images/{{ $.ImageName }}/cmd
     - GOPROXY=$(cat /run/secrets/GOPROXY) go mod download
-    - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -tags {{ .MODULE_EDITION }} -o /{{ $.ImageName }}
+    - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -tags {{ $.Root.MODULE_EDITION }} -o /{{ $.ImageName }}
     - chmod +x /{{ $.ImageName }}
 
 ---

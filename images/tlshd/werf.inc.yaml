@@ -47,9 +47,9 @@ shell:
   beforeInstall:
     {{- include "alt packages proxy" . | nindent 4 }}
     - apt-get update
-    - apt-get install -y {{ .DEV_PACKAGES }}
+    - apt-get install -y {{ $.Root.DEV_PACKAGES }}
     - apt-get install -y libgnutls-devel libkeyutils-devel glib2-devel libnl-devel
-    - {{ .ALT_CLEANUP_CMD }}
+    - {{ $.Root.ALT_CLEANUP_CMD }}
   install:
     - cd /src/ktls-utils
     - ./autogen.sh
