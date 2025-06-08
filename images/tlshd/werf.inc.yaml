@@ -58,7 +58,8 @@ shell:
   beforeSetup:
     - mkdir -p /opt/deckhouse/csi/bin
     - cp -v /src/ktls-utils/src/tlshd/tlshd /opt/deckhouse/csi/bin/tlshd
-    - /binary_replace.sh -i "/opt/deckhouse/csi/bin/tlshd" -o /relocate
+    - chmod +x /binary_replace.sh
+    - /binary_replace.sh -i "/opt/deckhouse/csi/bin/kmod" -o /relocate
     - mkdir -p /relocate/opt/deckhouse/csi/etc
     - cp -v /src/ktls-utils/src/tlshd/tlshd.conf /relocate/opt/deckhouse/csi/etc/tlshd.conf
 
