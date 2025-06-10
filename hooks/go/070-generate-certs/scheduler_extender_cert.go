@@ -15,8 +15,49 @@ limitations under the License.
 */
 package generatecerts
 
-import "github.com/deckhouse/csi-nfs/hooks/go/certs"
+import (
+	"fmt"
+	"github.com/deckhouse/csi-nfs/hooks/go/consts"
+	"github.com/deckhouse/module-sdk/common-hooks/tls-certificate"
+	//	tlscertificate "github.com/deckhouse/csi-nfs/hooks/go/tls-certificate"
+	//	chcrt "github.com/deckhouse/module-sdk/common-hooks/tls-certificate"
+)
 
-func init() {
-	certs.RegisterSchedulerExtenderCertHook()
-}
+var _ = tlscertificate.RegisterInternalTLSHookEM(tlscertificate.GenSelfSignedTLSHookConf{
+	CommonCACanonicalName: fmt.Sprintf("%s-%s", consts.ModulePluralName, consts.SchedulerCertCn),
+	CN:                    fmt.Sprintf("%s-%s", consts.ModulePluralName, consts.SchedulerCertCn),
+	TLSSecretName:         fmt.Sprintf("%s-%s-https-certs", consts.ModulePluralName, consts.SchedulerCertCn),
+	Namespace:             consts.ModuleNamespace,
+	SANs: tlscertificate.DefaultSANs([]string{
+		consts.WebhookCertCn,
+		fmt.Sprintf("%s-%s.%s", consts.ModulePluralName, consts.SchedulerCertCn, consts.ModuleNamespace),
+		fmt.Sprintf("%s-%s.%s.svc", consts.ModulePluralName, consts.SchedulerCertCn, consts.ModuleNamespace),
+		// %CLUSTER_DOMAIN%:// is a special value to generate SAN like 'svc_name.svc_namespace.svc.cluster.local'
+		fmt.Sprintf("%%CLUSTER_DOMAIN%%://%s-%s.%s.svc", consts.ModulePluralName, consts.SchedulerCertCn, consts.ModuleNamespace),
+	}),
+	FullValuesPathPrefix: fmt.Sprintf("%s.internal.customSchedulerExtenderCert", consts.ModuleName),
+})
+
+//var SchedulerExtenderCertConfig = tlscertificate.MustNewGenSelfSignedTLSGroupHookConf(
+//	tlscertificate.GenSelfSignedTLSHookConf{
+//		CN:            "csi-nfs-scheduler-extender",
+//		Namespace:     ModuleNamespace,
+//		TLSSecretName: "csi-nfs-scheduler-extender-https-certs",
+//		SANs: chcrt.DefaultSANs([]string{
+//			"csi-nfs--scheduler-extender",
+//			fmt.Sprintf("csi-nfs-scheduler-extender.%s", ModuleNamespace),
+//			fmt.Sprintf("csi-nfs--scheduler-extender.%s.svc", ModuleNamespace),
+//			fmt.Sprintf("%%CLUSTER_DOMAIN%%://csi-nfs--scheduler-extender.%s.svc", ModuleNamespace),
+//		}),
+//		FullValuesPathPrefix: fmt.Sprintf("%s.internal.customSchedulerExtenderCert", ModuleName),
+//		Usages: []kcertificates.KeyUsage{
+//			kcertificates.UsageKeyEncipherment,
+//			kcertificates.UsageCertSign,
+//			// ExtKeyUsage
+//			kcertificates.UsageServerAuth,
+//		},
+//		CAExpiryDuration:     tlscertificate.DefaultCAExpiryDuration,
+//		CertExpiryDuration:   tlscertificate.DefaultCertExpiryDuration,
+//		CertOutdatedDuration: tlscertificate.DefaultCertOutdatedDuration,
+//	},
+//)
