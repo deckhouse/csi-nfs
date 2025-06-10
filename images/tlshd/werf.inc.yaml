@@ -25,7 +25,7 @@ shell:
     - apt-get update
     - apt-get install -y git go
     - git config --global advice.detachedHead false
-    - git clone --depth 1 --branch {{ .Versions.KMOD }} $(cat /run/secrets/SOURCE_REPO)/oracle/ktls-utils.git /src/ktls-utils
+    - git clone --depth 1 --branch {{ .Versions.KTLS_UTILS }} $(cat /run/secrets/SOURCE_REPO)/oracle/ktls-utils.git /src/ktls-utils
     - rm -rf /var/lib/apt/lists/* /var/cache/apt/* && mkdir -p /var/lib/apt/lists/partial /var/cache/apt/archives/partial
   install:
     - rm -rf /src/ktls-utils/.git
