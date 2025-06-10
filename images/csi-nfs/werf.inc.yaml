@@ -24,7 +24,7 @@ secrets:
   value: {{ .SOURCE_REPO }}
 
 shell:
-  beforeInstall:
+  install:
     - git clone --depth 1 --branch {{ .Versions.NFS_UTILS }} $(cat /run/secrets/SOURCE_REPO)/steved/nfs-utils.git /src/nfs-utils
     - git clone --depth 1 --branch {{ .Versions.CSI_DRIVER_NFS }} $(cat /run/secrets/SOURCE_REPO)/kubernetes-csi/csi-driver-nfs.git /src/csi-driver-nfs
     - cd /src/csi-driver-nfs
