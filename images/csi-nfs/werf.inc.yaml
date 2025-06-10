@@ -4,40 +4,34 @@ image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 fromImage: builder/src
 final: false
 git:
-  - url: {{ env "SOURCE_REPO" }}/steved/nfs-utils.git
-    add: /
-    to: /src/nfs-utils
-    tag: {{ $.Versions.NFS_UTILS }}
-    stageDependencies:
-      install:
-        - '**/*'
-  - url: {{ env "SOURCE_REPO" }}/kubernetes-csi/csi-driver-nfs.git
-    add: /
-    to: /src/csi-driver-nfs
-    tag: {{ $.Versions.CSI_DRIVER_NFS }}
-    stageDependencies:
-      install:
-        - '**/*'
-  - add: /
+  - add: {{ .ModuleDir }}
     to: /patches
     includePaths:
       - images/{{ $.ImageName }}/patches
     stageDependencies:
       install:
         - '**/*'
-  - add: /
+  - add: {{ .ModuleDir }}
     to: /src/csi-nfs
     includePaths:
       - lib/go
     stageDependencies:
       install:
         - '**/*'
+
+secrets:
+- id: SOURCE_REPO
+  value: {{ .SOURCE_REPO }}
+
 shell:
   beforeInstall:
     {{- include "alt packages proxy" . | nindent 4 }}
     - echo "preparing image"
     - apt-get update
     - apt-get install -y git go
+    - git config --global advice.detachedHead false
+    - git clone --depth 1 --branch {{ .Versions.NFS_UTILS }} $(cat /run/secrets/SOURCE_REPO)/steved/nfs-utils.git /src/nfs-utils
+    - git clone --depth 1 --branch {{ .Versions.CSI_DRIVER_NFS }} $(cat /run/secrets/SOURCE_REPO)/kubernetes-csi/csi-driver-nfs.git /src/csi-driver-nfs
     - rm -rf /var/lib/apt/lists/* /var/cache/apt/* && mkdir -p /var/lib/apt/lists/partial /var/cache/apt/archives/partial
   install:
     - cd /src/csi-driver-nfs
@@ -119,7 +113,7 @@ shell:
     - chmod +x /{{ $.ImageName }}
 
 ---
-image: {{ $.ImageName }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 fromImage: base/distroless
 import:
   - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-golang-artifact

@@ -1,10 +1,10 @@
 ---
-# do not remove this image: used in external audits (DKP CSE)
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 fromImage: builder/src
 final: false
+
 git:
-  - add: /
+  - add: {{ .ModuleDir }}
     to: /src
     includePaths:
       - api
@@ -13,9 +13,12 @@ git:
     stageDependencies:
       install:
         - '**/*'
+    excludePaths:
+      - images/{{ $.ImageName }}/werf.yaml
+
 shell:
   install:
-    - rm -rf /src/.git
+    - echo "src artifact"
 
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-golang-artifact
@@ -43,14 +46,14 @@ shell:
     - chmod +x /{{ $.ImageName }}
 
 ---
-image: {{ $.ImageName }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 fromImage: base/distroless
 
 import:
   - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-golang-artifact
     add: /{{ $.ImageName }}
     to: /{{ $.ImageName }}
-    before: setup
+    before: install
 
 imageSpec:
   config:

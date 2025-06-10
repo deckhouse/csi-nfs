@@ -4,14 +4,7 @@ image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 fromImage: builder/src
 final: false
 git:
-  - url: {{ env "SOURCE_REPO" }}/oracle/ktls-utils.git
-    add: /
-    to: /src/ktls-utils
-    tag: {{ $.Versions.KTLS_UTILS }}
-    stageDependencies:
-      install:
-        - '**/*'
-  - add: /
+  - add: {{ .ModuleDir }}
     to: /src
     includePaths:
       - api
@@ -20,9 +13,21 @@ git:
     stageDependencies:
       install:
         - '**/*'
+
+secrets:
+- id: SOURCE_REPO
+  value: {{ .SOURCE_REPO }}
+
 shell:
+  beforeInstall:
+    {{- include "alt packages proxy" . | nindent 4 }}
+    - echo "preparing image"
+    - apt-get update
+    - apt-get install -y git go
+    - git config --global advice.detachedHead false
+    - git clone --depth 1 --branch {{ .Versions.KMOD }} $(cat /run/secrets/SOURCE_REPO)/oracle/ktls-utils.git /src/ktls-utils
+    - rm -rf /var/lib/apt/lists/* /var/cache/apt/* && mkdir -p /var/lib/apt/lists/partial /var/cache/apt/archives/partial
   install:
-    - rm -rf /src/.git
     - rm -rf /src/ktls-utils/.git
 
 ---
@@ -89,7 +94,7 @@ shell:
     - chmod +x /{{ $.ImageName }}
 
 ---
-image: {{ $.ImageName }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 fromImage: base/distroless
 
 import:
