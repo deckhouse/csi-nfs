@@ -17,7 +17,7 @@ shell:
     - rm -rf /src/kmod/.git
 
 ---
-image: {{ .ModuleNamePrefix }}{{ .ImageName }}-binaries-artifa3333ct
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-binaries-artifact
 fromImage: builder/alt
 final: false
 
