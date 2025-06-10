@@ -5,7 +5,6 @@ config:
       - /CI_.+/
       - MODULES_MODULE_TAG
       - WERF_DISABLE_META_TAGS
-      - GOLANG_VERSION
       - GOPROXY
       - SOURCE_REPO
       - MODULE_EDITION

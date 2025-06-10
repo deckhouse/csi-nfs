@@ -28,8 +28,7 @@ shell:
     {{- include "alt packages proxy" . | nindent 4 }}
     - echo "preparing image"
     - apt-get update
-    - apt-get install -y git go
-    - git config --global advice.detachedHead false
+    - apt-get install -y go
     - git clone --depth 1 --branch {{ .Versions.NFS_UTILS }} $(cat /run/secrets/SOURCE_REPO)/steved/nfs-utils.git /src/nfs-utils
     - git clone --depth 1 --branch {{ .Versions.CSI_DRIVER_NFS }} $(cat /run/secrets/SOURCE_REPO)/kubernetes-csi/csi-driver-nfs.git /src/csi-driver-nfs
     - rm -rf /var/lib/apt/lists/* /var/cache/apt/* && mkdir -p /var/lib/apt/lists/partial /var/cache/apt/archives/partial
@@ -37,7 +36,7 @@ shell:
     - cd /src/csi-driver-nfs
     - for patchfile in /patches/images/{{ $.ImageName }}/patches/*.patch; do echo "Apply ${patchfile} ... "; git apply ${patchfile} --verbose; done
     - cp -R /patches/images/{{ $.ImageName }}/patches/csi-driver-nfs/* ./
-    - go mod tidy
+    # - go mod tidy
     - go mod vendor
     - rm -rf /src/csi-driver-nfs/.git
     - rm -rf /src/nfs-utils/.git

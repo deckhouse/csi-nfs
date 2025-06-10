@@ -10,14 +10,7 @@ secrets:
 
 shell:
   beforeInstall:
-    {{- include "alt packages proxy" . | nindent 4 }}
-    - echo "preparing image"
-    - apt-get update
-    - apt-get install -y git go
-    - git config --global advice.detachedHead false
     - git clone --depth 1 --branch {{ .Versions.KMOD }} $(cat /run/secrets/SOURCE_REPO)/kmod-project/kmod.git /src/kmod
-    - rm -rf /var/lib/apt/lists/* /var/cache/apt/* && mkdir -p /var/lib/apt/lists/partial /var/cache/apt/archives/partial
-  install:
     - rm -rf /src/kmod/.git
 
 ---
