@@ -1,52 +1,55 @@
 ---
 # do not remove this image: used in external audits (DKP CSE)
-image: {{ $.ImageName }}-src-artifact
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 fromImage: builder/src
 final: false
-git:
-  - url: {{ env "SOURCE_REPO" }}/kmod-project/kmod.git
-    add: /
-    to: /src
-    tag: {{ $.Versions.KMOD }}
-    stageDependencies:
-      install:
-        - '**/*'
+
+secrets:
+- id: SOURCE_REPO
+  value: {{ .SOURCE_REPO }}
+
 shell:
-  install:
-    - rm -rf /src/.git
+  beforeInstall:
+    - git clone --depth 1 --branch {{ .Versions.KMOD }} $(cat /run/secrets/SOURCE_REPO)/kmod-project/kmod.git /src/kmod
+    - rm -rf /src/kmod/.git
 
 ---
-image: {{ $.ImageName }}-binaries-artifact
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-binaries-artifact
 fromImage: builder/alt
 final: false
 
 import:
-  - image: {{ $.ImageName }}-src-artifact
+  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
     add: /src
     to: /src
     before: install
 
 git:
-  - add: /tools/dev_images/additional_tools/alt/binary_replace.sh
+  - add: {{ .ModuleDir }}/tools/dev_images/additional_tools/binary_replace.sh
     to: /binary_replace.sh
     stageDependencies:
       beforeSetup:
         - '**/*'
 
+secrets:
+- id: SOURCE_REPO
+  value: {{ .SOURCE_REPO }}
+
 shell:
   beforeInstall:
+    {{- include "alt packages proxy" . | nindent 4 }}
     - apt-get update
-    - apt-get install -y {{ $.Root.DEV_PACKAGES }}
+    - apt-get install -y make automake pkg-config gcc libtool git curl
     - apt-get install -y libzstd-devel liblzma-devel zlib-devel libssl-devel
-    - {{ $.Root.ALT_CLEANUP_CMD }}
+    - rm -rf /var/lib/apt/lists/* /var/cache/apt/* && mkdir -p /var/lib/apt/lists/partial /var/cache/apt/archives/partial
   install:
-    - cd /src
+    - cd /src/kmod
     - ./autogen.sh
     - ./configure CFLAGS='-g -O2' --with-zstd --with-xz --with-zlib --with-openssl --disable-manpages --disable-test-modules
     - make
   beforeSetup:
     - mkdir -p /opt/deckhouse/csi/bin
-    - cp -v /src/tools/kmod /opt/deckhouse/csi/bin/kmod # do not use an end name other than 'kmod'
+    - cp -v /src/kmod/tools/kmod /opt/deckhouse/csi/bin/kmod # do not use an end name other than 'kmod'
     - chmod +x /binary_replace.sh
     - /binary_replace.sh -i "/opt/deckhouse/csi/bin/kmod" -o /relocate
   setup:
@@ -58,17 +61,17 @@ shell:
         done
 
 ---
-image: {{ $.ImageName }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 fromImage: base/distroless
 
 import:
-  - image: {{ $.ImageName }}-binaries-artifact
+  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-binaries-artifact
     stage: beforeSetup
     add: /relocate
     to: /
     before: setup
 
-  - image: {{ $.ImageName }}-binaries-artifact
+  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-binaries-artifact
     stage: setup
     add: /opt/deckhouse/csi/bin
     to:  /opt/deckhouse/csi/bin
