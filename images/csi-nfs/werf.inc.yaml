@@ -1,82 +1,63 @@
 ---
 # do not remove this image: used in external audits (DKP CSE)
-image: {{ $.ImageName }}-src-artifact
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 fromImage: builder/src
 final: false
 git:
-  - url: {{ env "SOURCE_REPO" }}/steved/nfs-utils.git
-    add: /
-    to: /src/nfs-utils
-    tag: {{ $.Versions.NFS_UTILS }}
-    stageDependencies:
-      install:
-        - '**/*'
-  - url: {{ env "SOURCE_REPO" }}/kubernetes-csi/csi-driver-nfs.git
-    add: /
-    to: /src/csi-driver-nfs
-    tag: {{ $.Versions.CSI_DRIVER_NFS }}
-    stageDependencies:
-      install:
-        - '**/*'
-  - add: /
+  - add: {{ .ModuleDir }}
     to: /patches
     includePaths:
       - images/{{ $.ImageName }}/patches
     stageDependencies:
       install:
         - '**/*'
-  - add: /
+  - add: {{ .ModuleDir }}
     to: /src/csi-nfs
     includePaths:
       - lib/go
     stageDependencies:
       install:
         - '**/*'
+
+secrets:
+- id: SOURCE_REPO
+  value: {{ .SOURCE_REPO }}
+
 shell:
-  beforeInstall:
-    - echo "preparing image"
-    - apt-get update
-    - apt-get install -y git go
-    - {{ $.Root.ALT_CLEANUP_CMD }}
   install:
+    - git clone --depth 1 --branch {{ .Versions.NFS_UTILS }} $(cat /run/secrets/SOURCE_REPO)/steved/nfs-utils.git /src/nfs-utils
+    - git clone --depth 1 --branch {{ .Versions.CSI_DRIVER_NFS }} $(cat /run/secrets/SOURCE_REPO)/kubernetes-csi/csi-driver-nfs.git /src/csi-driver-nfs
     - cd /src/csi-driver-nfs
     - for patchfile in /patches/images/{{ $.ImageName }}/patches/*.patch; do echo "Apply ${patchfile} ... "; git apply ${patchfile} --verbose; done
     - cp -R /patches/images/{{ $.ImageName }}/patches/csi-driver-nfs/* ./
-    - go mod tidy
-    - go mod vendor
-    - rm -rf /src/csi-driver-nfs/.git
+    - rm -rf /src/csi-driver-nfs/.git vendor
     - rm -rf /src/nfs-utils/.git
 
 ---
 {{- $csiBinaries := "/nfs-utils/sbin/* /nfs-utils/usr/bin/* /nfs-utils/usr/sbin/* /lib64/libnss_files.so.2 /lib64/libnss_dns.so.2 /bin/cp /bin/mount /bin/umount /usr/bin/shred" }}
-image: {{ $.ImageName }}-binaries-artifact
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-binaries-artifact
 fromImage: builder/alt
 final: false
 import:
-  - image: {{ $.ImageName }}-src-artifact
+  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
     add: /src
     to: /src
     before: install
 git:
-  - add: /tools/dev_images/additional_tools/alt/binary_replace.sh
+  - add: {{ .ModuleDir }}/tools/dev_images/additional_tools/binary_replace.sh
     to: /binary_replace.sh
     stageDependencies:
       beforeSetup:
         - '**/*'
 shell:
   beforeInstall:
+    {{- include "alt packages proxy" . | nindent 4 }}
     - apt-get update
-    - apt-get install -y {{ $.Root.DEV_PACKAGES }}
+    - apt-get install -y make automake pkg-config gcc libtool git curl
     - apt-get install -y libmount-devel libnl-devel libreadline-devel libtirpc libtirpc-devel libuuid-devel libevent-devel libsqlite3x-devel libdevmapper-devel libblkid-devel libkeyutils-devel libxml2-devel mount
-    - {{ $.Root.ALT_CLEANUP_CMD }}
-      ### example werf build log
-      # ...
-      # nfs-utils-binaries-artifact/install  chmod go-rwx /nfs-utils/var/lib/nfs/sm /nfs-utils/var/lib/nfs/sm.bak /nfs-utils/var/lib/nfs/state
-      # nfs-utils-binaries-artifact/install  chown deckhouse /nfs-utils/var/lib/nfs/sm /nfs-utils/var/lib/nfs/sm.bak /nfs-utils/var/lib/nfs/state
-      # nfs-utils-binaries-artifact/install  chown: invalid user: ‘deckhouse’
-      # ...
-    - groupadd -g {{ $.Root.DECKHOUSE_UID_GID }} deckhouse
-    - useradd -g deckhouse -u {{ $.Root.DECKHOUSE_UID_GID }} deckhouse
+    - rm -rf /var/lib/apt/lists/* /var/cache/apt/* && mkdir -p /var/lib/apt/lists/partial /var/cache/apt/archives/partial
+    - groupadd -g 64535 deckhouse
+    - useradd -g deckhouse -u 64535 deckhouse
   install:
     - cd /src/nfs-utils
     - ./autogen.sh
@@ -98,37 +79,43 @@ shell:
     - cp -av /etc/netconfig /relocate/etc/netconfig
 
 ---
-image: {{ $.ImageName }}-golang-artifact
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-golang-artifact
 fromImage: builder/golang-alpine
 final: false
+
 import:
-  - image: {{ $.ImageName }}-src-artifact
+  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
     add: /src
     to: /src
     before: install
+
 mount:
-  - fromPath: ~/go-pkg-cache
-    to: /go/pkg
+{{ include "mount points for golang builds" . }}
+
+secrets:
+- id: GOPROXY
+  value: {{ .GOPROXY }}
 
 shell:
   setup:
-    - cd /src/csi-driver-nfs
-    - export CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO_VERSION={{ env "GOLANG_VERSION" }} GOPROXY={{ env "GOPROXY" }}
-    - go build -ldflags="-s -w" -tags {{ $.Root.MODULE_EDITION }} -o /nfsplugin ./cmd/nfsplugin
-    - chmod +x /nfsplugin
+    - cd /src/csi-driver-nfs/cmd/nfsplugin
+    - GOPROXY=$(cat /run/secrets/GOPROXY) go mod download
+    - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -tags {{ .MODULE_EDITION }} -o /{{ $.ImageName }}
+    - chmod +x /{{ $.ImageName }}
 
 ---
-image: {{ $.ImageName }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 fromImage: base/distroless
 import:
-  - image: {{ $.ImageName }}-golang-artifact
-    add: /nfsplugin
-    to: /nfsplugin
+  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-golang-artifact
+    add: /{{ $.ImageName }}
+    to: /{{ $.ImageName }}
     before: setup
-  - image: {{ $.ImageName }}-binaries-artifact
+  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-binaries-artifact
     add: /relocate
     to: /
     before: setup
-docker:
-  ENTRYPOINT: ["/nfsplugin"]
-  USER: deckhouse:deckhouse
+
+imageSpec:
+  config:
+    entrypoint: ["/{{ $.ImageName }}"]
