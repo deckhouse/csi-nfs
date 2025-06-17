@@ -20,8 +20,8 @@ import (
 	"fmt"
 
 	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
-	mc "github.com/deckhouse/deckhouse/deckhouse-controller/pkg/apis/deckhouse.io/v1alpha1"
 	feature "github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature"
+	mc "github.com/deckhouse/deckhouse/deckhouse-controller/pkg/apis/deckhouse.io/v1alpha1"
 )
 
 func ValidateNFSStorageClass(nfsModuleConfig *mc.ModuleConfig, nsc *cn.NFSStorageClass) error {
