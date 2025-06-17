@@ -35,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
+	mc "github.com/deckhouse/deckhouse/deckhouse-controller/pkg/apis/deckhouse.io/v1alpha1"
 	"github.com/deckhouse/csi-nfs/images/controller/pkg/config"
 	"github.com/deckhouse/csi-nfs/images/controller/pkg/logger"
 	commonvalidating "github.com/deckhouse/csi-nfs/lib/go/common/pkg/validating"
@@ -55,7 +56,7 @@ func RunModuleConfigWatcherController(
 	c, err := controller.New(ModuleConfigCtrlName, mgr, controller.Options{
 		Reconciler: reconcile.Func(func(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 			log.Info(fmt.Sprintf("[ModuleConfigReconciler] starts Reconcile for the ModuleConfig %q", request.Name))
-			mc := &v1alpha1.ModuleConfig{}
+			mc := &mc.ModuleConfig{}
 			err := cl.Get(ctx, request.NamespacedName, mc)
 			if err != nil && !k8serr.IsNotFound(err) {
 				log.Error(err, fmt.Sprintf("[ModuleConfigReconciler] unable to get ModuleConfig, name: %s", request.Name))
@@ -111,11 +112,11 @@ func RunModuleConfigWatcherController(
 	err = c.Watch(
 		source.Kind(
 			mgr.GetCache(),
-			&v1alpha1.ModuleConfig{},
-			handler.TypedFuncs[*v1alpha1.ModuleConfig, reconcile.Request]{
+			&mc.ModuleConfig{},
+			handler.TypedFuncs[*mc.ModuleConfig, reconcile.Request]{
 				CreateFunc: func(
 					_ context.Context,
-					e event.TypedCreateEvent[*v1alpha1.ModuleConfig],
+					e event.TypedCreateEvent[*mc.ModuleConfig],
 					q workqueue.TypedRateLimitingInterface[reconcile.Request],
 				) {
 					// we only process our ModuleConfig
@@ -129,7 +130,7 @@ func RunModuleConfigWatcherController(
 				},
 				UpdateFunc: func(
 					_ context.Context,
-					e event.TypedUpdateEvent[*v1alpha1.ModuleConfig],
+					e event.TypedUpdateEvent[*mc.ModuleConfig],
 					q workqueue.TypedRateLimitingInterface[reconcile.Request],
 				) {
 					// we only process our ModuleConfig
@@ -223,7 +224,7 @@ func RunModuleConfigEventReconcile(
 	return false, nil
 }
 
-func validateModuleConfig(log logger.Logger, mc *v1alpha1.ModuleConfig, nscList *v1alpha1.NFSStorageClassList) map[string]string {
+func validateModuleConfig(log logger.Logger, mc *mc.ModuleConfig, nscList *v1alpha1.NFSStorageClassList) map[string]string {
 	alertMap := make(map[string]string)
 	for _, nsc := range nscList.Items {
 		if err := commonvalidating.ValidateNFSStorageClass(mc, &nsc); err != nil {

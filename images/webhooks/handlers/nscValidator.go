@@ -27,6 +27,7 @@ import (
 	"k8s.io/klog/v2"
 
 	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
+	mc "github.com/deckhouse/deckhouse/deckhouse-controller/pkg/apis/deckhouse.io/v1alpha1"
 	commonvalidating "github.com/deckhouse/csi-nfs/lib/go/common/pkg/validating"
 )
 
@@ -50,7 +51,7 @@ func NSCValidate(ctx context.Context, arReview *model.AdmissionReview, obj metav
 		klog.Fatal(err) // pod restarting
 	}
 
-	nfsModuleConfig := &cn.ModuleConfig{}
+	nfsModuleConfig := &mc.ModuleConfig{}
 	err = cl.Get(ctx, types.NamespacedName{Name: csiNfsModuleName, Namespace: ""}, nfsModuleConfig)
 	if err != nil {
 		klog.Fatal(err)

@@ -50,11 +50,6 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&NFSStorageClass{},
 		&NFSStorageClassList{},
 	)
-
-	scheme.AddKnownTypes(SchemeGroupVersionMC,
-		&ModuleConfig{},
-		&ModuleConfigList{},
-	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersionMC)
 	return nil

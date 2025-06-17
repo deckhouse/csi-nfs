@@ -41,6 +41,7 @@ import (
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 
 	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
+	mc "github.com/deckhouse/deckhouse/deckhouse-controller/pkg/apis/deckhouse.io/v1alpha1"
 	commonvalidating "github.com/deckhouse/csi-nfs/lib/go/common/pkg/validating"
 )
 
@@ -126,7 +127,7 @@ func GetValidatingWebhookHandler(validationFunc func(ctx context.Context, _ *mod
 	return mutationWebhookHandler, err
 }
 
-func validateModuleConfig(mc *cn.ModuleConfig, nscList *cn.NFSStorageClassList) error {
+func validateModuleConfig(mc *mc.ModuleConfig, nscList *cn.NFSStorageClassList) error {
 	for _, nsc := range nscList.Items {
 		if err := commonvalidating.ValidateNFSStorageClass(mc, &nsc); err != nil {
 			return err

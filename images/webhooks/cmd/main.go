@@ -27,6 +27,7 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 
 	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
+	mc "github.com/deckhouse/deckhouse/deckhouse-controller/pkg/apis/deckhouse.io/v1alpha1"
 	"github.com/deckhouse/csi-nfs/images/webhooks/handlers"
 	commonfeature "github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature"
 )
@@ -77,7 +78,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	mcValidatingWebhookHandler, err := handlers.GetValidatingWebhookHandler(handlers.MCValidate, MCValidatorID, &cn.ModuleConfig{}, logger)
+	mcValidatingWebhookHandler, err := handlers.GetValidatingWebhookHandler(handlers.MCValidate, MCValidatorID, &mc.ModuleConfig{}, logger)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error creating mcValidatingWebhookHandler: %s", err)
 		os.Exit(1)

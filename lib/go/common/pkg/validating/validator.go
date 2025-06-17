@@ -20,10 +20,11 @@ import (
 	"fmt"
 
 	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
+	mc "github.com/deckhouse/deckhouse/deckhouse-controller/pkg/apis/deckhouse.io/v1alpha1"
 	feature "github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature"
 )
 
-func ValidateNFSStorageClass(nfsModuleConfig *cn.ModuleConfig, nsc *cn.NFSStorageClass) error {
+func ValidateNFSStorageClass(nfsModuleConfig *mc.ModuleConfig, nsc *cn.NFSStorageClass) error {
 	var logPostfix = "Such a combination of parameters is not allowed"
 
 	if nsc.Spec.Connection.NFSVersion == "3" {
