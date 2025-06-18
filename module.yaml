@@ -1,4 +1,5 @@
 name: csi-nfs
+stage: "General Availability"
 weight: 910
 descriptions:
   en: "CSI NFS module"
