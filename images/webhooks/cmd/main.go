@@ -29,7 +29,7 @@ import (
 	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	"github.com/deckhouse/csi-nfs/images/webhooks/handlers"
 	commonfeature "github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature"
-	mc "github.com/deckhouse/deckhouse/deckhouse-controller/pkg/apis/deckhouse.io/v1alpha1"
+	mc "github.com/deckhouse/sds-common-lib/api/v1alpha1"
 )
 
 type config struct {

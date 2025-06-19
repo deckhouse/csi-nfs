@@ -5,7 +5,7 @@ go 1.24.2
 require (
 	github.com/deckhouse/csi-nfs/api v0.0.0-20250213115525-4785a9da80db
 	github.com/deckhouse/csi-nfs/lib/go/common v0.0.0-20250213115525-4785a9da80db
-	github.com/deckhouse/deckhouse v1.70.4
+	github.com/deckhouse/sds-common-lib v0.5.0
 	github.com/go-logr/logr v1.4.2
 	github.com/google/go-cmp v0.7.0
 	github.com/kubernetes-csi/external-snapshotter/client/v8 v8.2.0
@@ -13,11 +13,11 @@ require (
 	github.com/onsi/gomega v1.37.0
 	k8s.io/api v0.32.2
 	k8s.io/apiextensions-apiserver v0.32.2
-	k8s.io/apimachinery v0.32.2
+	k8s.io/apimachinery v0.32.3
 	k8s.io/client-go v0.32.2
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/utils v0.0.0-20241210054802-24370beab758
-	sigs.k8s.io/controller-runtime v0.20.2
+	sigs.k8s.io/controller-runtime v0.20.4
 )
 
 // Do not combine multiple replacements into a single block,
@@ -31,6 +31,7 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
+	github.com/deckhouse/deckhouse v1.70.6 // indirect
 	github.com/emicklei/go-restful/v3 v3.12.1 // indirect
 	github.com/evanphx/json-patch/v5 v5.9.11 // indirect
 	github.com/fsnotify/fsnotify v1.8.0 // indirect

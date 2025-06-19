@@ -26,7 +26,7 @@ import (
 	"k8s.io/klog/v2"
 
 	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
-	mc "github.com/deckhouse/deckhouse/deckhouse-controller/pkg/apis/deckhouse.io/v1alpha1"
+	mc "github.com/deckhouse/sds-common-lib/api/v1alpha1"
 )
 
 func MCValidate(ctx context.Context, arReview *model.AdmissionReview, obj metav1.Object) (*kwhvalidating.ValidatorResult, error) {

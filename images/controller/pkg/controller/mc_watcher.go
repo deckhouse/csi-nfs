@@ -38,7 +38,7 @@ import (
 	"github.com/deckhouse/csi-nfs/images/controller/pkg/config"
 	"github.com/deckhouse/csi-nfs/images/controller/pkg/logger"
 	commonvalidating "github.com/deckhouse/csi-nfs/lib/go/common/pkg/validating"
-	mc "github.com/deckhouse/deckhouse/deckhouse-controller/pkg/apis/deckhouse.io/v1alpha1"
+mc "github.com/deckhouse/sds-common-lib/api/v1alpha1"
 )
 
 const (
