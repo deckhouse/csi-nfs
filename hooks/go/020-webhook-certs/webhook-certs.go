@@ -19,8 +19,8 @@ package hooks_common
 import (
 	"fmt"
 
-	tlscertificate "github.com/deckhouse/module-sdk/common-hooks/tls-certificate"
 	consts "github.com/deckhouse/csi-nfs/hooks/go/consts"
+	tlscertificate "github.com/deckhouse/module-sdk/common-hooks/tls-certificate"
 )
 
 var _ = tlscertificate.RegisterInternalTLSHookEM(tlscertificate.GenSelfSignedTLSHookConf{

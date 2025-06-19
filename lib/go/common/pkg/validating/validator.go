@@ -21,9 +21,10 @@ import (
 
 	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	feature "github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature"
+	d8commonapi "github.com/deckhouse/sds-common-lib/api/v1alpha1"
 )
 
-func ValidateNFSStorageClass(nfsModuleConfig *cn.ModuleConfig, nsc *cn.NFSStorageClass) error {
+func ValidateNFSStorageClass(nfsModuleConfig *d8commonapi.ModuleConfig, nsc *cn.NFSStorageClass) error {
 	var logPostfix = "Such a combination of parameters is not allowed"
 
 	if nsc.Spec.Connection.NFSVersion == "3" {

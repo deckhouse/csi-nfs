@@ -28,6 +28,7 @@ import (
 
 	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	commonvalidating "github.com/deckhouse/csi-nfs/lib/go/common/pkg/validating"
+	d8commonapi "github.com/deckhouse/sds-common-lib/api/v1alpha1"
 )
 
 const (
@@ -50,7 +51,7 @@ func NSCValidate(ctx context.Context, arReview *model.AdmissionReview, obj metav
 		klog.Fatal(err) // pod restarting
 	}
 
-	nfsModuleConfig := &cn.ModuleConfig{}
+	nfsModuleConfig := &d8commonapi.ModuleConfig{}
 	err = cl.Get(ctx, types.NamespacedName{Name: csiNfsModuleName, Namespace: ""}, nfsModuleConfig)
 	if err != nil {
 		klog.Fatal(err)
