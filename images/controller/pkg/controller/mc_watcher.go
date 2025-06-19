@@ -38,7 +38,7 @@ import (
 	"github.com/deckhouse/csi-nfs/images/controller/pkg/config"
 	"github.com/deckhouse/csi-nfs/images/controller/pkg/logger"
 	commonvalidating "github.com/deckhouse/csi-nfs/lib/go/common/pkg/validating"
-	mc "github.com/deckhouse/sds-common-lib/api/v1alpha1"
+	d8commonapi "github.com/deckhouse/sds-common-lib/api/v1alpha1"
 )
 
 const (
@@ -56,7 +56,7 @@ func RunModuleConfigWatcherController(
 	c, err := controller.New(ModuleConfigCtrlName, mgr, controller.Options{
 		Reconciler: reconcile.Func(func(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 			log.Info(fmt.Sprintf("[ModuleConfigReconciler] starts Reconcile for the ModuleConfig %q", request.Name))
-			mc := &mc.ModuleConfig{}
+			mc := &d8commonapi.ModuleConfig{}
 			err := cl.Get(ctx, request.NamespacedName, mc)
 			if err != nil && !k8serr.IsNotFound(err) {
 				log.Error(err, fmt.Sprintf("[ModuleConfigReconciler] unable to get ModuleConfig, name: %s", request.Name))
@@ -112,11 +112,11 @@ func RunModuleConfigWatcherController(
 	err = c.Watch(
 		source.Kind(
 			mgr.GetCache(),
-			&mc.ModuleConfig{},
-			handler.TypedFuncs[*mc.ModuleConfig, reconcile.Request]{
+			&d8commonapi.ModuleConfig{},
+			handler.TypedFuncs[*d8commonapi.ModuleConfig, reconcile.Request]{
 				CreateFunc: func(
 					_ context.Context,
-					e event.TypedCreateEvent[*mc.ModuleConfig],
+					e event.TypedCreateEvent[*d8commonapi.ModuleConfig],
 					q workqueue.TypedRateLimitingInterface[reconcile.Request],
 				) {
 					// we only process our ModuleConfig
@@ -130,7 +130,7 @@ func RunModuleConfigWatcherController(
 				},
 				UpdateFunc: func(
 					_ context.Context,
-					e event.TypedUpdateEvent[*mc.ModuleConfig],
+					e event.TypedUpdateEvent[*d8commonapi.ModuleConfig],
 					q workqueue.TypedRateLimitingInterface[reconcile.Request],
 				) {
 					// we only process our ModuleConfig
@@ -224,7 +224,7 @@ func RunModuleConfigEventReconcile(
 	return false, nil
 }
 
-func validateModuleConfig(log logger.Logger, mc *mc.ModuleConfig, nscList *v1alpha1.NFSStorageClassList) map[string]string {
+func validateModuleConfig(log logger.Logger, mc *d8commonapi.ModuleConfig, nscList *v1alpha1.NFSStorageClassList) map[string]string {
 	alertMap := make(map[string]string)
 	for _, nsc := range nscList.Items {
 		if err := commonvalidating.ValidateNFSStorageClass(mc, &nsc); err != nil {

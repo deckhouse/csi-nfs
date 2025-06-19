@@ -42,7 +42,7 @@ import (
 
 	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	commonvalidating "github.com/deckhouse/csi-nfs/lib/go/common/pkg/validating"
-	mc "github.com/deckhouse/sds-common-lib/api/v1alpha1"
+	d8commonapi "github.com/deckhouse/sds-common-lib/api/v1alpha1"
 )
 
 func NewKubeClient(kubeconfigPath string) (client.Client, error) {
@@ -127,7 +127,7 @@ func GetValidatingWebhookHandler(validationFunc func(ctx context.Context, _ *mod
 	return mutationWebhookHandler, err
 }
 
-func validateModuleConfig(mc *mc.ModuleConfig, nscList *cn.NFSStorageClassList) error {
+func validateModuleConfig(mc *d8commonapi.ModuleConfig, nscList *cn.NFSStorageClassList) error {
 	for _, nsc := range nscList.Items {
 		if err := commonvalidating.ValidateNFSStorageClass(mc, &nsc); err != nil {
 			return err

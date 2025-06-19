@@ -26,11 +26,11 @@ import (
 	"k8s.io/klog/v2"
 
 	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
-	mc "github.com/deckhouse/sds-common-lib/api/v1alpha1"
+	d8commonapi "github.com/deckhouse/sds-common-lib/api/v1alpha1"
 )
 
 func MCValidate(ctx context.Context, arReview *model.AdmissionReview, obj metav1.Object) (*kwhvalidating.ValidatorResult, error) {
-	nfsModuleConfig, ok := obj.(*mc.ModuleConfig)
+	nfsModuleConfig, ok := obj.(*d8commonapi.ModuleConfig)
 	if !ok {
 		// If not a storage class just continue the validation chain(if there is one) and do nothing.
 		return &kwhvalidating.ValidatorResult{}, nil

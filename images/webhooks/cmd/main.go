@@ -29,7 +29,7 @@ import (
 	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	"github.com/deckhouse/csi-nfs/images/webhooks/handlers"
 	commonfeature "github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature"
-	mc "github.com/deckhouse/sds-common-lib/api/v1alpha1"
+	d8commonapi "github.com/deckhouse/sds-common-lib/api/v1alpha1"
 )
 
 type config struct {
@@ -78,7 +78,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	mcValidatingWebhookHandler, err := handlers.GetValidatingWebhookHandler(handlers.MCValidate, MCValidatorID, &mc.ModuleConfig{}, logger)
+	mcValidatingWebhookHandler, err := handlers.GetValidatingWebhookHandler(handlers.MCValidate, MCValidatorID, &d8commonapi.ModuleConfig{}, logger)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error creating mcValidatingWebhookHandler: %s", err)
 		os.Exit(1)

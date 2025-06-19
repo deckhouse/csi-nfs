@@ -41,7 +41,7 @@ import (
 	"github.com/deckhouse/csi-nfs/images/controller/pkg/config"
 	"github.com/deckhouse/csi-nfs/images/controller/pkg/logger"
 	commonvalidating "github.com/deckhouse/csi-nfs/lib/go/common/pkg/validating"
-	mc "github.com/deckhouse/sds-common-lib/api/v1alpha1"
+	d8commonapi "github.com/deckhouse/sds-common-lib/api/v1alpha1"
 )
 
 const (
@@ -111,7 +111,7 @@ func RunNFSStorageClassWatcherController(
 			}
 
 			if nsc.DeletionTimestamp == nil {
-				nfsModuleConfig := &mc.ModuleConfig{}
+				nfsModuleConfig := &d8commonapi.ModuleConfig{}
 				err := cl.Get(ctx, types.NamespacedName{Name: cfg.CsiNfsModuleName, Namespace: ""}, nfsModuleConfig)
 				if err != nil {
 					log.Error(err, fmt.Sprintf("[NFSStorageClassReconciler] unable to get ModuleConfig, name: %s", cfg.CsiNfsModuleName))
