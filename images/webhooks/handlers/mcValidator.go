@@ -22,11 +22,17 @@ import (
 
 	"github.com/slok/kubewebhook/v2/pkg/model"
 	kwhvalidating "github.com/slok/kubewebhook/v2/pkg/webhook/validating"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/resource/v1alpha3"
+	sv1 "k8s.io/api/storage/v1"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/klog/v2"
 
 	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	d8commonapi "github.com/deckhouse/sds-common-lib/api/v1alpha1"
+	"github.com/deckhouse/sds-common-lib/kubeclient"
 )
 
 func MCValidate(ctx context.Context, arReview *model.AdmissionReview, obj metav1.Object) (*kwhvalidating.ValidatorResult, error) {
@@ -40,7 +46,14 @@ func MCValidate(ctx context.Context, arReview *model.AdmissionReview, obj metav1
 		return &kwhvalidating.ValidatorResult{Valid: true}, nil
 	}
 
-	cl, err := NewKubeClient("")
+	cl, err := kubeclient.New(d8commonapi.AddToScheme,
+		v1alpha3.AddToScheme,
+		cn.AddToScheme,
+		clientgoscheme.AddToScheme,
+		extv1.AddToScheme,
+		v1.AddToScheme,
+		sv1.AddToScheme,
+	)
 	if err != nil {
 		klog.Fatal(err) // pod restarting
 	}
