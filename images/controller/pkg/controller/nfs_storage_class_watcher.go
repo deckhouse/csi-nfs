@@ -94,6 +94,7 @@ func RunNFSStorageClassWatcherController(
 	log logger.Logger,
 ) (controller.Controller, error) {
 	cl := mgr.GetClient()
+	d8commonapi.AddToScheme(mgr.GetScheme())
 
 	c, err := controller.New(NFSStorageClassCtrlName, mgr, controller.Options{
 		Reconciler: reconcile.Func(func(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
