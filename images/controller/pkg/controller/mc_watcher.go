@@ -52,7 +52,11 @@ func RunModuleConfigWatcherController(
 	log logger.Logger,
 ) (controller.Controller, error) {
 	cl := mgr.GetClient()
-	d8commonapi.AddToScheme(mgr.GetScheme())
+	err := d8commonapi.AddToScheme(mgr.GetScheme())
+	if err != nil {
+		log.Error(err, "[ModuleConfigReconciler] unable to run watcher controller: unable to add scheme")
+		return nil, err
+	}
 
 	c, err := controller.New(ModuleConfigCtrlName, mgr, controller.Options{
 		Reconciler: reconcile.Func(func(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
