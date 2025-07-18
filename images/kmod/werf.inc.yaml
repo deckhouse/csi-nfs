@@ -46,7 +46,8 @@ shell:
     - cd /src/kmod
     - ./autogen.sh
     - ./configure CFLAGS='-g -O2' --with-zstd --with-xz --with-zlib --with-openssl --disable-manpages --disable-test-modules
-    - make
+    - |
+      {{- include "image-build.build" (set $ "BuildCommand" (printf "make")) | nindent 6 }}
   beforeSetup:
     - mkdir -p /opt/deckhouse/csi/bin
     - cp -v /src/kmod/tools/kmod /opt/deckhouse/csi/bin/kmod # do not use an end name other than 'kmod'
