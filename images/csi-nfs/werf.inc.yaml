@@ -19,7 +19,7 @@ git:
       install:
         - '**/*'
 
-secrets:333
+secrets:
 - id: SOURCE_REPO
   value: {{ .SOURCE_REPO }}
 
