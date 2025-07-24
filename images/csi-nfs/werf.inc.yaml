@@ -62,6 +62,7 @@ shell:
     - cd /src/nfs-utils
     - ./autogen.sh
     - ./configure --disable-gss --with-statduser=deckhouse --with-rpcgen=internal
+    - go mod tidy
     - make
     - make install DESTDIR=/nfs-utils
   beforeSetup:
