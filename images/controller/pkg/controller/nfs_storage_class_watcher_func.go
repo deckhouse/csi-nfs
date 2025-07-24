@@ -689,7 +689,7 @@ func configureSecret(nsc *v1alpha1.NFSStorageClass, controllerNamespace string) 
 }
 
 // VolumeSnaphotClass
-func IdentifyReconcileFuncForVSClass(log logger.Logger, vsClassList *snapshotv1.VolumeSnapshotClassList, nsc *v1alpha1.NFSStorageClass, controllerNamespace string) (reconcileType string, oldVSClass, newVSClass *snapshotv1.VolumeSnapshotClass) {
+func IdentifyReconcileFuncForVSClass(log logger.Logger, vsClassList *snapshotv1.VolumeSnapshotClassList, nsc *v1alpha1.NFSStorageClass) (reconcileType string, oldVSClass, newVSClass *snapshotv1.VolumeSnapshotClass) {
 	oldVSClass = findVSClass(vsClassList, nsc.Name)
 
 	if oldVSClass == nil {

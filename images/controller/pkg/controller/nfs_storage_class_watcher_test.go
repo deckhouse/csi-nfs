@@ -228,7 +228,7 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		err := cl.Get(ctx, client.ObjectKey{Name: nameForTestResource}, sc)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(sc.Annotations).To(HaveLen(1))
-		Expect(sc.Annotations).To(HaveKeyWithValue(controller.StorageClassDefaultAnnotationKey, controller.StorageClassDefaultAnnotationValTrue))
+		Expect(sc.Annotations).To(HaveKeyWithValue(controller.NFSStorageClassVolumeSnapshotClassAnnotationKey, sc.Name))
 
 	})
 

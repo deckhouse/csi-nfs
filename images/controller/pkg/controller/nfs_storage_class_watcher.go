@@ -277,7 +277,7 @@ func RunEventReconcile(ctx context.Context, cl client.Client, log logger.Logger,
 		return true, err
 	}
 
-	reconcileTypeForVSClass, oldVSClass, newVSClass := IdentifyReconcileFuncForVSClass(log, vsClassList, nsc, controllerNamespace)
+	reconcileTypeForVSClass, oldVSClass, newVSClass := IdentifyReconcileFuncForVSClass(log, vsClassList, nsc)
 
 	log.Debug(fmt.Sprintf("[runEventReconcile] reconcile operation for VolumeSnapshotClass %q: %q", nsc.Name, reconcileTypeForVSClass))
 	switch reconcileTypeForVSClass {
