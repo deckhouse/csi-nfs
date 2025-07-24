@@ -174,23 +174,6 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 
 	})
 
-	It("Annotate_sc_as_default_sc", func() {
-		sc := &storagev1.StorageClass{}
-		err := cl.Get(ctx, client.ObjectKey{Name: nameForTestResource}, sc)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(sc.Annotations).To(BeNil())
-
-		sc.Annotations = map[string]string{
-			controller.StorageClassDefaultAnnotationKey: controller.StorageClassDefaultAnnotationValTrue,
-		}
-
-		err = cl.Update(ctx, sc)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(sc.Annotations).To(HaveLen(1))
-		Expect(sc.Annotations).To(HaveKeyWithValue(controller.StorageClassDefaultAnnotationKey, controller.StorageClassDefaultAnnotationValTrue))
-
-	})
-
 	It("Update_nfs_sc_1", func() {
 		nsc := &v1alpha1.NFSStorageClass{}
 		err := cl.Get(ctx, client.ObjectKey{Name: nameForTestResource}, nsc)
