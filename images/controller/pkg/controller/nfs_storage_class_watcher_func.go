@@ -456,6 +456,9 @@ func ConfigureStorageClass(oldSC *storagev1.StorageClass, nsc *v1alpha1.NFSStora
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      nsc.Name,
 			Namespace: nsc.Namespace,
+			Annotations: map[string]string{
+				NFSStorageClassVolumeSnapshotClassAnnotationKey: nsc.Name,
+			},
 			Labels: map[string]string{
 				NFSStorageClassManagedLabelKey: NFSStorageClassManagedLabelValue,
 			},
@@ -474,7 +477,7 @@ func ConfigureStorageClass(oldSC *storagev1.StorageClass, nsc *v1alpha1.NFSStora
 			newSc.Labels = labels.Merge(oldSC.Labels, newSc.Labels)
 		}
 		if oldSC.Annotations != nil {
-			newSc.Annotations = oldSC.Annotations
+			newSc.Annotations = labels.Merge(oldSC.Annotations, newSc.Annotations)
 		}
 	}
 
@@ -757,6 +760,7 @@ func findVSClass(vsClassList *snapshotv1.VolumeSnapshotClassList, name string) *
 func ConfigureVSClass(oldVSClass *snapshotv1.VolumeSnapshotClass, nsc *v1alpha1.NFSStorageClass, controllerNamespace string) *snapshotv1.VolumeSnapshotClass {
 	deletionPolicy := snapshotv1.DeletionPolicy(nsc.Spec.ReclaimPolicy)
 
+
 	newVSClass := &snapshotv1.VolumeSnapshotClass{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      nsc.Name,
@@ -769,8 +773,7 @@ func ConfigureVSClass(oldVSClass *snapshotv1.VolumeSnapshotClass, nsc *v1alpha1.
 		Driver:         NFSStorageClassProvisioner,
 		DeletionPolicy: deletionPolicy,
 		Parameters: map[string]string{
-			SnapshotterSecretNameKey:      SecretForMountOptionsPrefix + nsc.Name,
-			SnapshotterSecretNamespaceKey: controllerNamespace,
+			"mountOptions": strings.Join(GetSCMountOptions(nsc), ","),
 		},
 	}
 

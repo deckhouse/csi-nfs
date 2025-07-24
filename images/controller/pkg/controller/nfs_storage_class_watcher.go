@@ -56,6 +56,8 @@ const (
 	NFSStorageClassManagedLabelKey         = "storage.deckhouse.io/managed-by"
 	NFSStorageClassManagedLabelValue       = "nfs-storage-class-controller"
 
+	NFSStorageClassVolumeSnapshotClassAnnotationKey = "storage.deckhouse.io/volumesnapshotclass"
+
 	StorageClassDefaultAnnotationKey     = "storageclass.kubernetes.io/is-default-class"
 	StorageClassDefaultAnnotationValTrue = "true"
 
