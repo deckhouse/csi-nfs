@@ -4,6 +4,10 @@
 
 Add volume cleanup feature
 
+## 002-update-oauth2-to-fix-CVE.patch
+
+Update go.mod to fix CVE
+
 ## How to apply
 
 ```bash
