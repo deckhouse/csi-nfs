@@ -1,6 +1,6 @@
-From 3b34de7778f996e9c1e6fc0b88b2ac680db0cb2c Mon Sep 17 00:00:00 2001
+From 5e83816fa5c9cfb814c7c48f597d58a10545214d Mon Sep 17 00:00:00 2001
 From: Pavel Karpov <pavel.karpov@flant.com>
-Date: Fri, 25 Jul 2025 18:08:03 +0300
+Date: Fri, 25 Jul 2025 18:19:36 +0300
 Subject: [PATCH] add mountPermissions to shapshot
 
 Signed-off-by: Pavel Karpov <pavel.karpov@flant.com>
@@ -10,7 +10,7 @@ Signed-off-by: Pavel Karpov <pavel.karpov@flant.com>
  2 files changed, 26 insertions(+), 1 deletion(-)
 
 diff --git a/pkg/nfs/controllerserver.go b/pkg/nfs/controllerserver.go
-index 3b7b21a4..14d7494a 100644
+index 3b7b21a4..eb4792f2 100644
 --- a/pkg/nfs/controllerserver.go
 +++ b/pkg/nfs/controllerserver.go
 @@ -179,6 +179,7 @@ func (cs *ControllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
@@ -51,8 +51,8 @@ index 3b7b21a4..14d7494a 100644
  }
 +
 +// getMountPermissionsForSnapInternalVolPath Convert VolumeSnapshot parameters to a snapInternalVolPath
-+func getMountPermissionsForSnapInternalVolPath(params map[string]string) (uint32, error) {
-+	mountPermissions := uint32(0777) // default
++func getMountPermissionsForSnapInternalVolPath(params map[string]string) (uint64, error) {
++	mountPermissions := uint64(0777) // default
 +	for k, v := range params {
 +		if strings.ToLower(k) == mountPermissionsField {
 +			if v != "" {
