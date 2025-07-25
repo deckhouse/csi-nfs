@@ -43,6 +43,10 @@ import:
     add: /src
     to: /src
     before: install
+  - image: {{ .ModuleNamePrefix }}wrap-mount
+    add: /bin
+    to: /wrap-mount
+    before: setup
 git:
   - add: {{ .ModuleDir }}/tools/dev_images/additional_tools/binary_replace.sh
     to: /binary_replace.sh
@@ -77,6 +81,11 @@ shell:
     - cp -av /nfs-utils/var      /relocate
     - mkdir -p /relocate/etc
     - cp -av /etc/netconfig /relocate/etc/netconfig
+    - |
+      # wrapping mounting and unmounting
+      mv -v /relocate/bin/mount  /relocate/bin/originalmount
+      mv -v /relocate/bin/umount /relocate/bin/originalumount
+      cp -vP /wrap-mount/* /relocate/bin
 
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-golang-artifact
@@ -116,7 +125,6 @@ import:
     add: /relocate
     to: /
     before: setup
-
 imageSpec:
   config:
     entrypoint: ["/{{ $.ImageName }}"]
