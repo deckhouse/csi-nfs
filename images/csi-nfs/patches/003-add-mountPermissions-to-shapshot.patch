@@ -1,6 +1,6 @@
-From 8a65dcf1283eac9963e68cd042ad503f87c49914 Mon Sep 17 00:00:00 2001
+From 3b34de7778f996e9c1e6fc0b88b2ac680db0cb2c Mon Sep 17 00:00:00 2001
 From: Pavel Karpov <pavel.karpov@flant.com>
-Date: Fri, 25 Jul 2025 17:43:02 +0300
+Date: Fri, 25 Jul 2025 18:08:03 +0300
 Subject: [PATCH] add mountPermissions to shapshot
 
 Signed-off-by: Pavel Karpov <pavel.karpov@flant.com>
@@ -10,7 +10,7 @@ Signed-off-by: Pavel Karpov <pavel.karpov@flant.com>
  2 files changed, 26 insertions(+), 1 deletion(-)
 
 diff --git a/pkg/nfs/controllerserver.go b/pkg/nfs/controllerserver.go
-index 3b7b21a4..8cd2c16e 100644
+index 3b7b21a4..14d7494a 100644
 --- a/pkg/nfs/controllerserver.go
 +++ b/pkg/nfs/controllerserver.go
 @@ -179,6 +179,7 @@ func (cs *ControllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
@@ -52,13 +52,13 @@ index 3b7b21a4..8cd2c16e 100644
 +
 +// getMountPermissionsForSnapInternalVolPath Convert VolumeSnapshot parameters to a snapInternalVolPath
 +func getMountPermissionsForSnapInternalVolPath(params map[string]string) (uint32, error) {
-+	mountPermissions := 0777 // default
++	mountPermissions := uint32(0777) // default
 +	for k, v := range params {
 +		if strings.ToLower(k) == mountPermissionsField {
 +			if v != "" {
 +				var err error
 +				if mountPermissions, err = strconv.ParseUint(v, 8, 32); err != nil {
-+					return nil, status.Errorf(codes.InvalidArgument, "invalid mountPermissions %s in storage class", v)
++					return 0, status.Errorf(codes.InvalidArgument, "invalid mountPermissions %s in storage class", v)
 +				}
 +			}
 +		}
