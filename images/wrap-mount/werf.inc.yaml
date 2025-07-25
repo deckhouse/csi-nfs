@@ -1,0 +1,57 @@
+---
+# do not remove this image: used in external audits (DKP CSE)
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+fromImage: builder/src
+final: false
+git:
+  - add: {{ .ModuleDir }}
+    to: /src
+    includePaths:
+      - images/{{ $.ImageName }}
+    stageDependencies:
+      install:
+        - '**/*'
+shell:
+  install:
+    - rm -rf /src/.git
+
+---
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-golang-artifact
+fromImage: builder/golang-alpine
+final: false
+
+import:
+  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+    add: /src
+    to: /src
+    before: install
+
+mount:
+{{ include "mount points for golang builds" . }}
+
+secrets:
+- id: GOPROXY
+  value: {{ .GOPROXY }}
+
+shell:
+  install:
+    - cd /src/images/{{ $.ImageName }}/cmd
+    - GOPROXY=$(cat /run/secrets/GOPROXY) go mod download
+    - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o /{{ $.ImageName }}
+    - chmod +x /{{ $.ImageName }}
+  setup:
+    - mv -v /{{ $.ImageName }} /bin/{{ $.ImageName }}
+    - ln -vfs /bin/wrap-mount /bin/mount
+    - ln -vfs /bin/wrap-mount /bin/umount
+    - mkdir -vp /relocate/bin
+    - cp -vP /bin/wrap-mount /bin/mount /bin/umount /relocate/bin
+
+---
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+fromImage: base/distroless
+
+import:
+  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-golang-artifact
+    add: /relocate
+    to: /
+    before: setup
