@@ -678,7 +678,6 @@ func configureSecret(nsc *v1alpha1.NFSStorageClass, controllerNamespace string) 
 		},
 		StringData: map[string]string{
 			MountOptionsSecretKey: strings.Join(mountOptions, ","),
-
 		},
 	}
 
