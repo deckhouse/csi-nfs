@@ -775,7 +775,7 @@ func ConfigureVSClass(oldVSClass *snapshotv1.VolumeSnapshotClass, nsc *v1alpha1.
 		Parameters: map[string]string{
 			"mountOptions": strings.Join(GetSCMountOptions(nsc), ","),
 			SnapshotterSecretNameKey:      SecretForMountOptionsPrefix + nsc.Name,
-			SnapshotterSecretNamespaceKey: controllerNamespace,			
+			SnapshotterSecretNamespaceKey: controllerNamespace,
 		},
 	}
 
