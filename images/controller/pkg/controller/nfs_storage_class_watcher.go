@@ -74,6 +74,7 @@ const (
 	serverParamKey           = "server"
 	shareParamKey            = "share"
 	MountPermissionsParamKey = "mountPermissions"
+	MountOptionsParamKey     = "mountOptions"
 	SubDirParamKey           = "subdir"
 	MountOptionsSecretKey    = "mountOptions"
 
