@@ -1,0 +1,26 @@
+From c4ee3127ccd4669fc0a6c407064eb0ba536e01e7 Mon Sep 17 00:00:00 2001
+From: Pavel Karpov <pavel.karpov@flant.com>
+Date: Fri, 25 Jul 2025 15:17:42 +0300
+Subject: [PATCH] add mountPermissions to shapshot
+
+Signed-off-by: Pavel Karpov <pavel.karpov@flant.com>
+---
+ pkg/nfs/controllerserver.go | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/pkg/nfs/controllerserver.go b/pkg/nfs/controllerserver.go
+index 3b7b21a4..81772f27 100644
+--- a/pkg/nfs/controllerserver.go
++++ b/pkg/nfs/controllerserver.go
+@@ -680,6 +680,8 @@ func newNFSSnapshot(name string, params map[string]string, vol *nfsVolume) (*nfs
+ 			baseDir = v
+ 		case mountOptionsField:
+ 			// no op
++		case mountPermissionsField:
++			// no op
+ 		default:
+ 			return nil, status.Errorf(codes.InvalidArgument, "invalid parameter %q in snapshot storage class", k)
+ 		}
+-- 
+2.43.0
+
