@@ -678,6 +678,7 @@ func configureSecret(nsc *v1alpha1.NFSStorageClass, controllerNamespace string) 
 		},
 		StringData: map[string]string{
 			MountOptionsSecretKey: strings.Join(mountOptions, ","),
+
 		},
 	}
 
@@ -689,7 +690,7 @@ func configureSecret(nsc *v1alpha1.NFSStorageClass, controllerNamespace string) 
 }
 
 // VolumeSnaphotClass
-func IdentifyReconcileFuncForVSClass(log logger.Logger, vsClassList *snapshotv1.VolumeSnapshotClassList, nsc *v1alpha1.NFSStorageClass) (reconcileType string, oldVSClass, newVSClass *snapshotv1.VolumeSnapshotClass) {
+func IdentifyReconcileFuncForVSClass(log logger.Logger, vsClassList *snapshotv1.VolumeSnapshotClassList, nsc *v1alpha1.NFSStorageClass, controllerNamespace string) (reconcileType string, oldVSClass, newVSClass *snapshotv1.VolumeSnapshotClass) {
 	oldVSClass = findVSClass(vsClassList, nsc.Name)
 
 	if oldVSClass == nil {
@@ -703,7 +704,7 @@ func IdentifyReconcileFuncForVSClass(log logger.Logger, vsClassList *snapshotv1.
 		return DeleteReconcile, oldVSClass, nil
 	}
 
-	newVSClass = ConfigureVSClass(oldVSClass, nsc)
+	newVSClass = ConfigureVSClass(oldVSClass, nsc, controllerNamespace)
 	log.Debug(fmt.Sprintf("[IdentifyReconcileFuncForVSClass] successfully configurated new volume snapshot class for the NFSStorageClass %s", nsc.Name))
 	log.Trace(fmt.Sprintf("[IdentifyReconcileFuncForVSClass] new volume snapshot class: %+v", newVSClass))
 
@@ -757,7 +758,7 @@ func findVSClass(vsClassList *snapshotv1.VolumeSnapshotClassList, name string) *
 	return nil
 }
 
-func ConfigureVSClass(oldVSClass *snapshotv1.VolumeSnapshotClass, nsc *v1alpha1.NFSStorageClass) *snapshotv1.VolumeSnapshotClass {
+func ConfigureVSClass(oldVSClass *snapshotv1.VolumeSnapshotClass, nsc *v1alpha1.NFSStorageClass, controllerNamespace string) *snapshotv1.VolumeSnapshotClass {
 	deletionPolicy := snapshotv1.DeletionPolicy(nsc.Spec.ReclaimPolicy)
 
 	newVSClass := &snapshotv1.VolumeSnapshotClass{
@@ -773,6 +774,8 @@ func ConfigureVSClass(oldVSClass *snapshotv1.VolumeSnapshotClass, nsc *v1alpha1.
 		DeletionPolicy: deletionPolicy,
 		Parameters: map[string]string{
 			"mountOptions": strings.Join(GetSCMountOptions(nsc), ","),
+			SnapshotterSecretNameKey:      SecretForMountOptionsPrefix + nsc.Name,
+			SnapshotterSecretNamespaceKey: controllerNamespace,			
 		},
 	}
 
