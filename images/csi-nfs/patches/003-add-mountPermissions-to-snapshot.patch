@@ -1,0 +1,73 @@
+From 4f4bc25ed06b05a7bcd584b5a99d75ca8e73d8f0 Mon Sep 17 00:00:00 2001
+From: Pavel Karpov <pavel.karpov@flant.com>
+Date: Sun, 27 Jul 2025 20:05:28 +0300
+Subject: [PATCH] add mountPermissions to snapshot
+
+Signed-off-by: Pavel Karpov <pavel.karpov@flant.com>
+---
+ pkg/nfs/controllerserver.go | 31 +++++++++++++++++++++++++++++++
+ 1 file changed, 31 insertions(+)
+
+diff --git a/pkg/nfs/controllerserver.go b/pkg/nfs/controllerserver.go
+index 3b7b21a4..6cb4c0d0 100644
+--- a/pkg/nfs/controllerserver.go
++++ b/pkg/nfs/controllerserver.go
+@@ -25,6 +25,7 @@ import (
+ 	"regexp"
+ 	"strconv"
+ 	"strings"
++	"syscall"
+ 	"time"
+ 
+ 	"github.com/container-storage-interface/spec/lib/go/csi"
+@@ -404,6 +405,18 @@ func (cs *ControllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateS
+ 	if err := validateSnapshot(snapInternalVolPath, snapshot); err != nil {
+ 		return nil, err
+ 	}
++	mountPermissionsForSnapInternalVolPath, err := getMountPermissionsForSnapInternalVolPath(req.GetParameters())
++	if err != nil {
++		return nil, status.Errorf(codes.NotFound, "failed to get mountPermissionsForSnapInternalVolPath: %v", err)
++	} else {
++		if mountPermissionsForSnapInternalVolPath > 0 {
++			err = syscall.Chmod(path, uint32(mountPermissionsForSnapInternalVolPath))
++			if err != nil {
++				klog.Warningf("failed to chmod subdirectory: %v", err)
++			}
++		}
++
++	}
+ 
+ 	if err = cs.internalMount(ctx, srcVol, req.GetParameters(), nil); err != nil {
+ 		return nil, status.Errorf(codes.Internal, "failed to mount src nfs server: %v", err)
+@@ -680,6 +693,8 @@ func newNFSSnapshot(name string, params map[string]string, vol *nfsVolume) (*nfs
+ 			baseDir = v
+ 		case mountOptionsField:
+ 			// no op
++		case mountPermissionsField:
++			// no op
+ 		default:
+ 			return nil, status.Errorf(codes.InvalidArgument, "invalid parameter %q in snapshot storage class", k)
+ 		}
+@@ -914,3 +929,19 @@ func volumeFromSnapshot(snap *nfsSnapshot) *nfsVolume {
+ 		uuid:    snap.uuid,
+ 	}
+ }
++
++// getMountPermissionsForSnapInternalVolPath Convert VolumeSnapshot parameters to a snapInternalVolPath
++func getMountPermissionsForSnapInternalVolPath(params map[string]string) (uint64, error) {
++	mountPermissions := uint64(0)
++	for k, v := range params {
++		if strings.ToLower(k) == mountPermissionsField {
++			if v != "" {
++				var err error
++				if mountPermissions, err = strconv.ParseUint(v, 8, 32); err != nil {
++					return 0, status.Errorf(codes.InvalidArgument, "invalid mountPermissions %s in storage class", v)
++				}
++			}
++		}
++	}
++	return mountPermissions, nil
++}
+-- 
+2.43.0
+

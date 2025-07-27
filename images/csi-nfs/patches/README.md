@@ -8,6 +8,10 @@ Add volume cleanup feature
 
 Update go.mod to fix CVE
 
+## 003-add-mountPermissions-to-snapshot.patch
+
+Add mountPermissions to snapshot.
+
 ## How to apply
 
 ```bash
