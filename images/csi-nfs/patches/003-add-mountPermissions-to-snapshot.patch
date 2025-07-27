@@ -1,6 +1,6 @@
-From 4f4bc25ed06b05a7bcd584b5a99d75ca8e73d8f0 Mon Sep 17 00:00:00 2001
+From f08e0e4ace6a24b654fcad54c857e0fe7a868860 Mon Sep 17 00:00:00 2001
 From: Pavel Karpov <pavel.karpov@flant.com>
-Date: Sun, 27 Jul 2025 20:05:28 +0300
+Date: Sun, 27 Jul 2025 20:13:20 +0300
 Subject: [PATCH] add mountPermissions to snapshot
 
 Signed-off-by: Pavel Karpov <pavel.karpov@flant.com>
@@ -9,7 +9,7 @@ Signed-off-by: Pavel Karpov <pavel.karpov@flant.com>
  1 file changed, 31 insertions(+)
 
 diff --git a/pkg/nfs/controllerserver.go b/pkg/nfs/controllerserver.go
-index 3b7b21a4..6cb4c0d0 100644
+index 3b7b21a4..f8019c79 100644
 --- a/pkg/nfs/controllerserver.go
 +++ b/pkg/nfs/controllerserver.go
 @@ -25,6 +25,7 @@ import (
@@ -29,7 +29,7 @@ index 3b7b21a4..6cb4c0d0 100644
 +		return nil, status.Errorf(codes.NotFound, "failed to get mountPermissionsForSnapInternalVolPath: %v", err)
 +	} else {
 +		if mountPermissionsForSnapInternalVolPath > 0 {
-+			err = syscall.Chmod(path, uint32(mountPermissionsForSnapInternalVolPath))
++			err = syscall.Chmod(snapInternalVolPath, uint32(mountPermissionsForSnapInternalVolPath))
 +			if err != nil {
 +				klog.Warningf("failed to chmod subdirectory: %v", err)
 +			}
