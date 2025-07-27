@@ -772,10 +772,10 @@ func ConfigureVSClass(oldVSClass *snapshotv1.VolumeSnapshotClass, nsc *v1alpha1.
 		Driver:         NFSStorageClassProvisioner,
 		DeletionPolicy: deletionPolicy,
 		Parameters: map[string]string{
-			MountOptionsParamKey:				strings.Join(GetSCMountOptions(nsc), ","),
-			MountPermissionsParamKey:			nsc.Spec.ChmodPermissions,
-			SnapshotterSecretNameKey:			SecretForMountOptionsPrefix + nsc.Name,
-			SnapshotterSecretNamespaceKey:		controllerNamespace,
+			MountOptionsParamKey:          strings.Join(GetSCMountOptions(nsc), ","),
+			MountPermissionsParamKey:      nsc.Spec.ChmodPermissions,
+			SnapshotterSecretNameKey:      SecretForMountOptionsPrefix + nsc.Name,
+			SnapshotterSecretNamespaceKey: controllerNamespace,
 		},
 	}
 
