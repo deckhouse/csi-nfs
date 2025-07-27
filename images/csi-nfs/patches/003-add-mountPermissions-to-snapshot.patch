@@ -1,14 +1,14 @@
-From 19fe486fe7272b341809b8f22d533c9fef455984 Mon Sep 17 00:00:00 2001
+From 195bc7d33487d7f85992f42ccdbb9bcedee980c6 Mon Sep 17 00:00:00 2001
 From: Pavel Karpov <pavel.karpov@flant.com>
-Date: Sun, 27 Jul 2025 21:44:40 +0300
+Date: Sun, 27 Jul 2025 21:51:37 +0300
 Subject: [PATCH] add mountPermissions to snapshot
 
 Signed-off-by: Pavel Karpov <pavel.karpov@flant.com>
 ---
  pkg/nfs/controllerserver.go | 33 +++++++++++++++++++++++++++++++--
- pkg/nfs/nodeserver.go       | 17 +++++++++--------
+ pkg/nfs/nodeserver.go       | 10 ++++++----
  pkg/nfs/utils.go            |  3 ++-
- 3 files changed, 42 insertions(+), 11 deletions(-)
+ 3 files changed, 39 insertions(+), 7 deletions(-)
 
 diff --git a/pkg/nfs/controllerserver.go b/pkg/nfs/controllerserver.go
 index 3b7b21a4..348086e2 100644
@@ -73,7 +73,7 @@ index 3b7b21a4..348086e2 100644
 +	return mountPermissions, nil
 +}
 diff --git a/pkg/nfs/nodeserver.go b/pkg/nfs/nodeserver.go
-index ac28dd22..03ee2467 100644
+index ac28dd22..4c682bc8 100644
 --- a/pkg/nfs/nodeserver.go
 +++ b/pkg/nfs/nodeserver.go
 @@ -118,7 +118,7 @@ func (ns *NodeServer) NodePublishVolume(_ context.Context, req *csi.NodePublishV
@@ -85,28 +85,21 @@ index ac28dd22..03ee2467 100644
  				return nil, status.Error(codes.Internal, err.Error())
  			}
  			notMnt = true
-@@ -145,13 +145,14 @@ func (ns *NodeServer) NodePublishVolume(_ context.Context, req *csi.NodePublishV
- 		return nil, status.Error(codes.Internal, err.Error())
+@@ -146,9 +146,11 @@ func (ns *NodeServer) NodePublishVolume(_ context.Context, req *csi.NodePublishV
  	}
  
--	if mountPermissions > 0 {
+ 	if mountPermissions > 0 {
 -		if err := chmodIfPermissionMismatch(targetPath, os.FileMode(mountPermissions)); err != nil {
 -			return nil, status.Error(codes.Internal, err.Error())
 -		}
--	} else {
--		klog.V(2).Infof("skip chmod on targetPath(%s) since mountPermissions is set as 0", targetPath)
--	}
-+	// no need to change the rights to the root directory of the nfs server
-+	//if mountPermissions > 0 {
-+	//	if err := chmodIfPermissionMismatch(targetPath, os.FileMode(mountPermissions)); err != nil {
-+	//		return nil, status.Error(codes.Internal, err.Error())
-+	//	}
-+	//} else {
-+	//	klog.V(2).Infof("skip chmod on targetPath(%s) since mountPermissions is set as 0", targetPath)
-+	//}
- 	klog.V(2).Infof("volume(%s) mount %s on %s succeeded", volumeID, source, targetPath)
- 	return &csi.NodePublishVolumeResponse{}, nil
- }
++		//no need to change the rights to the root directory of the nfs server
++		klog.V(2).Infof("skip chmod on targetPath(%s)", targetPath)
++		//if err := chmodIfPermissionMismatch(targetPath, os.FileMode(mountPermissions)); err != nil {
++		//	return nil, status.Error(codes.Internal, err.Error())
++		//}
+ 	} else {
+ 		klog.V(2).Infof("skip chmod on targetPath(%s) since mountPermissions is set as 0", targetPath)
+ 	}
 diff --git a/pkg/nfs/utils.go b/pkg/nfs/utils.go
 index 53737cb2..8f20549e 100644
 --- a/pkg/nfs/utils.go

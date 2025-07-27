@@ -10,7 +10,7 @@ Update go.mod to fix CVE
 
 ## 003-add-mountPermissions-to-snapshot.patch
 
-Add mountPermissions to snapshot.
+Add mountPermissions to snapshot. Fix mountPermissions.
 
 ## How to apply
 
