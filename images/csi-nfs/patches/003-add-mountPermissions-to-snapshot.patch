@@ -1,26 +1,31 @@
-From f08e0e4ace6a24b654fcad54c857e0fe7a868860 Mon Sep 17 00:00:00 2001
+From 19fe486fe7272b341809b8f22d533c9fef455984 Mon Sep 17 00:00:00 2001
 From: Pavel Karpov <pavel.karpov@flant.com>
-Date: Sun, 27 Jul 2025 20:13:20 +0300
+Date: Sun, 27 Jul 2025 21:44:40 +0300
 Subject: [PATCH] add mountPermissions to snapshot
 
 Signed-off-by: Pavel Karpov <pavel.karpov@flant.com>
 ---
- pkg/nfs/controllerserver.go | 31 +++++++++++++++++++++++++++++++
- 1 file changed, 31 insertions(+)
+ pkg/nfs/controllerserver.go | 33 +++++++++++++++++++++++++++++++--
+ pkg/nfs/nodeserver.go       | 17 +++++++++--------
+ pkg/nfs/utils.go            |  3 ++-
+ 3 files changed, 42 insertions(+), 11 deletions(-)
 
 diff --git a/pkg/nfs/controllerserver.go b/pkg/nfs/controllerserver.go
-index 3b7b21a4..f8019c79 100644
+index 3b7b21a4..348086e2 100644
 --- a/pkg/nfs/controllerserver.go
 +++ b/pkg/nfs/controllerserver.go
-@@ -25,6 +25,7 @@ import (
- 	"regexp"
- 	"strconv"
- 	"strings"
-+	"syscall"
- 	"time"
+@@ -185,8 +185,8 @@ func (cs *ControllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
  
- 	"github.com/container-storage-interface/spec/lib/go/csi"
-@@ -404,6 +405,18 @@ func (cs *ControllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateS
+ 	if mountPermissions > 0 {
+ 		// Reset directory permissions because of umask problems
+-		if err = os.Chmod(internalVolumePath, os.FileMode(mountPermissions)); err != nil {
+-			klog.Warningf("failed to chmod subdirectory: %v", err)
++		if err := chmodIfPermissionMismatch(internalVolumePath, os.FileMode(mountPermissions)); err != nil {
++			return nil, status.Error(codes.Internal, err.Error())
+ 		}
+ 	}
+ 
+@@ -404,6 +404,17 @@ func (cs *ControllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateS
  	if err := validateSnapshot(snapInternalVolPath, snapshot); err != nil {
  		return nil, err
  	}
@@ -29,9 +34,8 @@ index 3b7b21a4..f8019c79 100644
 +		return nil, status.Errorf(codes.NotFound, "failed to get mountPermissionsForSnapInternalVolPath: %v", err)
 +	} else {
 +		if mountPermissionsForSnapInternalVolPath > 0 {
-+			err = syscall.Chmod(snapInternalVolPath, uint32(mountPermissionsForSnapInternalVolPath))
-+			if err != nil {
-+				klog.Warningf("failed to chmod subdirectory: %v", err)
++			if err := chmodIfPermissionMismatch(snapInternalVolPath, os.FileMode(mountPermissionsForSnapInternalVolPath)); err != nil {
++				return nil, status.Error(codes.Internal, err.Error())
 +			}
 +		}
 +
@@ -39,7 +43,7 @@ index 3b7b21a4..f8019c79 100644
  
  	if err = cs.internalMount(ctx, srcVol, req.GetParameters(), nil); err != nil {
  		return nil, status.Errorf(codes.Internal, "failed to mount src nfs server: %v", err)
-@@ -680,6 +693,8 @@ func newNFSSnapshot(name string, params map[string]string, vol *nfsVolume) (*nfs
+@@ -680,6 +691,8 @@ func newNFSSnapshot(name string, params map[string]string, vol *nfsVolume) (*nfs
  			baseDir = v
  		case mountOptionsField:
  			// no op
@@ -48,7 +52,7 @@ index 3b7b21a4..f8019c79 100644
  		default:
  			return nil, status.Errorf(codes.InvalidArgument, "invalid parameter %q in snapshot storage class", k)
  		}
-@@ -914,3 +929,19 @@ func volumeFromSnapshot(snap *nfsSnapshot) *nfsVolume {
+@@ -914,3 +927,19 @@ func volumeFromSnapshot(snap *nfsSnapshot) *nfsVolume {
  		uuid:    snap.uuid,
  	}
  }
@@ -68,6 +72,62 @@ index 3b7b21a4..f8019c79 100644
 +	}
 +	return mountPermissions, nil
 +}
+diff --git a/pkg/nfs/nodeserver.go b/pkg/nfs/nodeserver.go
+index ac28dd22..03ee2467 100644
+--- a/pkg/nfs/nodeserver.go
++++ b/pkg/nfs/nodeserver.go
+@@ -118,7 +118,7 @@ func (ns *NodeServer) NodePublishVolume(_ context.Context, req *csi.NodePublishV
+ 	notMnt, err := ns.mounter.IsLikelyNotMountPoint(targetPath)
+ 	if err != nil {
+ 		if os.IsNotExist(err) {
+-			if err := os.MkdirAll(targetPath, os.FileMode(mountPermissions)); err != nil {
++			if err := os.MkdirAll(targetPath, 0777); err != nil {
+ 				return nil, status.Error(codes.Internal, err.Error())
+ 			}
+ 			notMnt = true
+@@ -145,13 +145,14 @@ func (ns *NodeServer) NodePublishVolume(_ context.Context, req *csi.NodePublishV
+ 		return nil, status.Error(codes.Internal, err.Error())
+ 	}
+ 
+-	if mountPermissions > 0 {
+-		if err := chmodIfPermissionMismatch(targetPath, os.FileMode(mountPermissions)); err != nil {
+-			return nil, status.Error(codes.Internal, err.Error())
+-		}
+-	} else {
+-		klog.V(2).Infof("skip chmod on targetPath(%s) since mountPermissions is set as 0", targetPath)
+-	}
++	// no need to change the rights to the root directory of the nfs server
++	//if mountPermissions > 0 {
++	//	if err := chmodIfPermissionMismatch(targetPath, os.FileMode(mountPermissions)); err != nil {
++	//		return nil, status.Error(codes.Internal, err.Error())
++	//	}
++	//} else {
++	//	klog.V(2).Infof("skip chmod on targetPath(%s) since mountPermissions is set as 0", targetPath)
++	//}
+ 	klog.V(2).Infof("volume(%s) mount %s on %s succeeded", volumeID, source, targetPath)
+ 	return &csi.NodePublishVolumeResponse{}, nil
+ }
+diff --git a/pkg/nfs/utils.go b/pkg/nfs/utils.go
+index 53737cb2..8f20549e 100644
+--- a/pkg/nfs/utils.go
++++ b/pkg/nfs/utils.go
+@@ -22,6 +22,7 @@ import (
+ 	"path/filepath"
+ 	"strings"
+ 	"sync"
++	"syscall"
+ 	"time"
+ 
+ 	"github.com/container-storage-interface/spec/lib/go/csi"
+@@ -167,7 +168,7 @@ func chmodIfPermissionMismatch(targetPath string, mode os.FileMode) error {
+ 	perm := info.Mode() & os.ModePerm
+ 	if perm != mode {
+ 		klog.V(2).Infof("chmod targetPath(%s, mode:0%o) with permissions(0%o)", targetPath, info.Mode(), mode)
+-		if err := os.Chmod(targetPath, mode); err != nil {
++		if err := syscall.Chmod(targetPath, uint32(mode)); err != nil {
+ 			return err
+ 		}
+ 	} else {
 -- 
 2.43.0
 
