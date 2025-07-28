@@ -15,7 +15,7 @@ shell:
 
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-binaries-artifact
-fromImage: {{ eq $.Constants.SVACE_ENABLED "false" | ternary "builder/alt" "builder/alt-go-svace" }}
+fromImage: {{ eq .SVACE_ENABLED "false" | ternary "builder/alt" "builder/alt-go-svace" }}
 final: false
 
 import:
