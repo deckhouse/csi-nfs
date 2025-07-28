@@ -1,0 +1,281 @@
+From 92889fbe8cb32e1f473565694ce4ef16bf4e03ab Mon Sep 17 00:00:00 2001
+From: "v.oleynikov" <vasily.oleynikov@flant.com>
+Date: Thu, 24 Jul 2025 07:36:56 +0300
+Subject: [PATCH] Add volume cleanup implementation
+
+---
+ go.mod                           |   6 ++
+ pkg/nfs/controllerserver.go      |  26 +++++++
+ pkg/nfs/volume_cleanup_ce.go     |  25 +++++++
+ pkg/nfs/volume_cleanup_common.go |  39 ++++++++++
+ pkg/nfs/volume_cleanup_ee.go     | 119 +++++++++++++++++++++++++++++++
+ 5 files changed, 215 insertions(+)
+ create mode 100644 pkg/nfs/volume_cleanup_ce.go
+ create mode 100644 pkg/nfs/volume_cleanup_common.go
+ create mode 100644 pkg/nfs/volume_cleanup_ee.go
+
+diff --git a/go.mod b/go.mod
+index 9a36315d..3b33e66e 100644
+--- a/go.mod
++++ b/go.mod
+@@ -36,6 +36,12 @@ require (
+ 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
+ )
+ 
++require (
++	github.com/deckhouse/csi-nfs/lib/go/common v0.0.0-20250213115525-4785a9da80db
++)
++
++replace github.com/deckhouse/csi-nfs/lib/go/common => ../csi-nfs/lib/go/common
++
+ require (
+ 	github.com/NYTimes/gziphandler v1.1.1 // indirect
+ 	github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a // indirect
+diff --git a/pkg/nfs/controllerserver.go b/pkg/nfs/controllerserver.go
+index ff1a9167..3b7b21a4 100644
+--- a/pkg/nfs/controllerserver.go
++++ b/pkg/nfs/controllerserver.go
+@@ -292,6 +292,19 @@ func (cs *ControllerServer) DeleteVolume(ctx context.Context, req *csi.DeleteVol
+ 			}
+ 			klog.V(2).Infof("archived subdirectory %s --> %s", internalVolumePath, archivedInternalVolumePath)
+ 		} else {
++			volumeCleanupMethod, volumeCleanupEnabled, err := getVolumeCleanupMethod(req.GetSecrets())
++			if err != nil {
++				return nil, status.Errorf(codes.Internal, "failed to get volume cleanup method: %v", err)
++			}
++
++			if volumeCleanupEnabled {
++				err = cleanupVolume(internalVolumePath, volumeCleanupMethod)
++				if err != nil {
++					return nil, status.Errorf(codes.Internal, "Volume cleanup failed with %v", err)
++				}
++			}
++
++			// delete subdirectory under base-dir
+ 			klog.V(2).Infof("removing subdirectory at %v", internalVolumePath)
+ 			if err = os.RemoveAll(internalVolumePath); err != nil {
+ 				return nil, status.Errorf(codes.Internal, "delete subdirectory(%s) failed with %v", internalVolumePath, err)
+@@ -469,6 +482,19 @@ func (cs *ControllerServer) DeleteSnapshot(ctx context.Context, req *csi.DeleteS
+ 
+ 	// delete snapshot archive
+ 	internalVolumePath := getInternalVolumePath(cs.Driver.workingMountDir, vol)
++
++	volumeCleanupMethod, volumeCleanupEnabled, err := getVolumeCleanupMethod(req.GetSecrets())
++	if err != nil {
++		return nil, status.Errorf(codes.Internal, "failed to get volume cleanup method: %v", err)
++	}
++
++	if volumeCleanupEnabled {
++		err = cleanupVolume(internalVolumePath, volumeCleanupMethod)
++		if err != nil {
++			return nil, status.Errorf(codes.Internal, "Volume cleanup failed with %v", err)
++		}
++	}
++
+ 	klog.V(2).Infof("Removing snapshot archive at %v", internalVolumePath)
+ 	if err = os.RemoveAll(internalVolumePath); err != nil {
+ 		return nil, status.Errorf(codes.Internal, "failed to delete subdirectory: %v", err)
+diff --git a/pkg/nfs/volume_cleanup_ce.go b/pkg/nfs/volume_cleanup_ce.go
+new file mode 100644
+index 00000000..9e90aa0a
+--- /dev/null
++++ b/pkg/nfs/volume_cleanup_ce.go
+@@ -0,0 +1,25 @@
++//go:build ce
++
++/*
++Copyright 2025 Flant JSC
++Licensed under the Apache License, Version 2.0 (the "License");
++you may not use this file except in compliance with the License.
++You may obtain a copy of the License at
++    http://www.apache.org/licenses/LICENSE-2.0
++Unless required by applicable law or agreed to in writing, software
++distributed under the License is distributed on an "AS IS" BASIS,
++WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++See the License for the specific language governing permissions and
++limitations under the License.
++*/
++
++package nfs
++
++import (
++	"k8s.io/klog/v2"
++)
++
++func cleanupVolume(volumePath, volumeCleanupMethod string) error {
++	klog.Error("Volume cleanup enabled with method %s, but volume cleanup is not supported in Community Edition", volumeCleanupMethod)
++	return nil
++}
+diff --git a/pkg/nfs/volume_cleanup_common.go b/pkg/nfs/volume_cleanup_common.go
+new file mode 100644
+index 00000000..96354925
+--- /dev/null
++++ b/pkg/nfs/volume_cleanup_common.go
+@@ -0,0 +1,39 @@
++/*
++Copyright 2025 Flant JSC
++Licensed under the Apache License, Version 2.0 (the "License");
++you may not use this file except in compliance with the License.
++You may obtain a copy of the License at
++    http://www.apache.org/licenses/LICENSE-2.0
++Unless required by applicable law or agreed to in writing, software
++distributed under the License is distributed on an "AS IS" BASIS,
++WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++See the License for the specific language governing permissions and
++limitations under the License.
++*/
++
++package nfs
++
++import (
++	"fmt"
++)
++
++const (
++	volumeCleanupMethodKey        = "volumeCleanup"
++	volumeCleanupMethodDiscard    = "Discard"
++	volumeCleanupMethodSinglePass = "RandomFillSinglePass"
++	volumeCleanupMethodThreePass  = "RandomFillThreePass"
++)
++
++func getVolumeCleanupMethod(secretData map[string]string) (string, bool, error) {
++	val, ok := secretData[volumeCleanupMethodKey]
++	if !ok {
++		return "", false, nil
++	}
++
++	switch val {
++	case volumeCleanupMethodDiscard, volumeCleanupMethodSinglePass, volumeCleanupMethodThreePass:
++		return val, true, nil
++	default:
++		return "", false, fmt.Errorf("invalid volume cleanup method %s", val)
++	}
++}
+diff --git a/pkg/nfs/volume_cleanup_ee.go b/pkg/nfs/volume_cleanup_ee.go
+new file mode 100644
+index 00000000..dd20e5e2
+--- /dev/null
++++ b/pkg/nfs/volume_cleanup_ee.go
+@@ -0,0 +1,119 @@
++//go:build !ce
++
++/*
++Copyright 2025 Flant JSC
++Licensed under the Deckhouse Platform Enterprise Edition (EE) license.
++See https://github.com/deckhouse/deckhouse/blob/main/ee/LICENSE
++*/
++
++package nfs
++
++import (
++	"fmt"
++	"io/fs"
++	"os"
++	"os/exec"
++	"path/filepath"
++
++	"golang.org/x/sys/unix"
++	"k8s.io/klog/v2"
++
++	commonfeature "github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature"
++)
++
++func cleanupVolume(volumePath, volumeCleanupMethod string) error {
++	if !commonfeature.VolumeCleanupEnabled() {
++		klog.Error("Volume cleanup enabled with method %s, but volume cleanup is not supported in your edition", volumeCleanupMethod)
++		return nil
++	}
++
++	klog.V(2).Infof("volume cleanup enabled, using method %v. Cleanup subdirectory at %v", volumeCleanupMethod, volumePath)
++	absPath, err := filepath.Abs(volumePath)
++	if err != nil {
++		return fmt.Errorf("getting absolute path for %s: %w", volumePath, err)
++	}
++
++	if _, err := os.Stat(absPath); os.IsNotExist(err) {
++		klog.Warning("Volume directory %s does not exist, skipping cleanup", absPath)
++		return nil
++	}
++
++	err = filepath.Walk(absPath, func(path string, info fs.FileInfo, walkErr error) error {
++		if walkErr != nil {
++			return fmt.Errorf("walking error for %s: %w", path, walkErr)
++		}
++
++		if !info.IsDir() {
++			klog.V(4).Infof("Cleanup file %s", path)
++			return cleanupFile(info, path, volumeCleanupMethod)
++		} else {
++			klog.V(4).Infof("Skipping directory %s", path)
++		}
++		return nil
++	})
++	if err != nil {
++		return fmt.Errorf("error while walking through volume directory %s: %w", absPath, err)
++	}
++
++	klog.V(2).Infof("Volume cleanup completed for %s", volumePath)
++	return nil
++}
++
++func cleanupFile(info fs.FileInfo, filePath, volumeCleanupMethod string) error {
++	if !info.Mode().IsRegular() {
++		klog.V(4).Infof("Skipping non-regular file %s", filePath)
++		return nil
++	}
++
++	switch volumeCleanupMethod {
++	case volumeCleanupMethodDiscard:
++		return discardFile(filePath, info)
++	case volumeCleanupMethodSinglePass:
++		return shredFile(filePath, info, 1)
++	case volumeCleanupMethodThreePass:
++		return shredFile(filePath, info, 3)
++	default:
++		return fmt.Errorf("invalid volume cleanup method %s", volumeCleanupMethod)
++	}
++}
++
++func discardFile(filePath string, info os.FileInfo) error {
++	klog.V(4).Infof("Discarding file %s", filePath)
++	file, err := os.OpenFile(filePath, os.O_WRONLY, 0)
++	if err != nil {
++		return fmt.Errorf("failed to open file %s for discard: %w", filePath, err)
++	}
++	defer file.Close()
++
++	fileSize := info.Size()
++	fd := int(file.Fd())
++	klog.V(4).Infof("Sending FALLOC_FL_PUNCH_HOLE|FALLOC_FL_KEEP_SIZE for file %s with size %d", filePath, fileSize)
++	if err := unix.Fallocate(fd, unix.FALLOC_FL_PUNCH_HOLE|unix.FALLOC_FL_KEEP_SIZE, 0, fileSize); err != nil {
++		return fmt.Errorf("discard (punch hole) failed for file %s: %w", filePath, err)
++	}
++
++	klog.V(4).Infof("Discarding file %s completed.", filePath)
++	// klog.V(4).Infof("Discarding file %s completed. Removing file", filePath)
++	// if err := os.Remove(filePath); err != nil {
++	// 	return fmt.Errorf("failed to remove file %s after discard: %w", filePath, err)
++	// }
++
++	return nil
++}
++
++func shredFile(filePath string, info os.FileInfo, passes int) error {
++	klog.V(4).Infof("Shredding file %s with %d passes. Run command: shred -v -n %d %s", filePath, passes, passes, filePath)
++	cmd := exec.Command("shred", "-v", "-n", fmt.Sprintf("%d", passes), filePath)
++
++	if out, err := cmd.CombinedOutput(); err != nil {
++		return fmt.Errorf("shred shred failed for file %s: %w, output: %s", filePath, err, string(out))
++	}
++
++	klog.V(4).Infof("Shredding file %s completed.", filePath)
++	// klog.V(4).Infof("Shredding file %s completed. Removing file", filePath)
++	// if err := os.Remove(filePath); err != nil {
++	// 	return fmt.Errorf("failed to remove file %s after shred: %w", filePath, err)
++	// }
++
++	return nil
++}
+-- 
+2.43.0
+
