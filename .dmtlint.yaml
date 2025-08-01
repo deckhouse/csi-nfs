@@ -18,10 +18,10 @@ linters-settings:
           name: csi-controller
           container: livenessprobe
         - kind: DaemonSet
-          name: csi-nfs
+          name: csi-node
           container: tlshd
         - kind: DaemonSet
-          name: csi-nfs
+          name: csi-node
           container: node-driver-registrar
       readiness-probe:
         - kind: Deployment
@@ -43,13 +43,13 @@ linters-settings:
           name: csi-controller
           container: controller
         - kind: DaemonSet
-          name: csi-nfs
+          name: csi-node
           container: tlshd
         - kind: DaemonSet
-          name: csi-nfs
+          name: csi-node
           container: node
         - kind: DaemonSet
-          name: csi-nfs
+          name: csi-node
           container: node-driver-registrar
   openapi:
     exclude-rules:

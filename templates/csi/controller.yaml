@@ -267,10 +267,10 @@ storage.deckhouse.io/csi-nfs-node: ""
 {{- end }}
 
 {{- $csiNodeConfig := dict }}
-{{- $_ := set $csiNodeConfig "fullname" "csi-nfs" }}
 {{- $_ := set $csiNodeConfig "nodeImage" $csiControllerImage }}
 {{- $_ := set $csiNodeConfig "driverFQDN" "nfs.csi.k8s.io" }}
 {{- $_ := set $csiNodeConfig "livenessProbePort" 4230 }}
+{{- $_ := set $csiNodeConfig "serviceAccount" "csi" }}
 {{- $_ := set $csiNodeConfig "additionalNodeVPA" (include "csi_node_additional_vpa" . | fromYamlArray) }}
 {{- $_ := set $csiNodeConfig "additionalNodeArgs" (include "csi_node_args" . | fromYamlArray) }}
 {{- $_ := set $csiNodeConfig "additionalNodeEnvs" (include "csi_node_envs" . | fromYamlArray) }}
