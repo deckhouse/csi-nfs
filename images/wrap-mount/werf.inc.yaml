@@ -35,7 +35,6 @@ secrets:
 
 shell:
   install:
-    - set -x
     - cd /src/images/{{ $.ImageName }}/cmd
     - export GOOS=linux GOARCH=amd64 CGO_ENABLED=0
     - |
