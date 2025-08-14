@@ -1,3 +1,0 @@
-dirs:
-- /csi
-- /var/lib/kubelet/pods
