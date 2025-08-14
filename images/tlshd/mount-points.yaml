@@ -1,0 +1,5 @@
+files:
+  - /etc/tlshd.conf
+  - /etc/ca.crt
+  - /etc/client.crt
+  - /etc/client.key
