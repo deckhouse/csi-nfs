@@ -17,6 +17,17 @@ No, the connection data to the NFS server is stored directly in the PV manifest 
 
 ## How to create volume snapshots?
 
+{{< alert level="warning" >}}
+**Warning about using snapshots (Volume Snapshots)**
+
+When creating snapshots of NFS volumes, it's important to understand their creation scheme and associated limitations. We recommend avoiding the use of snapshots in csi-nfs when possible:
+
+1. The CSI driver creates a snapshot at the NFS server level.
+2. For this, tar is used, which packages the volume contents, with all the limitations that may arise from this.
+3. **Before creating a snapshot, be sure to stop the workload** (pods) using the NFS volume.
+4. NFS does not ensure atomicity of operations at the file system level when creating a snapshot.
+{{< /alert >}}
+
 In `csi-nfs`, snapshots are created by archiving the volume folder. The archive is stored in the root of the NFS server folder specified in the `spec.connection.share` parameter.
 
 1. Enable the `snapshot-controller`:

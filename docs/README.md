@@ -5,6 +5,17 @@ description: "The csi-nfs module: General Concepts and Principles."
 
 The module provides CSI for managing NFS volumes and allows creating StorageClass in Kubernetes through [Custom Resources](./cr.html#nfsstorageclass) `NFSStorageClass`.
 
+{{< alert level="warning" >}}
+**Warning about using snapshots (Volume Snapshots)**
+
+When creating snapshots of NFS volumes, it's important to understand their creation scheme and associated limitations. We recommend avoiding the use of snapshots in csi-nfs when possible:
+
+1. The CSI driver creates a snapshot at the NFS server level.
+2. For this, tar is used, which packages the volume contents, with all the limitations that may arise from this.
+3. **Before creating a snapshot, be sure to stop the workload** (pods) using the NFS volume.
+4. NFS does not ensure atomicity of operations at the file system level when creating a snapshot.
+{{< /alert >}}
+
 {{< alert level="info" >}}
 Creating a StorageClass for the CSI driver `nfs.csi.k8s.io` by the user is prohibited.
 {{< /alert >}}
