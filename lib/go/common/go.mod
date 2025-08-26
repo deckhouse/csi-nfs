@@ -1,4 +1,4 @@
-go 1.24.5
+go 1.24.6
 
 require github.com/deckhouse/csi-nfs/api v0.0.0-20250116103144-d23aedd591a3
 
