@@ -17,6 +17,10 @@ When creating snapshots of NFS volumes, it's important to understand their creat
 {{< /alert >}}
 
 {{< alert level="info" >}}
+For working with snapshots, the [snapshot-controller](../../snapshot-controller/) module must be connected.
+{{< /alert >}}
+
+{{< alert level="info" >}}
 Creating a StorageClass for the CSI driver `nfs.csi.k8s.io` by the user is prohibited.
 {{< /alert >}}
 
