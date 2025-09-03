@@ -36,6 +36,8 @@ checksum/ca: {{ .Values.csiNfs.tlsParameters.ca | sha256sum | quote }}
   volumeMounts:
     - name: host-sys
       mountPath: /sys
+    - name: host-sys-fs-cgroup
+      mountPath: /sys/fs/cgroup
     - name: host-lib-modules
       mountPath: /lib/modules
 - name: net-handshake-checker
@@ -61,6 +63,10 @@ checksum/ca: {{ .Values.csiNfs.tlsParameters.ca | sha256sum | quote }}
 - name: host-sys
   hostPath:
     path: /sys
+    type: Directory
+- name: host-sys-fs-cgroup
+  hostPath:
+    path: /sys/fs/cgroup
     type: Directory
 - name: host-lib-modules
   hostPath:
