@@ -19,7 +19,6 @@ package schedulerextenderenabler
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/deckhouse/csi-nfs/api/v1alpha1"
@@ -58,28 +57,29 @@ func mainHook(ctx context.Context, input *pkg.HookInput) error {
 
 	snapshots := input.Snapshots.Get("nfs-storage-classes")
 	if len(snapshots) == 0 {
-		log.Println("No snapshots found")
-		return nil
-	}
+		fmt.Println("No snapshots found")
+		// Don't return early - we need to disable the scheduler extender
+	} else {
+		for _, snapshot := range snapshots {
+			fmt.Printf("get snapshot: %v\n", snapshot)
 
-	for _, snapshot := range snapshots {
-		fmt.Printf("get snapshot: %v\n", snapshot)
+			snapshotItem := new(v1alpha1.NFSStorageClassWorkloadNodes)
 
-		snapshotItem := new(v1alpha1.NFSStorageClassWorkloadNodes)
+			err := snapshot.UnmarshalTo(snapshotItem)
+			if err != nil {
+				fmt.Printf("Error unmarshaling snapshot item: %v, skipping\n", err)
+				continue // Skip this snapshot and continue with others
+			}
 
-		err := snapshot.UnmarshalTo(snapshotItem)
-		if err != nil {
-			return fmt.Errorf("unmarshaling snapshot item: %w", err)
+			if snapshotItem.NodeSelector == nil {
+				fmt.Println("nodeSelector is empty")
+				continue
+			}
+
+			fmt.Println("NodeSelector is not empty. Should enable scheduler extender")
+			shouldEnable = true
+			break
 		}
-
-		if snapshotItem.NodeSelector == nil {
-			fmt.Println("nodeSelector is empty")
-			continue
-		}
-
-		fmt.Println("NodeSelector is not empty. Should enable scheduler extender")
-		shouldEnable = true
-		break
 	}
 
 	enableLabel := fmt.Sprintf("%v.internal.shedulerExtenderEnabled", consts.ModuleName)
