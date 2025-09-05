@@ -1,6 +1,6 @@
 module github.com/deckhouse/csi-nfs/hooks/go
 
-go 1.23.8
+go 1.24.6
 
 toolchain go1.24.2
 
