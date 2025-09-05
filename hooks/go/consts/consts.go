@@ -17,10 +17,11 @@ limitations under the License.
 package consts
 
 const (
-	ModuleName      	string = "csiNfs"
-	ModuleNamespace 	string = "d8-csi-nfs"
-	ModulePluralName 	string = "csi-nfs"
-	WebhookCertCn   	string = "webhooks"
+	ModuleName       string = "csiNfs"
+	ModuleNamespace  string = "d8-csi-nfs"
+	ModulePluralName string = "csi-nfs"
+	WebhookCertCn    string = "webhooks"
+	SchedulerCertCn  string = "scheduler-extender"
 )
 
 var AllowedProvisioners = []string{
