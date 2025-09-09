@@ -55,7 +55,7 @@ func mainHook(ctx context.Context, input *pkg.HookInput) error {
 	fmt.Println("Scheduler extender enabler hook started")
 	shouldEnable := false
 
-	snapshots := input.Snapshots.Get("NFSStorageClasses")
+	snapshots := input.Snapshots.Get("NFSStorageClassList")
 	if len(snapshots) == 0 {
 		fmt.Println("No snapshots found")
 		// Don't return early - we need to disable the scheduler extender
