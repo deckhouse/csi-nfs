@@ -18,6 +18,7 @@ package schedulerextenderenabler
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -34,7 +35,7 @@ var (
 				{
 					Name:                         "nfs-storage-classes",
 					APIVersion:                   "storage.deckhouse.io/v1alpha1",
-					Kind:                         "NFSStorageClasses",
+					Kind:                         "NFSStorageClass",
 					ExecuteHookOnEvents:          ptr(true),
 					ExecuteHookOnSynchronization: ptr(true),
 					JqFilter:                     ".spec.workloadNodes",
@@ -55,38 +56,59 @@ func mainHook(ctx context.Context, input *pkg.HookInput) error {
 	fmt.Println("Scheduler extender enabler hook started")
 	shouldEnable := false
 
-	snapshots := input.Snapshots.Get("NFSStorageClassList")
+	// Get snapshots using the standard approach
+	snapshots := input.Snapshots.Get("nfs-storage-classes")
 	if len(snapshots) == 0 {
 		fmt.Println("No snapshots found")
 		// Don't return early - we need to disable the scheduler extender
 	} else {
-		for _, snapshot := range snapshots {
-			fmt.Printf("get snapshot: %v\n", snapshot)
+		fmt.Printf("Found %d snapshots\n", len(snapshots))
 
-			// The JqFilter extracts .spec.workloadNodes, so we get NFSStorageClassWorkloadNodes directly
-			snapshotItem := new(v1alpha1.NFSStorageClassWorkloadNodes)
+		for i, snapshot := range snapshots {
+			fmt.Printf("Processing snapshot %d: %v\n", i, snapshot)
 
-			err := snapshot.UnmarshalTo(snapshotItem)
+			// Try to access the snapshot data as JSON
+			// The JqFilter extracts .spec.workloadNodes, so we should get NFSStorageClassWorkloadNodes directly
+			// If workloadNodes is not configured, the JqFilter returns null
+
+			// First, let's see what the snapshot actually contains
+			snapshotBytes, err := json.Marshal(snapshot)
 			if err != nil {
-				fmt.Printf("Error unmarshaling snapshot item: %v, skipping\n", err)
-				continue // Skip this snapshot and continue with others
+				fmt.Printf("Error marshaling snapshot %d: %v\n", i, err)
+				continue
 			}
+			fmt.Printf("Snapshot %d JSON: %s\n", i, string(snapshotBytes))
 
-			fmt.Printf("get snapshot item: %v\n", snapshotItem)
-
-			if snapshotItem.NodeSelector == nil {
-				fmt.Println("nodeSelector is empty")
+			// Try to unmarshal as NFSStorageClassWorkloadNodes
+			workloadNodes := new(v1alpha1.NFSStorageClassWorkloadNodes)
+			err = json.Unmarshal(snapshotBytes, workloadNodes)
+			if err != nil {
+				fmt.Printf("Error unmarshaling snapshot %d as NFSStorageClassWorkloadNodes: %v (this is expected if workloadNodes is not configured)\n", i, err)
 				continue
 			}
 
-			fmt.Printf("get nodeSelector: %v\n", snapshotItem.NodeSelector)
+			fmt.Printf("Successfully unmarshaled workload nodes: %+v\n", workloadNodes)
+
+			// Check if NodeSelector is configured
+			if workloadNodes.NodeSelector == nil {
+				fmt.Println("nodeSelector is nil")
+				continue
+			}
+
+			// Check if NodeSelector has any actual selectors
+			if workloadNodes.NodeSelector.MatchLabels == nil && workloadNodes.NodeSelector.MatchExpressions == nil {
+				fmt.Println("nodeSelector has no matchLabels or matchExpressions")
+				continue
+			}
+
+			fmt.Printf("Found valid nodeSelector: %+v\n", workloadNodes.NodeSelector)
 			fmt.Println("NodeSelector is not empty. Should enable scheduler extender")
 			shouldEnable = true
 			break
 		}
 	}
 
-	enableLabel := fmt.Sprintf("%v.internal.schedulerExtenderEnabled", consts.ModuleName)
+	enableLabel := fmt.Sprintf("%v.internal.shedulerExtenderEnabled", consts.ModuleName)
 
 	if shouldEnable {
 		fmt.Println("Enable scheduler extender")
@@ -95,6 +117,7 @@ func mainHook(ctx context.Context, input *pkg.HookInput) error {
 		fmt.Println("Disable scheduler extender")
 		input.Values.Set(enableLabel, false)
 	}
+
 	return nil
 }
 
