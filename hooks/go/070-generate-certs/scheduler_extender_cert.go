@@ -25,10 +25,10 @@ import (
 var _ = tlscertificate.RegisterInternalTLSHookEM(tlscertificate.GenSelfSignedTLSHookConf{
 	CommonCACanonicalName: fmt.Sprintf("%s-%s", consts.ModulePluralName, consts.SchedulerCertCn),
 	CN:                    fmt.Sprintf("%s-%s", consts.ModulePluralName, consts.SchedulerCertCn),
-	TLSSecretName:         fmt.Sprintf("%s-%s-https-certs", consts.ModulePluralName, consts.SchedulerCertCn),
+	TLSSecretName:         fmt.Sprintf("%s-https-certs", consts.SchedulerCertCn),
 	Namespace:             consts.ModuleNamespace,
 	SANs: tlscertificate.DefaultSANs([]string{
-		consts.WebhookCertCn,
+		fmt.Sprintf("%s-%s", consts.ModulePluralName, consts.SchedulerCertCn),
 		fmt.Sprintf("%s-%s.%s", consts.ModulePluralName, consts.SchedulerCertCn, consts.ModuleNamespace),
 		fmt.Sprintf("%s-%s.%s.svc", consts.ModulePluralName, consts.SchedulerCertCn, consts.ModuleNamespace),
 		// %CLUSTER_DOMAIN%:// is a special value to generate SAN like 'svc_name.svc_namespace.svc.cluster.local'
