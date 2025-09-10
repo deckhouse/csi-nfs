@@ -29,12 +29,16 @@ import (
 	"github.com/deckhouse/module-sdk/pkg/registry"
 )
 
+const (
+	NFSStorageClassSnapshotName = "nfs-storage-classes"
+)
+
 var (
 	_ = registry.RegisterFunc(
 		&pkg.HookConfig{
 			Kubernetes: []pkg.KubernetesConfig{
 				{
-					Name:                         "nfs-storage-classes",
+					Name:                         NFSStorageClassSnapshotName,
 					APIVersion:                   "storage.deckhouse.io/v1alpha1",
 					Kind:                         "NFSStorageClass",
 					ExecuteHookOnEvents:          ptr(true),
@@ -58,7 +62,7 @@ func mainHook(ctx context.Context, input *pkg.HookInput) error {
 	shouldEnable := false
 
 	// Get snapshots using the standard approach
-	snapshots := input.Snapshots.Get("nfs-storage-classes")
+	snapshots := input.Snapshots.Get(NFSStorageClassSnapshotName)
 	if len(snapshots) == 0 {
 		fmt.Println("No snapshots found")
 		// Don't return early - we need to disable the scheduler extender
