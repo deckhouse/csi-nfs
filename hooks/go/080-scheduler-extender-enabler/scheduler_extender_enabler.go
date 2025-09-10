@@ -18,6 +18,7 @@ package schedulerextenderenabler
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -71,19 +72,31 @@ func mainHook(ctx context.Context, input *pkg.HookInput) error {
 			// The JqFilter extracts .spec.workloadNodes, so we should get NFSStorageClassWorkloadNodes directly
 			// If workloadNodes is not configured, the JqFilter returns null
 
-			// First, let's see what the snapshot actually contains
+			// The snapshot contains a base64-encoded JSON string
+			// First, marshal the snapshot to get the base64 string
 			snapshotBytes, err := json.Marshal(snapshot)
 			if err != nil {
 				fmt.Printf("Error marshaling snapshot %d: %v\n", i, err)
 				continue
 			}
-			fmt.Printf("Snapshot %d JSON: %s\n", i, string(snapshotBytes))
+
+			// Remove quotes from the JSON string to get the base64 string
+			base64Str := string(snapshotBytes[1 : len(snapshotBytes)-1])
+			fmt.Printf("Snapshot %d base64: %s\n", i, base64Str)
+
+			// Decode the base64 string
+			jsonBytes, err := base64.StdEncoding.DecodeString(base64Str)
+			if err != nil {
+				fmt.Printf("Error decoding base64 for snapshot %d: %v\n", i, err)
+				continue
+			}
+			fmt.Printf("Snapshot %d decoded JSON: %s\n", i, string(jsonBytes))
 
 			// Try to unmarshal as NFSStorageClassWorkloadNodes
 			workloadNodes := new(v1alpha1.NFSStorageClassWorkloadNodes)
-			err = json.Unmarshal(snapshotBytes, workloadNodes)
+			err = json.Unmarshal(jsonBytes, workloadNodes)
 			if err != nil {
-				fmt.Printf("Error unmarshaling snapshot %d as NFSStorageClassWorkloadNodes: %v (this is expected if workloadNodes is not configured)\n", i, err)
+				fmt.Printf("Error unmarshaling snapshot %d as NFSStorageClassWorkloadNodes: %v\n", i, err)
 				continue
 			}
 
