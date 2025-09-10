@@ -34,7 +34,7 @@ var (
 				{
 					Name:                         "nfs-storage-classes",
 					APIVersion:                   "storage.deckhouse.io/v1alpha1",
-					Kind:                         "NFSStorageClass",
+					Kind:                         "NFSStorageClasses",
 					ExecuteHookOnEvents:          ptr(true),
 					ExecuteHookOnSynchronization: ptr(true),
 					JqFilter:                     ".spec.workloadNodes",
@@ -55,7 +55,7 @@ func mainHook(ctx context.Context, input *pkg.HookInput) error {
 	fmt.Println("Scheduler extender enabler hook started")
 	shouldEnable := false
 
-	snapshots := input.Snapshots.Get("nfs-storage-classes")
+	snapshots := input.Snapshots.Get("NFSStorageClassList")
 	if len(snapshots) == 0 {
 		fmt.Println("No snapshots found")
 		// Don't return early - we need to disable the scheduler extender
@@ -86,7 +86,7 @@ func mainHook(ctx context.Context, input *pkg.HookInput) error {
 		}
 	}
 
-	enableLabel := fmt.Sprintf("%v.internal.shedulerExtenderEnabled", consts.ModuleName)
+	enableLabel := fmt.Sprintf("%v.internal.schedulerExtenderEnabled", consts.ModuleName)
 
 	if shouldEnable {
 		fmt.Println("Enable scheduler extender")
