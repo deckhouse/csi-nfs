@@ -63,6 +63,7 @@ func mainHook(ctx context.Context, input *pkg.HookInput) error {
 		for _, snapshot := range snapshots {
 			fmt.Printf("get snapshot: %v\n", snapshot)
 
+			// The JqFilter extracts .spec.workloadNodes, so we get NFSStorageClassWorkloadNodes directly
 			snapshotItem := new(v1alpha1.NFSStorageClassWorkloadNodes)
 
 			err := snapshot.UnmarshalTo(snapshotItem)
@@ -71,11 +72,14 @@ func mainHook(ctx context.Context, input *pkg.HookInput) error {
 				continue // Skip this snapshot and continue with others
 			}
 
+			fmt.Printf("get snapshot item: %v\n", snapshotItem)
+
 			if snapshotItem.NodeSelector == nil {
 				fmt.Println("nodeSelector is empty")
 				continue
 			}
 
+			fmt.Printf("get nodeSelector: %v\n", snapshotItem.NodeSelector)
 			fmt.Println("NodeSelector is not empty. Should enable scheduler extender")
 			shouldEnable = true
 			break
