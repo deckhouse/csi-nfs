@@ -1,0 +1,4 @@
+Changes:
+  - Added HA mode support in controller
+  - Fixes for proper volume snapshots operation
+  - Updated CSI version to current v4.11.0

@@ -1,0 +1,4 @@
+Changes:
+  - Added base64 certificate validation in MC
+  - Fixes in RPC-with-TLS mechanism
+  - Module refactoring
