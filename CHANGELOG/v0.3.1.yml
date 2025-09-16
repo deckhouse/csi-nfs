@@ -1,0 +1,6 @@
+Changes:
+  - Service account changed to "csi"
+  - Added dependency on snapshot-controller
+  - Internal changes for containerd v2 support
+  - CVE fixes
+  - Documentation fixes

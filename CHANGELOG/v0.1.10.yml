@@ -1,0 +1,3 @@
+Changes:
+  - Multiple fixes and improvements in RBAC, MC work, controllers
+  - Added ability to specify workload node selector, considering which csi-nfs components and useful user workload will be deployed
