@@ -1,3 +1,2 @@
 Изменения:
-  - Добавлены файлы release notes
-  - Перевод хуков в модуле c python на golang
+  - Добавлена поддержка containerd v2
