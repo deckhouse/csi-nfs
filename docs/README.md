@@ -32,6 +32,10 @@ Creating a StorageClass for the CSI driver `nfs.csi.k8s.io` by the user is prohi
 - Ensure the presence of a deployed and configured NFS server;
 - To support RPC-with-TLS, enable `CONFIG_TLS` and `CONFIG_NET_HANDSHAKE` options in the Linux kernel.
 
+{{< alert level="warning" >}}
+To use NFS as virtual disk storage in Deckhouse Virtualisation Platform, configure the NFS server with the no_root_squash option.
+{{< /alert >}}
+
 ### Recommendations
 
 For module pods to restart when the `tlsParameters` parameter is changed in the module settings, the [pod-reloader](https://deckhouse.io/products/kubernetes-platform/documentation/v1/modules/pod-reloader) module must be enabled (enabled by default).
