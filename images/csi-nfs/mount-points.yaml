@@ -1,3 +1,4 @@
 dirs:
   - /var/lib/kubelet/pods
   - /csi
+  - /run
