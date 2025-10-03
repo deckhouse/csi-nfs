@@ -52,6 +52,14 @@ checksum/ca: {{ .Values.csiNfs.tlsParameters.ca | sha256sum | quote }}
 {{- end }}
 {{- end }}
 
+{{- define "csi_init_containers_volume" }}
+{{- if .Values.csiNfs.v3support }}
+- name: host-run
+  hostPath:
+    path: /run
+    type: Directory
+{{- end }}
+
 {{- if .Values.csiNfs.internal.featureTLSEnabled }}
 {{- if .Values.csiNfs.tlsParameters.ca }}
 - name: host-sys
@@ -121,15 +129,6 @@ checksum/ca: {{ .Values.csiNfs.tlsParameters.ca | sha256sum | quote }}
 {{- end }}
 
 
-{{- define "nfsv3_container_volume" }}
-{{- if .Values.csiNfs.v3support }}
-- name: host-run
-  hostPath:
-    path: /run
-    type: Directory
-{{- end }}
-{{- end }}
-
 {{- define "nfsv3_container_volume_mounts" }}
 {{- if .Values.csiNfs.v3support }}
 - name: host-run
@@ -175,7 +174,7 @@ storage.deckhouse.io/csi-nfs-node: ""
 - name: tmp-dir
   emptyDir: {}
 
-{{- include "nfsv3_container_volume" . }}
+{{- include "csi_init_containers_volume" . }}
 {{- end }}
 
 {{- define "csi_additional_controller_volume_mounts" }}
@@ -250,7 +249,7 @@ storage.deckhouse.io/csi-nfs-node: ""
 
 {{- define "csi_additional_node_volume" }}
 {{- include "csi_tlshd_container_volume" . }}
-{{- include "nfsv3_container_volume" . }}
+{{- include "csi_init_containers_volume" . }}
 - name: tmp-dir
   emptyDir: {}
 {{- end }}
