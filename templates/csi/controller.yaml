@@ -129,18 +129,10 @@ checksum/ca: {{ .Values.csiNfs.tlsParameters.ca | sha256sum | quote }}
 {{- end }}
 
 
-{{- define "nfsv3_container_volume" }}
-{{- if .Values.csiNfs.v3support }}
-- name: run-rpcbind-sock
-  hostPath:
-    path: /run/rpcbind.sock
-{{- end }}
-{{- end }}
-
 {{- define "nfsv3_container_volume_mounts" }}
 {{- if .Values.csiNfs.v3support }}
-- name: run-rpcbind-sock
-  mountPath: /run/rpcbind.sock
+- name: host-run
+  mountPath: /run
 {{- end }}
 {{- end }}
 
@@ -183,7 +175,6 @@ storage.deckhouse.io/csi-nfs-node: ""
   emptyDir: {}
 
 {{- include "csi_init_containers_volume" . }}
-{{- include "nfsv3_container_volume" . }}
 {{- end }}
 
 {{- define "csi_additional_controller_volume_mounts" }}
@@ -259,7 +250,6 @@ storage.deckhouse.io/csi-nfs-node: ""
 {{- define "csi_additional_node_volume" }}
 {{- include "csi_init_containers_volume" . }}
 {{- include "csi_tlshd_container_volume" . }}
-{{- include "nfsv3_container_volume" . }}
 - name: tmp-dir
   emptyDir: {}
 {{- end }}
