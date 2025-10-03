@@ -248,8 +248,8 @@ storage.deckhouse.io/csi-nfs-node: ""
 
 
 {{- define "csi_additional_node_volume" }}
-{{- include "csi_tlshd_container_volume" . }}
 {{- include "csi_init_containers_volume" . }}
+{{- include "csi_tlshd_container_volume" . }}
 - name: tmp-dir
   emptyDir: {}
 {{- end }}
