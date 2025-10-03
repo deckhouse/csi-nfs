@@ -22,6 +22,8 @@ checksum/ca: {{ .Values.csiNfs.tlsParameters.ca | sha256sum | quote }}
   volumeMounts:
     - name: host-run
       mountPath: /run
+  securityContext:
+    readOnlyRootFilesystem: true
 {{- end }}
 
 {{- if .Values.csiNfs.internal.featureTLSEnabled }}
