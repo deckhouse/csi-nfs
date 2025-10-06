@@ -26,15 +26,17 @@ Creating a StorageClass for the CSI driver `nfs.csi.k8s.io` by the user is prohi
 
 ## System requirements and recommendations
 
+{{< alert level="warning" >}}
+To use NFS as virtual disk storage in Deckhouse Virtualisation Platform, configure the NFS server with the `no_root_squash` option (see below).
+{{< /alert >}}
+
 ### Requirements
 
 - Use stock kernels provided with [supported distributions](https://deckhouse.io/documentation/v1/supported_versions.html#linux);
-- Ensure the presence of a deployed and configured NFS server;
+- Ensure that the NFS server is correctly configured and running:
+  - For DKP modules where StorageClass is used, it may be necessary to allow access to clients with root privileges. In Linux, this is implemented via the `no_root_squash` option, while on other systems (e.g., BSD or storage systems) a similar setting may have a different name;
+  - For virtual disk storage in the [Deckhouse Virtualization Platform](https://deckhouse.io/products/virtualization-platform/documentation/), the `no_root_squash` option is mandatory!
 - To support RPC-with-TLS, enable `CONFIG_TLS` and `CONFIG_NET_HANDSHAKE` options in the Linux kernel.
-
-{{< alert level="warning" >}}
-To use NFS as virtual disk storage in Deckhouse Virtualisation Platform, configure the NFS server with the no_root_squash option.
-{{< /alert >}}
 
 ### Recommendations
 
