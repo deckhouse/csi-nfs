@@ -26,6 +26,10 @@ Creating a StorageClass for the CSI driver `nfs.csi.k8s.io` by the user is prohi
 
 ## System requirements and recommendations
 
+{{< alert level="warning" >}}
+To use NFS as virtual disk storage in Deckhouse Virtualisation Platform, configure the NFS server with the `no_root_squash` option (see below).
+{{< /alert >}}
+
 ### Requirements
 
 - Use stock kernels provided with [supported distributions](https://deckhouse.io/documentation/v1/supported_versions.html#linux);
