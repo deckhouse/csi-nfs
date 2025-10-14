@@ -12,6 +12,10 @@ Update go.mod to fix CVE
 
 Add mountPermissions to snapshot. Fix mountPermissions.
 
+## 004-fix-go-mod.patch
+
+Fix CVE
+
 ## How to apply
 
 ```bash
