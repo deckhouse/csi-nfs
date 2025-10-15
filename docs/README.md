@@ -93,8 +93,14 @@ spec:
     nfsVersion: "4.1"
   reclaimPolicy: Delete
   volumeBindingMode: WaitForFirstConsumer
+  workloadNodes:
+    nodeSelector:
+      matchLabels:
+        storage: "true"  
 EOF
 ```
+
+Note that the CSI driver control pods are placed on cluster nodes according to the workloadnodes parameters of all NFSStorageClass. If they are missing, the module workload will not be placed!
 
 A directory `<directory from share>/<PV name>` will be created for each PV.
 
@@ -103,6 +109,10 @@ A directory `<directory from share>/<PV name>` will be created for each PV.
 You can verify the functionality of the module using the instructions [in FAQ](./faq.html#how-to-check-module-health).
 
 ### Selects the method to clean the volume before deleting the PV
+
+{{< alert level="warning" >}}
+**Volume cleanup functionality is only available in commercial editions of Deckhouse.**
+{{< /alert >}}
 
 Files with user data may remain on the volume to be deleted. These files will be deleted and will not be accessible to other users via NFS.
 
