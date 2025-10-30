@@ -30,7 +30,7 @@ on:
 
 jobs:
   build_dev:
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.event.schedule == '0 12 * * 6'
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.event.schedule == '0 13 * * 6'
     uses: ./.github/workflows/build_dev.yml
     secrets: inherit
     with:
