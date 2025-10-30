@@ -132,3 +132,5 @@ git:
 imageSpec:
   config:
     entrypoint: ["/{{ $.ImageName }}"]
+---
+{{- include "vex mitigation" (list $ (printf "%s/%s" $.ModuleName $.ImageName )) }}
