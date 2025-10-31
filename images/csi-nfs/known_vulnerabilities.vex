@@ -1,0 +1,23 @@
+{
+  "@context": "https://openvex.dev/ns/v0.2.0",
+  "@id": "https://openvex.dev/docs/public/vex-9c5387d957d88b47252b3f199c5cfd6eebcbceefb6e6bc13790149db4ffaa9e6",
+  "author": "Deckhouse \u003ccontact@deckhouse.io\u003e",
+  "version": 1,
+  "statements": [
+    {
+      "vulnerability": {
+        "name": "CVE-2025-1767"
+      },
+      "products": [
+        {
+          "@id": "pkg:golang/k8s.io/kubernetes@v1.31.12"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "Уязвимость затрагивает устаревший механизм in-tree gitRepo volume. В рамках csi-nfs создание таких томов невозможно, прав на создание таких томов у пользователя нет и уязвимость использоваться не может",
+      "timestamp": "2025-10-30T13:13:05.237532425Z"
+    }
+  ],
+  "timestamp": "2025-10-30T13:13:05Z"
+}
