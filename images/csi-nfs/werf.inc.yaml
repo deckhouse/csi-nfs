@@ -30,7 +30,7 @@ shell:
     - cd /src/csi-driver-nfs
     - for patchfile in /patches/images/{{ $.ImageName }}/patches/*.patch; do echo "Apply ${patchfile} ... "; git apply ${patchfile} --verbose; done
     - cp -R /patches/images/{{ $.ImageName }}/patches/csi-driver-nfs/* ./
-    - rm -rf /src/csi-driver-nfs/.git
+    - rm -rf /src/csi-driver-nfs/.git vendor
     - rm -rf /src/nfs-utils/.git
 
 ---
@@ -107,7 +107,9 @@ secrets:
 
 shell:
   setup:
+    - apk add --no-cache git
     - cd /src/csi-driver-nfs/cmd/nfsplugin
+    - GOPROXY=$(cat /run/secrets/GOPROXY) go mod download
     - export GOOS=linux GOARCH=amd64 CGO_ENABLED=0
     - |
       {{- include "image-build.build" (set $ "BuildCommand" (printf `go build -ldflags="-s -w" -tags "%s" -o /%s` .MODULE_EDITION $.ImageName)) | nindent 6 }}
