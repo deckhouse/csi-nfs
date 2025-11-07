@@ -1,6 +1,6 @@
-From 4d4872a8439425107d069489eb4c3aab73af0d38 Mon Sep 17 00:00:00 2001
+From 2f669aff421522a680223880daabd0decd40f517 Mon Sep 17 00:00:00 2001
 From: "v.oleynikov" <vasily.oleynikov@flant.com>
-Date: Fri, 7 Nov 2025 15:09:06 +0300
+Date: Fri, 7 Nov 2025 15:38:49 +0300
 Subject: [PATCH] Fix CVE
 
 Signed-off-by: v.oleynikov <vasily.oleynikov@flant.com>
