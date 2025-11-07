@@ -1,3 +1,4 @@
 Changes:
   - Updated base images versions
   - CVE fixes
+  - Updated golang version to 1.24.10

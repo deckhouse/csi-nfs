@@ -1,6 +1,6 @@
 module github.com/deckhouse/csi-nfs/images/controller
 
-go 1.24.9
+go 1.24.10
 
 require (
 	github.com/deckhouse/csi-nfs/api v0.0.0-20250213115525-4785a9da80db

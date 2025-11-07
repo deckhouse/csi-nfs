@@ -20,6 +20,10 @@ Fix CVE
 
 Fix CVE
 
+## 006-Updated-golang-version.patch
+
+Update golang version
+
 ## How to apply
 
 ```bash

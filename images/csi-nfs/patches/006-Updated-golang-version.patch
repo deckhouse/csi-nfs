@@ -1,0 +1,25 @@
+From c915618a5aea9b89c301310c8f57380be39ed5a0 Mon Sep 17 00:00:00 2001
+From: "v.oleynikov" <vasily.oleynikov@flant.com>
+Date: Fri, 7 Nov 2025 16:25:02 +0300
+Subject: [PATCH] Updated golang version
+
+Signed-off-by: v.oleynikov <vasily.oleynikov@flant.com>
+---
+ go.mod | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/go.mod b/go.mod
+index 4132646e..1f07cd23 100644
+--- a/go.mod
++++ b/go.mod
+@@ -1,6 +1,6 @@
+ module github.com/kubernetes-csi/csi-driver-nfs
+ 
+-go 1.24.8
++go 1.24.10
+ 
+ require (
+ 	github.com/container-storage-interface/spec v1.11.0
+-- 
+2.43.0
+
