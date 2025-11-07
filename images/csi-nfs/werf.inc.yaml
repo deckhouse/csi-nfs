@@ -108,7 +108,6 @@ secrets:
 shell:
   setup:
     - cd /src/csi-driver-nfs/cmd/nfsplugin
-    - GOPROXY=$(cat /run/secrets/GOPROXY) go mod tidy
     - GOPROXY=$(cat /run/secrets/GOPROXY) go mod download
     - export GOOS=linux GOARCH=amd64 CGO_ENABLED=0
     - |
