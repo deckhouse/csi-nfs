@@ -25,7 +25,7 @@ Creating a StorageClass for the CSI driver `nfs.csi.k8s.io` by the user is prohi
 {{< /alert >}}
 
 {{< alert level="info" >}}
-Supported access modes for the module: RWO RWX in DVP, RWX.
+Supported access modes for the module: RWO, RWX in DVP, RWX.
 {{< /alert >}}
 
 ## System requirements and recommendations
