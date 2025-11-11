@@ -24,6 +24,10 @@ For working with snapshots, the [snapshot-controller](../../snapshot-controller/
 Creating a StorageClass for the CSI driver `nfs.csi.k8s.io` by the user is prohibited.
 {{< /alert >}}
 
+{{< alert level="info" >}}
+Supported access modes for the module: RWO, RWX in DVP, RWX.
+{{< /alert >}}
+
 ## System requirements and recommendations
 
 {{< alert level="warning" >}}
