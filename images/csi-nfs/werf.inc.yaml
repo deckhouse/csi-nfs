@@ -107,7 +107,13 @@ secrets:
 
 shell:
   setup:
+    {{- if eq .SVACE_ENABLED "false" }}
+    {{- include "alpine packages proxy" . | nindent 4 }}    
     - apk add --no-cache git
+    {{- else }}
+    - apt-get update 
+    - apt-get install -y git
+    {{- end }}
     - cd /src/csi-driver-nfs/cmd/nfsplugin
     - GOPROXY=$(cat /run/secrets/GOPROXY) go mod download
     - export GOOS=linux GOARCH=amd64 CGO_ENABLED=0
