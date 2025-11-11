@@ -105,6 +105,7 @@ secrets:
 - id: GOPROXY
   value: {{ .GOPROXY }}
 
+
 shell:
   setup:
     {{- if eq .SVACE_ENABLED "false" }}
