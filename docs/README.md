@@ -44,7 +44,7 @@ To use NFS as virtual disk storage in Deckhouse Virtualisation Platform, configu
 
 ### Recommendations
 
-For module pods to restart when the `tlsParameters` parameter is changed in the module settings, the [pod-reloader](https://deckhouse.io/products/kubernetes-platform/documentation/v1/modules/pod-reloader) module must be enabled (enabled by default).
+For module pods to restart when the `tlsParameters` parameter is changed in the module settings, the [pod-reloader](/modules/pod-reloader/) module must be enabled (enabled by default).
 
 ## RPC-with-TLS mode limitations
 
