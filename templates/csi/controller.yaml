@@ -48,6 +48,7 @@ checksum/ca: {{ .Values.csiNfs.tlsParameters.ca | sha256sum | quote }}
   imagePullPolicy: IfNotPresent
   securityContext:
     privileged: true
+    readOnlyRootFilesystem: true
 {{- end }}
 {{- end }}
 {{- end }}
