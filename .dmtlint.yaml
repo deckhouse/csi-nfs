@@ -1,6 +1,10 @@
 linters-settings:
   container:
     exclude-rules:
+      no-new-privileges:
+        - kind: Deployment
+          name: controller
+          container: controller
       liveness-probe:
         - kind: Deployment
           name: csi-controller
