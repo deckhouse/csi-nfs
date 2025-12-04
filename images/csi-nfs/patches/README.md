@@ -8,7 +8,7 @@ Add volume cleanup feature
 
 Add mountPermissions to snapshot. Fix mountPermissions.
 
-## 003-Updated-golang-version.patch
+## 003-updated-golang-version.patch
 
 Update golang version
 
