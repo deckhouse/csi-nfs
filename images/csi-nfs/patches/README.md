@@ -19,7 +19,7 @@ Add sockerPermissions to csi-controller
 ## How to apply
 
 ```bash
-export CSI_DRIVER_NFS_VERSION="v4.11.0"
+export CSI_DRIVER_NFS_VERSION="v4.12.1"
 export REPO_PATH=$(pwd)
 
 git clone https://github.com/kubernetes-csi/csi-driver-nfs.git
