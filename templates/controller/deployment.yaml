@@ -91,11 +91,14 @@ spec:
               {{- include "controller_resources" . | nindent 14 }}
 {{- end }}
           securityContext:
+            AllowPrivilegeEscalation: true
             readOnlyRootFilesystem: true
             privileged: true
             seLinuxOptions:
               level: s0
               type: spc_t
+            seccompProfile:
+              type: RuntimeDefault
           env:
             - name: LOG_LEVEL
 {{- if eq .Values.csiNfs.logLevel "ERROR" }}
