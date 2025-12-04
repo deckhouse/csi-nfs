@@ -16,6 +16,10 @@ Update golang version
 
 Add sockerPermissions to csi-controller
 
+## 005-fix-cve.patch
+
+Fix CVE
+
 ## How to apply
 
 ```bash

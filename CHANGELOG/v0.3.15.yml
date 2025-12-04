@@ -2,3 +2,6 @@ Changes:
   - Updated base images versions
   - Documentation fixes
   - Manifest fixes
+  - Updated CSI driver version to v4.12.1
+  - CVE fixes
+  - Added socketPermissions parameter to csi-controller
