@@ -91,7 +91,7 @@ spec:
               {{- include "controller_resources" . | nindent 14 }}
 {{- end }}
           securityContext:
-            AllowPrivilegeEscalation: true
+            allowPrivilegeEscalation: true
             readOnlyRootFilesystem: true
             privileged: true
             seLinuxOptions:
