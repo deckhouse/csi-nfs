@@ -1,24 +1,51 @@
-From 92889fbe8cb32e1f473565694ce4ef16bf4e03ab Mon Sep 17 00:00:00 2001
+From b2af33d82f5baa746993cc8292b99fdc34c2dd87 Mon Sep 17 00:00:00 2001
 From: "v.oleynikov" <vasily.oleynikov@flant.com>
-Date: Thu, 24 Jul 2025 07:36:56 +0300
-Subject: [PATCH] Add volume cleanup implementation
+Date: Thu, 4 Dec 2025 18:23:18 +0300
+Subject: [PATCH 1/3] add-volume-cleanup-and-feature-pkg
 
+Signed-off-by: v.oleynikov <vasily.oleynikov@flant.com>
 ---
- go.mod                           |   6 ++
- pkg/nfs/controllerserver.go      |  26 +++++++
- pkg/nfs/volume_cleanup_ce.go     |  25 +++++++
- pkg/nfs/volume_cleanup_common.go |  39 ++++++++++
- pkg/nfs/volume_cleanup_ee.go     | 119 +++++++++++++++++++++++++++++++
- 5 files changed, 215 insertions(+)
+ go.mod                                        |   6 +
+ pkg/nfs/controllerserver.go                   |  26 +++
+ pkg/nfs/volume_cleanup_ce.go                  |  25 +++
+ pkg/nfs/volume_cleanup_common.go              |  39 ++++
+ pkg/nfs/volume_cleanup_ee.go                  | 119 +++++++++++
+ .../deckhouse/csi-nfs/lib/go/common/LICENSE   | 201 +++++++++++++++++
+ .../lib/go/common/pkg/feature/const_ce.go     |  24 +++
+ .../lib/go/common/pkg/feature/const_csepro.go |  13 ++
+ .../lib/go/common/pkg/feature/const_ee.go     |  13 ++
+ .../lib/go/common/pkg/feature/const_se.go     |  13 ++
+ .../lib/go/common/pkg/feature/const_seplus.go |  13 ++
+ .../lib/go/common/pkg/feature/feature.go      |  25 +++
+ .../go-openapi/jsonpointer/.golangci.yml      |  61 ++++++
+ .../github.com/go-openapi/swag/BENCHMARK.md   |  52 +++++
+ .../go-openapi/swag/initialism_index.go       | 202 ++++++++++++++++++
+ .../go-openapi/swag/string_bytes.go           |   8 +
+ vendor/sigs.k8s.io/yaml/goyaml.v2/README.md   |  71 ++++++
+ .../yaml/goyaml.v2/yaml_aliases.go            |  85 ++++++++
+ 18 files changed, 996 insertions(+)
  create mode 100644 pkg/nfs/volume_cleanup_ce.go
  create mode 100644 pkg/nfs/volume_cleanup_common.go
  create mode 100644 pkg/nfs/volume_cleanup_ee.go
+ create mode 100644 vendor/github.com/deckhouse/csi-nfs/lib/go/common/LICENSE
+ create mode 100644 vendor/github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature/const_ce.go
+ create mode 100644 vendor/github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature/const_csepro.go
+ create mode 100644 vendor/github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature/const_ee.go
+ create mode 100644 vendor/github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature/const_se.go
+ create mode 100644 vendor/github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature/const_seplus.go
+ create mode 100644 vendor/github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature/feature.go
+ create mode 100644 vendor/github.com/go-openapi/jsonpointer/.golangci.yml
+ create mode 100644 vendor/github.com/go-openapi/swag/BENCHMARK.md
+ create mode 100644 vendor/github.com/go-openapi/swag/initialism_index.go
+ create mode 100644 vendor/github.com/go-openapi/swag/string_bytes.go
+ create mode 100644 vendor/sigs.k8s.io/yaml/goyaml.v2/README.md
+ create mode 100644 vendor/sigs.k8s.io/yaml/goyaml.v2/yaml_aliases.go
 
 diff --git a/go.mod b/go.mod
-index 9a36315d..3b33e66e 100644
+index 78f27c15..13797220 100644
 --- a/go.mod
 +++ b/go.mod
-@@ -36,6 +36,12 @@ require (
+@@ -41,6 +41,12 @@ require (
  	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
  )
  
@@ -32,10 +59,10 @@ index 9a36315d..3b33e66e 100644
  	github.com/NYTimes/gziphandler v1.1.1 // indirect
  	github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a // indirect
 diff --git a/pkg/nfs/controllerserver.go b/pkg/nfs/controllerserver.go
-index ff1a9167..3b7b21a4 100644
+index b9eb4f27..5efd9136 100644
 --- a/pkg/nfs/controllerserver.go
 +++ b/pkg/nfs/controllerserver.go
-@@ -292,6 +292,19 @@ func (cs *ControllerServer) DeleteVolume(ctx context.Context, req *csi.DeleteVol
+@@ -280,6 +280,19 @@ func (cs *ControllerServer) DeleteVolume(ctx context.Context, req *csi.DeleteVol
  			}
  			klog.V(2).Infof("archived subdirectory %s --> %s", internalVolumePath, archivedInternalVolumePath)
  		} else {
@@ -55,7 +82,7 @@ index ff1a9167..3b7b21a4 100644
  			klog.V(2).Infof("removing subdirectory at %v", internalVolumePath)
  			if err = os.RemoveAll(internalVolumePath); err != nil {
  				return nil, status.Errorf(codes.Internal, "delete subdirectory(%s) failed with %v", internalVolumePath, err)
-@@ -469,6 +482,19 @@ func (cs *ControllerServer) DeleteSnapshot(ctx context.Context, req *csi.DeleteS
+@@ -447,6 +460,19 @@ func (cs *ControllerServer) DeleteSnapshot(ctx context.Context, req *csi.DeleteS
  
  	// delete snapshot archive
  	internalVolumePath := getInternalVolumePath(cs.Driver.workingMountDir, vol)
@@ -276,6 +303,865 @@ index 00000000..dd20e5e2
 +
 +	return nil
 +}
+diff --git a/vendor/github.com/deckhouse/csi-nfs/lib/go/common/LICENSE b/vendor/github.com/deckhouse/csi-nfs/lib/go/common/LICENSE
+new file mode 100644
+index 00000000..b77c0c92
+--- /dev/null
++++ b/vendor/github.com/deckhouse/csi-nfs/lib/go/common/LICENSE
+@@ -0,0 +1,201 @@
++                                 Apache License
++                           Version 2.0, January 2004
++                        http://www.apache.org/licenses/
++
++   TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
++
++   1. Definitions.
++
++      "License" shall mean the terms and conditions for use, reproduction,
++      and distribution as defined by Sections 1 through 9 of this document.
++
++      "Licensor" shall mean the copyright owner or entity authorized by
++      the copyright owner that is granting the License.
++
++      "Legal Entity" shall mean the union of the acting entity and all
++      other entities that control, are controlled by, or are under common
++      control with that entity. For the purposes of this definition,
++      "control" means (i) the power, direct or indirect, to cause the
++      direction or management of such entity, whether by contract or
++      otherwise, or (ii) ownership of fifty percent (50%) or more of the
++      outstanding shares, or (iii) beneficial ownership of such entity.
++
++      "You" (or "Your") shall mean an individual or Legal Entity
++      exercising permissions granted by this License.
++
++      "Source" form shall mean the preferred form for making modifications,
++      including but not limited to software source code, documentation
++      source, and configuration files.
++
++      "Object" form shall mean any form resulting from mechanical
++      transformation or translation of a Source form, including but
++      not limited to compiled object code, generated documentation,
++      and conversions to other media types.
++
++      "Work" shall mean the work of authorship, whether in Source or
++      Object form, made available under the License, as indicated by a
++      copyright notice that is included in or attached to the work
++      (an example is provided in the Appendix below).
++
++      "Derivative Works" shall mean any work, whether in Source or Object
++      form, that is based on (or derived from) the Work and for which the
++      editorial revisions, annotations, elaborations, or other modifications
++      represent, as a whole, an original work of authorship. For the purposes
++      of this License, Derivative Works shall not include works that remain
++      separable from, or merely link (or bind by name) to the interfaces of,
++      the Work and Derivative Works thereof.
++
++      "Contribution" shall mean any work of authorship, including
++      the original version of the Work and any modifications or additions
++      to that Work or Derivative Works thereof, that is intentionally
++      submitted to Licensor for inclusion in the Work by the copyright owner
++      or by an individual or Legal Entity authorized to submit on behalf of
++      the copyright owner. For the purposes of this definition, "submitted"
++      means any form of electronic, verbal, or written communication sent
++      to the Licensor or its representatives, including but not limited to
++      communication on electronic mailing lists, source code control systems,
++      and issue tracking systems that are managed by, or on behalf of, the
++      Licensor for the purpose of discussing and improving the Work, but
++      excluding communication that is conspicuously marked or otherwise
++      designated in writing by the copyright owner as "Not a Contribution."
++
++      "Contributor" shall mean Licensor and any individual or Legal Entity
++      on behalf of whom a Contribution has been received by Licensor and
++      subsequently incorporated within the Work.
++
++   2. Grant of Copyright License. Subject to the terms and conditions of
++      this License, each Contributor hereby grants to You a perpetual,
++      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
++      copyright license to reproduce, prepare Derivative Works of,
++      publicly display, publicly perform, sublicense, and distribute the
++      Work and such Derivative Works in Source or Object form.
++
++   3. Grant of Patent License. Subject to the terms and conditions of
++      this License, each Contributor hereby grants to You a perpetual,
++      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
++      (except as stated in this section) patent license to make, have made,
++      use, offer to sell, sell, import, and otherwise transfer the Work,
++      where such license applies only to those patent claims licensable
++      by such Contributor that are necessarily infringed by their
++      Contribution(s) alone or by combination of their Contribution(s)
++      with the Work to which such Contribution(s) was submitted. If You
++      institute patent litigation against any entity (including a
++      cross-claim or counterclaim in a lawsuit) alleging that the Work
++      or a Contribution incorporated within the Work constitutes direct
++      or contributory patent infringement, then any patent licenses
++      granted to You under this License for that Work shall terminate
++      as of the date such litigation is filed.
++
++   4. Redistribution. You may reproduce and distribute copies of the
++      Work or Derivative Works thereof in any medium, with or without
++      modifications, and in Source or Object form, provided that You
++      meet the following conditions:
++
++      (a) You must give any other recipients of the Work or
++          Derivative Works a copy of this License; and
++
++      (b) You must cause any modified files to carry prominent notices
++          stating that You changed the files; and
++
++      (c) You must retain, in the Source form of any Derivative Works
++          that You distribute, all copyright, patent, trademark, and
++          attribution notices from the Source form of the Work,
++          excluding those notices that do not pertain to any part of
++          the Derivative Works; and
++
++      (d) If the Work includes a "NOTICE" text file as part of its
++          distribution, then any Derivative Works that You distribute must
++          include a readable copy of the attribution notices contained
++          within such NOTICE file, excluding those notices that do not
++          pertain to any part of the Derivative Works, in at least one
++          of the following places: within a NOTICE text file distributed
++          as part of the Derivative Works; within the Source form or
++          documentation, if provided along with the Derivative Works; or,
++          within a display generated by the Derivative Works, if and
++          wherever such third-party notices normally appear. The contents
++          of the NOTICE file are for informational purposes only and
++          do not modify the License. You may add Your own attribution
++          notices within Derivative Works that You distribute, alongside
++          or as an addendum to the NOTICE text from the Work, provided
++          that such additional attribution notices cannot be construed
++          as modifying the License.
++
++      You may add Your own copyright statement to Your modifications and
++      may provide additional or different license terms and conditions
++      for use, reproduction, or distribution of Your modifications, or
++      for any such Derivative Works as a whole, provided Your use,
++      reproduction, and distribution of the Work otherwise complies with
++      the conditions stated in this License.
++
++   5. Submission of Contributions. Unless You explicitly state otherwise,
++      any Contribution intentionally submitted for inclusion in the Work
++      by You to the Licensor shall be under the terms and conditions of
++      this License, without any additional terms or conditions.
++      Notwithstanding the above, nothing herein shall supersede or modify
++      the terms of any separate license agreement you may have executed
++      with Licensor regarding such Contributions.
++
++   6. Trademarks. This License does not grant permission to use the trade
++      names, trademarks, service marks, or product names of the Licensor,
++      except as required for reasonable and customary use in describing the
++      origin of the Work and reproducing the content of the NOTICE file.
++
++   7. Disclaimer of Warranty. Unless required by applicable law or
++      agreed to in writing, Licensor provides the Work (and each
++      Contributor provides its Contributions) on an "AS IS" BASIS,
++      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
++      implied, including, without limitation, any warranties or conditions
++      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
++      PARTICULAR PURPOSE. You are solely responsible for determining the
++      appropriateness of using or redistributing the Work and assume any
++      risks associated with Your exercise of permissions under this License.
++
++   8. Limitation of Liability. In no event and under no legal theory,
++      whether in tort (including negligence), contract, or otherwise,
++      unless required by applicable law (such as deliberate and grossly
++      negligent acts) or agreed to in writing, shall any Contributor be
++      liable to You for damages, including any direct, indirect, special,
++      incidental, or consequential damages of any character arising as a
++      result of this License or out of the use or inability to use the
++      Work (including but not limited to damages for loss of goodwill,
++      work stoppage, computer failure or malfunction, or any and all
++      other commercial damages or losses), even if such Contributor
++      has been advised of the possibility of such damages.
++
++   9. Accepting Warranty or Additional Liability. While redistributing
++      the Work or Derivative Works thereof, You may choose to offer,
++      and charge a fee for, acceptance of support, warranty, indemnity,
++      or other liability obligations and/or rights consistent with this
++      License. However, in accepting such obligations, You may act only
++      on Your own behalf and on Your sole responsibility, not on behalf
++      of any other Contributor, and only if You agree to indemnify,
++      defend, and hold each Contributor harmless for any liability
++      incurred by, or claims asserted against, such Contributor by reason
++      of your accepting any such warranty or additional liability.
++
++   END OF TERMS AND CONDITIONS
++
++   APPENDIX: How to apply the Apache License to your work.
++
++      To apply the Apache License to your work, attach the following
++      boilerplate notice, with the fields enclosed by brackets "[]"
++      replaced with your own identifying information. (Don't include
++      the brackets!)  The text should be enclosed in the appropriate
++      comment syntax for the file format. We also recommend that a
++      file or class name and description of purpose be included on the
++      same "printed page" as the copyright notice for easier
++      identification within third-party archives.
++
++   Copyright [yyyy] [name of copyright owner]
++   
++   Licensed under the Apache License, Version 2.0 (the "License");
++   you may not use this file except in compliance with the License.
++   You may obtain a copy of the License at
++
++       http://www.apache.org/licenses/LICENSE-2.0
++
++   Unless required by applicable law or agreed to in writing, software
++   distributed under the License is distributed on an "AS IS" BASIS,
++   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++   See the License for the specific language governing permissions and
++   limitations under the License.
+diff --git a/vendor/github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature/const_ce.go b/vendor/github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature/const_ce.go
+new file mode 100644
+index 00000000..aaf5ec65
+--- /dev/null
++++ b/vendor/github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature/const_ce.go
+@@ -0,0 +1,24 @@
++//go:build ce
++
++/*
++Copyright 2025 Flant JSC
++
++Licensed under the Apache License, Version 2.0 (the "License");
++you may not use this file except in compliance with the License.
++You may obtain a copy of the License at
++
++    http://www.apache.org/licenses/LICENSE-2.0
++
++Unless required by applicable law or agreed to in writing, software
++distributed under the License is distributed on an "AS IS" BASIS,
++WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++See the License for the specific language governing permissions and
++limitations under the License.
++*/
++
++package feature
++
++const (
++	tlsEnabled           = false
++	volumeCleanupEnabled = false
++)
+diff --git a/vendor/github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature/const_csepro.go b/vendor/github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature/const_csepro.go
+new file mode 100644
+index 00000000..1f5424bb
+--- /dev/null
++++ b/vendor/github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature/const_csepro.go
+@@ -0,0 +1,13 @@
++//go:build csepro
++
++/*
++Copyright 2025 Flant JSC
++Licensed under the Deckhouse Platform Enterprise Edition (EE) license. See https://github.com/deckhouse/deckhouse/blob/main/ee/LICENSE
++*/
++
++package feature
++
++const (
++	tlsEnabled           = true
++	volumeCleanupEnabled = true
++)
+diff --git a/vendor/github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature/const_ee.go b/vendor/github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature/const_ee.go
+new file mode 100644
+index 00000000..1e75707e
+--- /dev/null
++++ b/vendor/github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature/const_ee.go
+@@ -0,0 +1,13 @@
++//go:build ee
++
++/*
++Copyright 2025 Flant JSC
++Licensed under the Deckhouse Platform Enterprise Edition (EE) license. See https://github.com/deckhouse/deckhouse/blob/main/ee/LICENSE
++*/
++
++package feature
++
++const (
++	tlsEnabled           = true
++	volumeCleanupEnabled = true
++)
+diff --git a/vendor/github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature/const_se.go b/vendor/github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature/const_se.go
+new file mode 100644
+index 00000000..69474e49
+--- /dev/null
++++ b/vendor/github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature/const_se.go
+@@ -0,0 +1,13 @@
++//go:build se
++
++/*
++Copyright 2025 Flant JSC
++Licensed under the Deckhouse Platform Enterprise Edition (EE) license. See https://github.com/deckhouse/deckhouse/blob/main/ee/LICENSE
++*/
++
++package feature
++
++const (
++	tlsEnabled           = true
++	volumeCleanupEnabled = false
++)
+diff --git a/vendor/github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature/const_seplus.go b/vendor/github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature/const_seplus.go
+new file mode 100644
+index 00000000..99efa051
+--- /dev/null
++++ b/vendor/github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature/const_seplus.go
+@@ -0,0 +1,13 @@
++//go:build seplus
++
++/*
++Copyright 2025 Flant JSC
++Licensed under the Deckhouse Platform Enterprise Edition (EE) license. See https://github.com/deckhouse/deckhouse/blob/main/ee/LICENSE
++*/
++
++package feature
++
++const (
++	tlsEnabled           = true
++	volumeCleanupEnabled = false
++)
+diff --git a/vendor/github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature/feature.go b/vendor/github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature/feature.go
+new file mode 100644
+index 00000000..00ce5f35
+--- /dev/null
++++ b/vendor/github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature/feature.go
+@@ -0,0 +1,25 @@
++/*
++Copyright 2025 Flant JSC
++
++Licensed under the Apache License, Version 2.0 (the "License");
++you may not use this file except in compliance with the License.
++You may obtain a copy of the License at
++
++    http://www.apache.org/licenses/LICENSE-2.0
++
++Unless required by applicable law or agreed to in writing, software
++distributed under the License is distributed on an "AS IS" BASIS,
++WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++See the License for the specific language governing permissions and
++limitations under the License.
++*/
++
++package feature
++
++func TLSEnabled() bool {
++	return tlsEnabled
++}
++
++func VolumeCleanupEnabled() bool {
++	return volumeCleanupEnabled
++}
+diff --git a/vendor/github.com/go-openapi/jsonpointer/.golangci.yml b/vendor/github.com/go-openapi/jsonpointer/.golangci.yml
+new file mode 100644
+index 00000000..22f8d21c
+--- /dev/null
++++ b/vendor/github.com/go-openapi/jsonpointer/.golangci.yml
+@@ -0,0 +1,61 @@
++linters-settings:
++  govet:
++    check-shadowing: true
++  golint:
++    min-confidence: 0
++  gocyclo:
++    min-complexity: 45
++  maligned:
++    suggest-new: true
++  dupl:
++    threshold: 200
++  goconst:
++    min-len: 2
++    min-occurrences: 3
++
++linters:
++  enable-all: true
++  disable:
++    - maligned
++    - unparam
++    - lll
++    - gochecknoinits
++    - gochecknoglobals
++    - funlen
++    - godox
++    - gocognit
++    - whitespace
++    - wsl
++    - wrapcheck
++    - testpackage
++    - nlreturn
++    - gomnd
++    - exhaustivestruct
++    - goerr113
++    - errorlint
++    - nestif
++    - godot
++    - gofumpt
++    - paralleltest
++    - tparallel
++    - thelper
++    - ifshort
++    - exhaustruct
++    - varnamelen
++    - gci
++    - depguard
++    - errchkjson
++    - inamedparam
++    - nonamedreturns
++    - musttag
++    - ireturn
++    - forcetypeassert
++    - cyclop
++    # deprecated linters
++    - deadcode
++    - interfacer
++    - scopelint
++    - varcheck
++    - structcheck
++    - golint
++    - nosnakecase
+diff --git a/vendor/github.com/go-openapi/swag/BENCHMARK.md b/vendor/github.com/go-openapi/swag/BENCHMARK.md
+new file mode 100644
+index 00000000..e7f28ed6
+--- /dev/null
++++ b/vendor/github.com/go-openapi/swag/BENCHMARK.md
+@@ -0,0 +1,52 @@
++# Benchmarks
++
++## Name mangling utilities
++
++```bash
++go test -bench XXX -run XXX -benchtime 30s
++```
++
++### Benchmarks at b3e7a5386f996177e4808f11acb2aa93a0f660df
++
++```
++goos: linux
++goarch: amd64
++pkg: github.com/go-openapi/swag
++cpu: Intel(R) Core(TM) i5-6200U CPU @ 2.30GHz
++BenchmarkToXXXName/ToGoName-4         	  862623	     44101 ns/op	   10450 B/op	     732 allocs/op
++BenchmarkToXXXName/ToVarName-4        	  853656	     40728 ns/op	   10468 B/op	     734 allocs/op
++BenchmarkToXXXName/ToFileName-4       	 1268312	     27813 ns/op	    9785 B/op	     617 allocs/op
++BenchmarkToXXXName/ToCommandName-4    	 1276322	     27903 ns/op	    9785 B/op	     617 allocs/op
++BenchmarkToXXXName/ToHumanNameLower-4 	  895334	     40354 ns/op	   10472 B/op	     731 allocs/op
++BenchmarkToXXXName/ToHumanNameTitle-4 	  882441	     40678 ns/op	   10566 B/op	     749 allocs/op
++```
++
++### Benchmarks after PR #79
++
++~ x10 performance improvement and ~ /100 memory allocations.
++
++```
++goos: linux
++goarch: amd64
++pkg: github.com/go-openapi/swag
++cpu: Intel(R) Core(TM) i5-6200U CPU @ 2.30GHz
++BenchmarkToXXXName/ToGoName-4         	 9595830	      3991 ns/op	      42 B/op	       5 allocs/op
++BenchmarkToXXXName/ToVarName-4        	 9194276	      3984 ns/op	      62 B/op	       7 allocs/op
++BenchmarkToXXXName/ToFileName-4       	17002711	      2123 ns/op	     147 B/op	       7 allocs/op
++BenchmarkToXXXName/ToCommandName-4    	16772926	      2111 ns/op	     147 B/op	       7 allocs/op
++BenchmarkToXXXName/ToHumanNameLower-4 	 9788331	      3749 ns/op	      92 B/op	       6 allocs/op
++BenchmarkToXXXName/ToHumanNameTitle-4 	 9188260	      3941 ns/op	     104 B/op	       6 allocs/op
++```
++
++```
++goos: linux
++goarch: amd64
++pkg: github.com/go-openapi/swag
++cpu: AMD Ryzen 7 5800X 8-Core Processor             
++BenchmarkToXXXName/ToGoName-16         	18527378	      1972 ns/op	      42 B/op	       5 allocs/op
++BenchmarkToXXXName/ToVarName-16        	15552692	      2093 ns/op	      62 B/op	       7 allocs/op
++BenchmarkToXXXName/ToFileName-16       	32161176	      1117 ns/op	     147 B/op	       7 allocs/op
++BenchmarkToXXXName/ToCommandName-16    	32256634	      1137 ns/op	     147 B/op	       7 allocs/op
++BenchmarkToXXXName/ToHumanNameLower-16 	18599661	      1946 ns/op	      92 B/op	       6 allocs/op
++BenchmarkToXXXName/ToHumanNameTitle-16 	17581353	      2054 ns/op	     105 B/op	       6 allocs/op
++```
+diff --git a/vendor/github.com/go-openapi/swag/initialism_index.go b/vendor/github.com/go-openapi/swag/initialism_index.go
+new file mode 100644
+index 00000000..20a359bb
+--- /dev/null
++++ b/vendor/github.com/go-openapi/swag/initialism_index.go
+@@ -0,0 +1,202 @@
++// Copyright 2015 go-swagger maintainers
++//
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//    http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++package swag
++
++import (
++	"sort"
++	"strings"
++	"sync"
++)
++
++var (
++	// commonInitialisms are common acronyms that are kept as whole uppercased words.
++	commonInitialisms *indexOfInitialisms
++
++	// initialisms is a slice of sorted initialisms
++	initialisms []string
++
++	// a copy of initialisms pre-baked as []rune
++	initialismsRunes      [][]rune
++	initialismsUpperCased [][]rune
++
++	isInitialism func(string) bool
++
++	maxAllocMatches int
++)
++
++func init() {
++	// Taken from https://github.com/golang/lint/blob/3390df4df2787994aea98de825b964ac7944b817/lint.go#L732-L769
++	configuredInitialisms := map[string]bool{
++		"ACL":   true,
++		"API":   true,
++		"ASCII": true,
++		"CPU":   true,
++		"CSS":   true,
++		"DNS":   true,
++		"EOF":   true,
++		"GUID":  true,
++		"HTML":  true,
++		"HTTPS": true,
++		"HTTP":  true,
++		"ID":    true,
++		"IP":    true,
++		"IPv4":  true,
++		"IPv6":  true,
++		"JSON":  true,
++		"LHS":   true,
++		"OAI":   true,
++		"QPS":   true,
++		"RAM":   true,
++		"RHS":   true,
++		"RPC":   true,
++		"SLA":   true,
++		"SMTP":  true,
++		"SQL":   true,
++		"SSH":   true,
++		"TCP":   true,
++		"TLS":   true,
++		"TTL":   true,
++		"UDP":   true,
++		"UI":    true,
++		"UID":   true,
++		"UUID":  true,
++		"URI":   true,
++		"URL":   true,
++		"UTF8":  true,
++		"VM":    true,
++		"XML":   true,
++		"XMPP":  true,
++		"XSRF":  true,
++		"XSS":   true,
++	}
++
++	// a thread-safe index of initialisms
++	commonInitialisms = newIndexOfInitialisms().load(configuredInitialisms)
++	initialisms = commonInitialisms.sorted()
++	initialismsRunes = asRunes(initialisms)
++	initialismsUpperCased = asUpperCased(initialisms)
++	maxAllocMatches = maxAllocHeuristic(initialismsRunes)
++
++	// a test function
++	isInitialism = commonInitialisms.isInitialism
++}
++
++func asRunes(in []string) [][]rune {
++	out := make([][]rune, len(in))
++	for i, initialism := range in {
++		out[i] = []rune(initialism)
++	}
++
++	return out
++}
++
++func asUpperCased(in []string) [][]rune {
++	out := make([][]rune, len(in))
++
++	for i, initialism := range in {
++		out[i] = []rune(upper(trim(initialism)))
++	}
++
++	return out
++}
++
++func maxAllocHeuristic(in [][]rune) int {
++	heuristic := make(map[rune]int)
++	for _, initialism := range in {
++		heuristic[initialism[0]]++
++	}
++
++	var maxAlloc int
++	for _, val := range heuristic {
++		if val > maxAlloc {
++			maxAlloc = val
++		}
++	}
++
++	return maxAlloc
++}
++
++// AddInitialisms add additional initialisms
++func AddInitialisms(words ...string) {
++	for _, word := range words {
++		// commonInitialisms[upper(word)] = true
++		commonInitialisms.add(upper(word))
++	}
++	// sort again
++	initialisms = commonInitialisms.sorted()
++	initialismsRunes = asRunes(initialisms)
++	initialismsUpperCased = asUpperCased(initialisms)
++}
++
++// indexOfInitialisms is a thread-safe implementation of the sorted index of initialisms.
++// Since go1.9, this may be implemented with sync.Map.
++type indexOfInitialisms struct {
++	sortMutex *sync.Mutex
++	index     *sync.Map
++}
++
++func newIndexOfInitialisms() *indexOfInitialisms {
++	return &indexOfInitialisms{
++		sortMutex: new(sync.Mutex),
++		index:     new(sync.Map),
++	}
++}
++
++func (m *indexOfInitialisms) load(initial map[string]bool) *indexOfInitialisms {
++	m.sortMutex.Lock()
++	defer m.sortMutex.Unlock()
++	for k, v := range initial {
++		m.index.Store(k, v)
++	}
++	return m
++}
++
++func (m *indexOfInitialisms) isInitialism(key string) bool {
++	_, ok := m.index.Load(key)
++	return ok
++}
++
++func (m *indexOfInitialisms) add(key string) *indexOfInitialisms {
++	m.index.Store(key, true)
++	return m
++}
++
++func (m *indexOfInitialisms) sorted() (result []string) {
++	m.sortMutex.Lock()
++	defer m.sortMutex.Unlock()
++	m.index.Range(func(key, _ interface{}) bool {
++		k := key.(string)
++		result = append(result, k)
++		return true
++	})
++	sort.Sort(sort.Reverse(byInitialism(result)))
++	return
++}
++
++type byInitialism []string
++
++func (s byInitialism) Len() int {
++	return len(s)
++}
++func (s byInitialism) Swap(i, j int) {
++	s[i], s[j] = s[j], s[i]
++}
++func (s byInitialism) Less(i, j int) bool {
++	if len(s[i]) != len(s[j]) {
++		return len(s[i]) < len(s[j])
++	}
++
++	return strings.Compare(s[i], s[j]) > 0
++}
+diff --git a/vendor/github.com/go-openapi/swag/string_bytes.go b/vendor/github.com/go-openapi/swag/string_bytes.go
+new file mode 100644
+index 00000000..90745d5c
+--- /dev/null
++++ b/vendor/github.com/go-openapi/swag/string_bytes.go
+@@ -0,0 +1,8 @@
++package swag
++
++import "unsafe"
++
++// hackStringBytes returns the (unsafe) underlying bytes slice of a string.
++func hackStringBytes(str string) []byte {
++	return unsafe.Slice(unsafe.StringData(str), len(str))
++}
+diff --git a/vendor/sigs.k8s.io/yaml/goyaml.v2/README.md b/vendor/sigs.k8s.io/yaml/goyaml.v2/README.md
+new file mode 100644
+index 00000000..9a8f1e67
+--- /dev/null
++++ b/vendor/sigs.k8s.io/yaml/goyaml.v2/README.md
+@@ -0,0 +1,71 @@
++# goyaml.v2
++
++This package provides type and function aliases for the `go.yaml.in/yaml/v2` package (which is compatible with `gopkg.in/yaml.v2`).
++
++## Purpose
++
++The purpose of this package is to:
++
++1. Provide a transition path for users migrating from the sigs.k8s.io/yaml package to direct usage of go.yaml.in/yaml/v2
++2. Maintain compatibility with existing code while encouraging migration to the upstream package
++3. Reduce maintenance overhead by delegating to the upstream implementation
++
++## Usage
++
++Instead of importing this package directly, you should migrate to using `go.yaml.in/yaml/v2` directly:
++
++```go
++// Old way
++import "sigs.k8s.io/yaml/goyaml.v2"
++
++// Recommended way
++import "go.yaml.in/yaml/v2"
++```
++
++## Available Types and Functions
++
++All public types and functions from `go.yaml.in/yaml/v2` are available through this package:
++
++### Types
++
++- `MapSlice` - Encodes and decodes as a YAML map with preserved key order
++- `MapItem` - An item in a MapSlice
++- `Unmarshaler` - Interface for custom unmarshaling behavior
++- `Marshaler` - Interface for custom marshaling behavior
++- `IsZeroer` - Interface to check if an object is zero
++- `Decoder` - Reads and decodes YAML values from an input stream
++- `Encoder` - Writes YAML values to an output stream
++- `TypeError` - Error returned by Unmarshal for decoding issues
++
++### Functions
++
++- `Unmarshal` - Decodes YAML data into a Go value
++- `UnmarshalStrict` - Like Unmarshal but errors on unknown fields
++- `Marshal` - Serializes a Go value into YAML
++- `NewDecoder` - Creates a new Decoder
++- `NewEncoder` - Creates a new Encoder
++- `FutureLineWrap` - Controls line wrapping behavior
++
++## Migration Guide
++
++To migrate from this package to `go.yaml.in/yaml/v2`:
++
++1. Update your import statements:
++   ```go
++   // From
++   import "sigs.k8s.io/yaml/goyaml.v2"
++   
++   // To
++   import "go.yaml.in/yaml/v2"
++   ```
++
++2. No code changes should be necessary as the API is identical
++
++3. Update your go.mod file to include the dependency:
++   ```
++   require go.yaml.in/yaml/v2 v2.4.2
++   ```
++
++## Deprecation Notice
++
++All types and functions in this package are marked as deprecated. You should migrate to using `go.yaml.in/yaml/v2` directly.
+diff --git a/vendor/sigs.k8s.io/yaml/goyaml.v2/yaml_aliases.go b/vendor/sigs.k8s.io/yaml/goyaml.v2/yaml_aliases.go
+new file mode 100644
+index 00000000..8c82bc2c
+--- /dev/null
++++ b/vendor/sigs.k8s.io/yaml/goyaml.v2/yaml_aliases.go
+@@ -0,0 +1,85 @@
++/*
++Copyright 2025 The Kubernetes Authors.
++
++Licensed under the Apache License, Version 2.0 (the "License");
++you may not use this file except in compliance with the License.
++You may obtain a copy of the License at
++
++    http://www.apache.org/licenses/LICENSE-2.0
++
++Unless required by applicable law or agreed to in writing, software
++distributed under the License is distributed on an "AS IS" BASIS,
++WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++See the License for the specific language governing permissions and
++limitations under the License.
++*/
++
++package yaml
++
++import (
++	gopkg_yaml "go.yaml.in/yaml/v2"
++)
++
++// Type aliases for public types from go.yaml.in/yaml/v2
++type (
++	// MapSlice encodes and decodes as a YAML map.
++	// The order of keys is preserved when encoding and decoding.
++	// Deprecated: Use go.yaml.in/yaml/v2.MapSlice directly.
++	MapSlice = gopkg_yaml.MapSlice
++
++	// MapItem is an item in a MapSlice.
++	// Deprecated: Use go.yaml.in/yaml/v2.MapItem directly.
++	MapItem = gopkg_yaml.MapItem
++
++	// Unmarshaler is implemented by types to customize their behavior when being unmarshaled from a YAML document.
++	// Deprecated: Use go.yaml.in/yaml/v2.Unmarshaler directly.
++	Unmarshaler = gopkg_yaml.Unmarshaler
++
++	// Marshaler is implemented by types to customize their behavior when being marshaled into a YAML document.
++	// Deprecated: Use go.yaml.in/yaml/v2.Marshaler directly.
++	Marshaler = gopkg_yaml.Marshaler
++
++	// IsZeroer is used to check whether an object is zero to determine whether it should be omitted when
++	// marshaling with the omitempty flag. One notable implementation is time.Time.
++	// Deprecated: Use go.yaml.in/yaml/v2.IsZeroer directly.
++	IsZeroer = gopkg_yaml.IsZeroer
++
++	// Decoder reads and decodes YAML values from an input stream.
++	// Deprecated: Use go.yaml.in/yaml/v2.Decoder directly.
++	Decoder = gopkg_yaml.Decoder
++
++	// Encoder writes YAML values to an output stream.
++	// Deprecated: Use go.yaml.in/yaml/v2.Encoder directly.
++	Encoder = gopkg_yaml.Encoder
++
++	// TypeError is returned by Unmarshal when one or more fields in the YAML document cannot be properly decoded.
++	// Deprecated: Use go.yaml.in/yaml/v2.TypeError directly.
++	TypeError = gopkg_yaml.TypeError
++)
++
++// Function aliases for public functions from go.yaml.in/yaml/v2
++var (
++	// Unmarshal decodes the first document found within the in byte slice and assigns decoded values into the out value.
++	// Deprecated: Use go.yaml.in/yaml/v2.Unmarshal directly.
++	Unmarshal = gopkg_yaml.Unmarshal
++
++	// UnmarshalStrict is like Unmarshal except that any fields that are found in the data that do not have corresponding struct members will result in an error.
++	// Deprecated: Use go.yaml.in/yaml/v2.UnmarshalStrict directly.
++	UnmarshalStrict = gopkg_yaml.UnmarshalStrict
++
++	// Marshal serializes the value provided into a YAML document.
++	// Deprecated: Use go.yaml.in/yaml/v2.Marshal directly.
++	Marshal = gopkg_yaml.Marshal
++
++	// NewDecoder returns a new decoder that reads from r.
++	// Deprecated: Use go.yaml.in/yaml/v2.NewDecoder directly.
++	NewDecoder = gopkg_yaml.NewDecoder
++
++	// NewEncoder returns a new encoder that writes to w.
++	// Deprecated: Use go.yaml.in/yaml/v2.NewEncoder directly.
++	NewEncoder = gopkg_yaml.NewEncoder
++
++	// FutureLineWrap globally disables line wrapping when encoding long strings.
++	// Deprecated: Use go.yaml.in/yaml/v2.FutureLineWrap directly.
++	FutureLineWrap = gopkg_yaml.FutureLineWrap
++)
 -- 
 2.43.0
 

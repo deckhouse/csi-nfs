@@ -1,0 +1,135 @@
+From ddc1c867f466becf2c9c21ab5a823e5dd9932764 Mon Sep 17 00:00:00 2001
+From: "v.oleynikov" <vasily.oleynikov@flant.com>
+Date: Thu, 4 Dec 2025 20:30:27 +0300
+Subject: [PATCH] add socket permissions
+
+Signed-off-by: v.oleynikov <vasily.oleynikov@flant.com>
+---
+ cmd/nfsplugin/main.go |  2 ++
+ pkg/nfs/nfs.go        |  7 ++++++-
+ pkg/nfs/server.go     | 19 +++++++++++++++----
+ 3 files changed, 23 insertions(+), 5 deletions(-)
+
+diff --git a/cmd/nfsplugin/main.go b/cmd/nfsplugin/main.go
+index a34547ca..8a3eb8ab 100644
+--- a/cmd/nfsplugin/main.go
++++ b/cmd/nfsplugin/main.go
+@@ -29,6 +29,7 @@ var (
+ 	endpoint                     = flag.String("endpoint", "unix://tmp/csi.sock", "CSI endpoint")
+ 	nodeID                       = flag.String("nodeid", "", "node id")
+ 	mountPermissions             = flag.Uint64("mount-permissions", 0, "mounted folder permissions")
++	socketPermissions            = flag.Uint("socket-permissions", 0, "Unix socket file permissions (e.g., 0700, 0777, 0666). If 0, default permissions (0700) will be used")
+ 	driverName                   = flag.String("drivername", nfs.DefaultDriverName, "name of the driver")
+ 	workingMountDir              = flag.String("working-mount-dir", "/tmp", "working directory for provisioner to mount nfs shares temporarily")
+ 	defaultOnDeletePolicy        = flag.String("default-ondelete-policy", "", "default policy for deleting subdirectory when deleting a volume")
+@@ -55,6 +56,7 @@ func handle() {
+ 		DriverName:                   *driverName,
+ 		Endpoint:                     *endpoint,
+ 		MountPermissions:             *mountPermissions,
++		SocketPermissions:            uint32(*socketPermissions),
+ 		WorkingMountDir:              *workingMountDir,
+ 		DefaultOnDeletePolicy:        *defaultOnDeletePolicy,
+ 		VolStatsCacheExpireInMinutes: *volStatsCacheExpireInMinutes,
+diff --git a/pkg/nfs/nfs.go b/pkg/nfs/nfs.go
+index 919d078d..a965ad45 100644
+--- a/pkg/nfs/nfs.go
++++ b/pkg/nfs/nfs.go
+@@ -17,6 +17,7 @@ limitations under the License.
+ package nfs
+ 
+ import (
++	"os"
+ 	"runtime"
+ 	"strings"
+ 	"time"
+@@ -39,6 +40,7 @@ type DriverOptions struct {
+ 	VolStatsCacheExpireInMinutes int
+ 	RemoveArchivedVolumePath     bool
+ 	UseTarCommandInSnapshot      bool
++	SocketPermissions            uint32 // Unix socket file permissions (e.g., 0700, 0777, 0666). If 0, default permissions (0700) will be used.
+ }
+ 
+ type Driver struct {
+@@ -51,6 +53,7 @@ type Driver struct {
+ 	defaultOnDeletePolicy    string
+ 	removeArchivedVolumePath bool
+ 	useTarCommandInSnapshot  bool
++	socketPermissions        uint32
+ 
+ 	//ids *identityServer
+ 	ns          *NodeServer
+@@ -100,6 +103,7 @@ func NewDriver(options *DriverOptions) *Driver {
+ 		removeArchivedVolumePath:     options.RemoveArchivedVolumePath,
+ 		useTarCommandInSnapshot:      options.UseTarCommandInSnapshot,
+ 		defaultOnDeletePolicy:        options.DefaultOnDeletePolicy,
++		socketPermissions:            options.SocketPermissions,
+ 	}
+ 
+ 	n.AddControllerServiceCapabilities([]csi.ControllerServiceCapability_RPC_Type{
+@@ -159,7 +163,8 @@ func (n *Driver) Run(testMode bool) {
+ 		// using default controllerserver.
+ 		NewControllerServer(n),
+ 		n.ns,
+-		testMode)
++		testMode,
++		os.FileMode(n.socketPermissions))
+ 	s.Wait()
+ }
+ 
+diff --git a/pkg/nfs/server.go b/pkg/nfs/server.go
+index b1620cb4..d19e1e9c 100644
+--- a/pkg/nfs/server.go
++++ b/pkg/nfs/server.go
+@@ -30,7 +30,9 @@ import (
+ // Defines Non blocking GRPC server interfaces
+ type NonBlockingGRPCServer interface {
+ 	// Start services at the endpoint
+-	Start(endpoint string, ids csi.IdentityServer, cs csi.ControllerServer, ns csi.NodeServer, testMode bool)
++	// socketPermissions: Unix socket file permissions (e.g., 0700, 0777, 0666). 
++	// If 0, default permissions (0700) will be used. Only applies to Unix sockets.
++	Start(endpoint string, ids csi.IdentityServer, cs csi.ControllerServer, ns csi.NodeServer, testMode bool, socketPermissions os.FileMode)
+ 	// Waits for the service to stop
+ 	Wait()
+ 	// Stops the service gracefully
+@@ -49,11 +51,11 @@ type nonBlockingGRPCServer struct {
+ 	server *grpc.Server
+ }
+ 
+-func (s *nonBlockingGRPCServer) Start(endpoint string, ids csi.IdentityServer, cs csi.ControllerServer, ns csi.NodeServer, testMode bool) {
++func (s *nonBlockingGRPCServer) Start(endpoint string, ids csi.IdentityServer, cs csi.ControllerServer, ns csi.NodeServer, testMode bool, socketPermissions os.FileMode) {
+ 
+ 	s.wg.Add(1)
+ 
+-	go s.serve(endpoint, ids, cs, ns, testMode)
++	go s.serve(endpoint, ids, cs, ns, testMode, socketPermissions)
+ }
+ 
+ func (s *nonBlockingGRPCServer) Wait() {
+@@ -68,7 +70,7 @@ func (s *nonBlockingGRPCServer) ForceStop() {
+ 	s.server.Stop()
+ }
+ 
+-func (s *nonBlockingGRPCServer) serve(endpoint string, ids csi.IdentityServer, cs csi.ControllerServer, ns csi.NodeServer, testMode bool) {
++func (s *nonBlockingGRPCServer) serve(endpoint string, ids csi.IdentityServer, cs csi.ControllerServer, ns csi.NodeServer, testMode bool, socketPermissions os.FileMode) {
+ 
+ 	proto, addr, err := ParseEndpoint(endpoint)
+ 	if err != nil {
+@@ -87,6 +89,15 @@ func (s *nonBlockingGRPCServer) serve(endpoint string, ids csi.IdentityServer, c
+ 		klog.Fatalf("Failed to listen: %v", err)
+ 	}
+ 
++	// Set socket permissions if specified (only for Unix sockets)
++	if proto == "unix" && socketPermissions != 0 {
++		if err := os.Chmod(addr, socketPermissions); err != nil {
++			klog.Warningf("Failed to set socket permissions on %s to %#o: %v", addr, socketPermissions, err)
++		} else {
++			klog.V(2).Infof("Set socket permissions on %s to %#o", addr, socketPermissions)
++		}
++	}
++
+ 	opts := []grpc.ServerOption{
+ 		grpc.UnaryInterceptor(logGRPC),
+ 	}
+-- 
+2.43.0
+
