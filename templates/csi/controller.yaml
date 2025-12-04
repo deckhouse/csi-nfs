@@ -154,6 +154,7 @@ storage.deckhouse.io/csi-nfs-node: ""
 - "--mount-permissions=0"
 - "--working-mount-dir=/tmp"
 - "--default-ondelete-policy=delete"
+- "--socket-permissions=0777"
 {{- end }}
 
 {{- define "csi_controller_envs" }}
