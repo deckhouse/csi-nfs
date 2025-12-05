@@ -4,30 +4,26 @@
 
 Add volume cleanup feature
 
-## 002-update-oauth2-to-fix-CVE.patch
-
-Update go.mod to fix CVE
-
-## 003-add-mountPermissions-to-snapshot.patch
+## 002-add-mountPermissions-to-snapshot.patch
 
 Add mountPermissions to snapshot. Fix mountPermissions.
 
-## 004-fix-go-mod.patch
-
-Fix CVE
-
-## 005-Fix-CVE.patch
-
-Fix CVE
-
-## 006-Updated-golang-version.patch
+## 003-updated-golang-version.patch
 
 Update golang version
+
+## 004-add-socket-permissions.patch
+
+Add sockerPermissions to csi-controller
+
+## 005-fix-cve.patch
+
+Fix CVE
 
 ## How to apply
 
 ```bash
-export CSI_DRIVER_NFS_VERSION="v4.11.0"
+export CSI_DRIVER_NFS_VERSION="v4.12.1"
 export REPO_PATH=$(pwd)
 
 git clone https://github.com/kubernetes-csi/csi-driver-nfs.git

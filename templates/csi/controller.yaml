@@ -48,6 +48,7 @@ checksum/ca: {{ .Values.csiNfs.tlsParameters.ca | sha256sum | quote }}
   imagePullPolicy: IfNotPresent
   securityContext:
     privileged: true
+    readOnlyRootFilesystem: true
 {{- end }}
 {{- end }}
 {{- end }}
@@ -154,6 +155,7 @@ storage.deckhouse.io/csi-nfs-node: ""
 - "--mount-permissions=0"
 - "--working-mount-dir=/tmp"
 - "--default-ondelete-policy=delete"
+- "--socket-permissions=0777"
 {{- end }}
 
 {{- define "csi_controller_envs" }}
