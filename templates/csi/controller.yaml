@@ -278,6 +278,6 @@ storage.deckhouse.io/csi-nfs-node: ""
 {{- $_ := set $csiNodeConfig "initContainers" (include "csi_init_containers" . | fromYamlArray) }}
 {{- $_ := set $csiNodeConfig "customNodeSelector" (include "csi_custom_node_selector" . | fromYaml) }}
 {{- $_ := set $csiNodeConfig "additionalCsiNodePodAnnotations" (include "additional_csi_annotations" . | fromYaml) }}
-{{- $_ := set $csiNodeConfig "forceCsiNodeAndStaticNodesDepoloy" true }}
+{{- $_ := set $csiNodeConfig "forceCsiNodeAndStaticNodesDepoloy" "true" }}
 
 {{- include "helm_lib_csi_node_manifests" (list . $csiNodeConfig) }}
