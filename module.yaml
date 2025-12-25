@@ -5,7 +5,7 @@ descriptions:
   en: "CSI NFS module"
 requirements:
   bootstrapped: true
-  deckhouse: ">= 1.67"
+  deckhouse: ">= 1.68"
   modules:
     snapshot-controller: ">= 0.0.0"
 namespace: "d8-csi-nfs"
