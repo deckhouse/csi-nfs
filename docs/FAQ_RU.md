@@ -34,7 +34,7 @@ kubectl -n d8-csi-nfs get pod -owide -w
 1. Включите `snapshot-controller`:
 
    ```yaml
-   kubectl apply -f -<<EOF
+   kubectl apply -f - <<EOF
    apiVersion: deckhouse.io/v1alpha1
    kind: ModuleConfig
    metadata:
@@ -48,7 +48,7 @@ kubectl -n d8-csi-nfs get pod -owide -w
 1. Создайте снимки томов. Для этого выполните следующую команду, указав нужные параметры:
 
    ```yaml
-   kubectl apply -f -<<EOF
+   kubectl apply -f - <<EOF
    apiVersion: snapshot.storage.k8s.io/v1
    kind: VolumeSnapshot
    metadata:
