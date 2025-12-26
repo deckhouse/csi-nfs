@@ -100,6 +100,7 @@ func ReconcileNodeSelector(ctx context.Context, cl client.Client, clusterWideCli
 	}
 
 	log.Trace(fmt.Sprintf("[GetNodeSelectorFromNFSStorageClasses] Found %d NFSStorageClasses: %+v", len(nfsStorageClasses.Items), nfsStorageClasses.Items))
+
 	userNodeSelectorList := GetNodeSelectorFromNFSStorageClasses(log, nfsStorageClasses)
 	log.Debug(fmt.Sprintf("[reconcileNodeSelector] User node selector list: %+v", userNodeSelectorList))
 
@@ -213,6 +214,11 @@ func ReconcileNodeSelector(ctx context.Context, cl client.Client, clusterWideCli
 }
 
 func GetNodeSelectorFromNFSStorageClasses(log logger.Logger, nfsStorageClasses *v1alpha1.NFSStorageClassList) []*metav1.LabelSelector {
+	if len(nfsStorageClasses.Items) == 0 {
+		log.Debug(fmt.Sprintf("[GetNodeSelectorFromNFSStorageClasses] No NFSStorageClasses found. Return default NodeSelector %+v.", DefaultNodeSelector))
+		return []*metav1.LabelSelector{DefaultNodeSelector}
+	}
+
 	nodeSelectorList := []*metav1.LabelSelector{}
 	for _, nfsStorageClass := range nfsStorageClasses.Items {
 		log.Debug(fmt.Sprintf("[GetNodeSelectorFromNFSStorageClasses] Process NFSStorageClass %s.", nfsStorageClass.Name))
