@@ -76,7 +76,7 @@ var _ = Describe(controller.NodeSelectorReconcilerName, func() {
 	})
 
 	Context("ReconcileNodeSelector() + ReconcileModulePods() Integration", func() {
-		It("Scenario 1: NFSStorageClass is missing, some nodes have the csi-nfs label, also csi-nfs-node and csi-controller Pods -> label removed, Pods removed", func() {
+		It("Scenario 1: NFSStorageClass is missing, some nodes have the csi-nfs label, also csi-nfs-node and csi-controller Pods -> all nodes have labels", func() {
 			prepareNode(ctx, cl, "node-with-label", map[string]string{"kubernetes.io/os": "linux", nfsNodeSelectorKey: "", "test-label": "value"})
 			prepareNode(ctx, cl, "node-without-label", nil)
 
@@ -94,9 +94,9 @@ var _ = Describe(controller.NodeSelectorReconcilerName, func() {
 			err := controller.ReconcileNodeSelector(ctx, cl, clusterWideCl, log, controllerNamespace)
 			Expect(err).NotTo(HaveOccurred())
 
-			checkNodeLabels(ctx, cl, "node-with-label", map[string]string{"kubernetes.io/os": "linux", "test-label": "value"})
+			checkNodeLabels(ctx, cl, "node-with-label", map[string]string{"kubernetes.io/os": "linux", "test-label": "value", "storage.deckhouse.io/csi-nfs-node": ""})
 			checkNodeLabels(ctx, cl, "node-without-label", nil)
-			checkNodeLabels(ctx, cl, "controller-node", map[string]string{"kubernetes.io/os": "linux", "test-label": "value"})
+			checkNodeLabels(ctx, cl, "controller-node", map[string]string{"kubernetes.io/os": "linux", "test-label": "value", "storage.deckhouse.io/csi-nfs-node": ""})
 
 			// ReconcileModulePods
 			err = controller.ReconcileModulePods(ctx, cl, clusterWideCl, log, controllerNamespace, controller.NFSNodeSelector, controller.ModulePodSelectorList)
