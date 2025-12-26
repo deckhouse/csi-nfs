@@ -47,8 +47,6 @@ var (
 	CSIControllerLabel                 = map[string]string{"app": "csi-controller"}
 	CSINodeLabel                       = map[string]string{"app": "csi-nfs"}
 	csiNFSExternalSnapshotterLeaseName = "external-snapshotter-leader-nfs-csi-k8s-io"
-	MasterNodeSelector                 = map[string]string{"node-role.kubernetes.io/control-plane": ""}
-	MasterNodeSelectorLegacy           = map[string]string{"node-role.kubernetes.io/master": ""}
 	ModulePodSelectorList              = []map[string]string{
 		CSIControllerLabel,
 		CSINodeLabel,
@@ -102,36 +100,6 @@ func ReconcileNodeSelector(ctx context.Context, cl client.Client, clusterWideCli
 	}
 
 	log.Trace(fmt.Sprintf("[GetNodeSelectorFromNFSStorageClasses] Found %d NFSStorageClasses: %+v", len(nfsStorageClasses.Items), nfsStorageClasses.Items))
-
-	// Handle master nodes labeling based on NFSStorageClasses presence
-	hasNFSStorageClasses := len(nfsStorageClasses.Items) > 0
-	masterNodes, err := GetMasterNodes(ctx, cl, log)
-	if err != nil {
-		err = fmt.Errorf("[reconcileNodeSelector] Failed get master nodes: %w", err)
-		return err
-	}
-
-	if hasNFSStorageClasses {
-		// Remove NFS labels from master nodes when NFSStorageClasses exist
-		for _, node := range masterNodes.Items {
-			log.Info(fmt.Sprintf("[reconcileNodeSelector] Remove NFS labels from master node: %s", node.Name))
-			err := RemoveLabelsFromNode(ctx, cl, log, node, nfsNodeLabels)
-			if err != nil {
-				err = fmt.Errorf("[reconcileNodeSelector] Failed remove labels %+v from master node: %s: %w", nfsNodeLabels, node.Name, err)
-				return err
-			}
-		}
-	} else {
-		// Add NFS labels to master nodes when no NFSStorageClasses exist
-		for _, node := range masterNodes.Items {
-			log.Info(fmt.Sprintf("[reconcileNodeSelector] Add NFS labels to master node: %s", node.Name))
-			err := AddLabelsToNode(ctx, cl, log, node, nfsNodeLabels)
-			if err != nil {
-				err = fmt.Errorf("[reconcileNodeSelector] Failed add labels %+v to master node: %s: %w", nfsNodeLabels, node.Name, err)
-				return err
-			}
-		}
-	}
 
 	userNodeSelectorList := GetNodeSelectorFromNFSStorageClasses(log, nfsStorageClasses)
 	log.Debug(fmt.Sprintf("[reconcileNodeSelector] User node selector list: %+v", userNodeSelectorList))
@@ -205,19 +173,6 @@ func ReconcileNodeSelector(ctx context.Context, cl client.Client, clusterWideCli
 	for _, node := range nodesToRemove.Items {
 		log.Info(fmt.Sprintf("[reconcileNodeSelector] Process remove label for node: %s", node.Name))
 
-		// Check if node is a master node and skip removal if no NFSStorageClasses exist
-		isMasterNode := false
-		for _, masterNode := range masterNodes.Items {
-			if masterNode.Name == node.Name {
-				isMasterNode = true
-				break
-			}
-		}
-		if isMasterNode && !hasNFSStorageClasses {
-			log.Warning(fmt.Sprintf("[reconcileNodeSelector] Skip remove label from master node: %s (no NFSStorageClasses exist)", node.Name))
-			continue
-		}
-
 		if node.Name == controllerNodeName {
 			log.Warning(fmt.Sprintf("[reconcileNodeSelector] Node %s is csi-nfs controller node!", node.Name))
 			csiControllerRemovable, err := IsCSIControllerRemovable(ctx, clusterWideClient, log, NFSStorageClassProvisioner, namespaceList)
@@ -259,6 +214,11 @@ func ReconcileNodeSelector(ctx context.Context, cl client.Client, clusterWideCli
 }
 
 func GetNodeSelectorFromNFSStorageClasses(log logger.Logger, nfsStorageClasses *v1alpha1.NFSStorageClassList) []*metav1.LabelSelector {
+	if len(nfsStorageClasses.Items) == 0 {
+		log.Debug(fmt.Sprintf("[GetNodeSelectorFromNFSStorageClasses] No NFSStorageClasses found. Return default NodeSelector %+v.", DefaultNodeSelector))
+		return []*metav1.LabelSelector{DefaultNodeSelector}
+	}
+
 	nodeSelectorList := []*metav1.LabelSelector{}
 	for _, nfsStorageClass := range nfsStorageClasses.Items {
 		log.Debug(fmt.Sprintf("[GetNodeSelectorFromNFSStorageClasses] Process NFSStorageClass %s.", nfsStorageClass.Name))
@@ -314,42 +274,6 @@ func GetNodesBySelector(ctx context.Context, cl client.Client, nodeSelector map[
 	selectedK8sNodes := &corev1.NodeList{}
 	err := cl.List(ctx, selectedK8sNodes, client.MatchingLabels(nodeSelector))
 	return selectedK8sNodes, err
-}
-
-func GetMasterNodes(ctx context.Context, cl client.Client, log logger.Logger) (*corev1.NodeList, error) {
-	masterNodes := &corev1.NodeList{}
-
-	// Try control-plane label first (Kubernetes 1.20+)
-	controlPlaneNodes := &corev1.NodeList{}
-	err := cl.List(ctx, controlPlaneNodes, client.MatchingLabels(MasterNodeSelector))
-	if err != nil {
-		log.Warning(fmt.Sprintf("[GetMasterNodes] Failed to get control-plane nodes: %v", err))
-	} else {
-		masterNodes.Items = append(masterNodes.Items, controlPlaneNodes.Items...)
-	}
-
-	// Try legacy master label
-	legacyMasterNodes := &corev1.NodeList{}
-	err = cl.List(ctx, legacyMasterNodes, client.MatchingLabels(MasterNodeSelectorLegacy))
-	if err != nil {
-		log.Warning(fmt.Sprintf("[GetMasterNodes] Failed to get legacy master nodes: %v", err))
-	} else {
-		// Avoid duplicates
-		for _, legacyNode := range legacyMasterNodes.Items {
-			found := false
-			for _, existingNode := range masterNodes.Items {
-				if existingNode.Name == legacyNode.Name {
-					found = true
-					break
-				}
-			}
-			if !found {
-				masterNodes.Items = append(masterNodes.Items, legacyNode)
-			}
-		}
-	}
-
-	return masterNodes, nil
 }
 
 func AddLabelsToNode(ctx context.Context, cl client.Client, log logger.Logger, node corev1.Node, labels map[string]string) error {

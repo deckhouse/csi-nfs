@@ -33,7 +33,7 @@ In `csi-nfs`, snapshots are created by archiving the volume folder. The archive 
 1. Enable the `snapshot-controller`:
 
    ```yaml
-   kubectl apply -f -<<EOF
+   kubectl apply -f - <<EOF
    apiVersion: deckhouse.io/v1alpha1
    kind: ModuleConfig
    metadata:
@@ -47,7 +47,7 @@ In `csi-nfs`, snapshots are created by archiving the volume folder. The archive 
 1. Create volume snapshots. To do this, run the following command, specifying the required parameters:
 
    ```yaml
-   kubectl apply -f -<<EOF
+   kubectl apply -f - <<EOF
    apiVersion: snapshot.storage.k8s.io/v1
    kind: VolumeSnapshot
    metadata:
