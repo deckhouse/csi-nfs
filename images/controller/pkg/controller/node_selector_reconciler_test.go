@@ -102,9 +102,9 @@ var _ = Describe(controller.NodeSelectorReconcilerName, func() {
 			err = controller.ReconcileModulePods(ctx, cl, clusterWideCl, log, controllerNamespace, controller.NFSNodeSelector, controller.ModulePodSelectorList)
 			Expect(err).NotTo(HaveOccurred())
 
-			// Pods removed
-			checkRemovedPod(ctx, cl, controllerNamespace, "csi-nfs-node-pod")
-			checkRemovedPod(ctx, cl, controllerNamespace, "csi-controller-pod")
+			// Pods remain (nodes with kubernetes.io/os=linux keep the csi-nfs label via DefaultNodeSelector)
+			checkRemainingPod(ctx, cl, controllerNamespace, "csi-nfs-node-pod", "node-with-label", controller.CSINodeLabel)
+			checkRemainingPod(ctx, cl, controllerNamespace, "csi-controller-pod", "node-with-label", controller.CSIControllerLabel)
 		})
 
 		It("Scenario 2: NFSStorageClass exists without nodeSelector; csi-nfs label is added to linux nodes; csi-nfs-node pods remain", func() {
