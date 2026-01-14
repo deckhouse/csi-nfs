@@ -1,0 +1,50 @@
+{{- /* Webhook TLS Certs Secret */ -}}
+{{- $secretConfig := dict
+  "valuesKey" "csiNfs"
+  "webhookCertPath" "internal.customWebhookCert"
+}}
+{{ include "helm_lib_module_webhook_certs_secret" (list . $secretConfig) }}
+
+{{- /* Controller Deployment */ -}}
+{{- $config := dict
+  "valuesKey" "csiNfs"
+  "webhookEnabled" true
+  "webhookCertPath" "internal.customWebhookCert"
+  "onMasterNode" true
+  "podSecurityContext" "deckhouse"
+}}
+{{ include "helm_lib_module_controller_manifests" (list . $config) }}
+
+{{- /* Webhook Service */ -}}
+{{ include "helm_lib_module_webhook_service" (list . dict) }}
+
+{{- /* ValidatingWebhookConfiguration for StorageClasses */ -}}
+{{- $scWebhookConfig := dict
+  "name" "sc-validation"
+  "webhookName" "sc-validation"
+  "valuesKey" "csiNfs"
+  "path" "/sc-validate"
+  "rules" (list (dict "apiGroups" (list "storage.k8s.io") "apiVersions" (list "v1") "operations" (list "*") "resources" (list "storageclasses") "scope" "Cluster"))
+}}
+{{ include "helm_lib_module_validating_webhook_configuration" (list . $scWebhookConfig) }}
+
+{{- /* ValidatingWebhookConfiguration for NFSStorageClasses */ -}}
+{{- $nscWebhookConfig := dict
+  "name" "nsc-validation"
+  "webhookName" "nsc-validation"
+  "valuesKey" "csiNfs"
+  "path" "/nsc-validate"
+  "rules" (list (dict "apiGroups" (list "storage.deckhouse.io") "apiVersions" (list "v1alpha1") "operations" (list "CREATE" "UPDATE" "DELETE") "resources" (list "nfsstorageclasses") "scope" "Cluster"))
+}}
+{{ include "helm_lib_module_validating_webhook_configuration" (list . $nscWebhookConfig) }}
+
+{{- /* ValidatingWebhookConfiguration for ModuleConfigs */ -}}
+{{- $mcWebhookConfig := dict
+  "name" "mc-validation"
+  "webhookName" "mc-validation"
+  "valuesKey" "csiNfs"
+  "path" "/mc-validate"
+  "rules" (list (dict "apiGroups" (list "deckhouse.io") "apiVersions" (list "v1alpha1") "operations" (list "CREATE" "UPDATE") "resources" (list "moduleconfigs") "scope" "Cluster"))
+  "matchConditions" (list (dict "name" (printf "match-%s" .Chart.Name) "expression" (printf "request.name == \"%s\"" .Chart.Name)))
+}}
+{{ include "helm_lib_module_validating_webhook_configuration" (list . $mcWebhookConfig) }}

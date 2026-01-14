@@ -1,162 +1,19 @@
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: controller
-  namespace: d8-{{ .Chart.Name }}
-  {{- include "helm_lib_module_labels" (list . (dict "app" "controller")) | nindent 2 }}
-
----
-kind: Role
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: controller
-  namespace: d8-{{ .Chart.Name }}
-  {{- include "helm_lib_module_labels" (list . (dict "app" "controller")) | nindent 2 }}
-rules:
-  - apiGroups:
-      - ""
-    resources:
-      - secrets
-    verbs:
-      - get
-      - list
-      - watch
-      - create
-      - update
-      - delete
-  - apiGroups:
-      - ""
-    resources:
-      - pods
-    verbs:
-      - get
-      - list
-      - watch
-      - update
-      - delete
-  - apiGroups:
-      - ""
-    resources:
-      - events
-    verbs:
-      - create
-      - list
-  - apiGroups:
-      - coordination.k8s.io
-    resources:
-      - leases
-    verbs:
-      - get
-      - watch
-      - list
-      - delete
-      - update
-      - create
-
----
-kind: ClusterRole
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: d8:{{ .Chart.Name }}:controller
-  {{- include "helm_lib_module_labels" (list . (dict "app" "controller")) | nindent 2 }}
-rules:
-  - apiGroups:
-      - storage.deckhouse.io
-    resources:
-      - nfsstorageclasses
-      - nfsstorageclasses/status
-    verbs:
-      - get
-      - list
-      - create
-      - watch
-      - update
-  - apiGroups:
-      - storage.k8s.io
-    resources:
-      - storageclasses
-    verbs:
-      - create
-      - delete
-      - list
-      - get
-      - watch
-      - update
-  - apiGroups:
-      - deckhouse.io
-    resources:
-      - moduleconfigs
-    verbs:
-      - get
-      - watch
-      - list
-  - apiGroups:
-      - snapshot.storage.k8s.io
-    resources:
-      - volumesnapshots
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - snapshot.storage.k8s.io
-    resources:
-      - volumesnapshotclasses
-    verbs:
-      - create
-      - delete
-      - list
-      - get
-      - watch
-      - update
-  - apiGroups:
-      - ""
-    resources:
-      - persistentvolumeclaims
-      - pods
-      - namespaces
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - ""
-    resources:
-      - nodes
-    verbs:
-      - get
-      - list
-      - watch
-      - update
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: controller
-  namespace: d8-{{ .Chart.Name }}
-  {{- include "helm_lib_module_labels" (list . (dict "app" "controller")) | nindent 2 }}
-subjects:
-  - kind: ServiceAccount
-    name: controller
-    namespace: d8-{{ .Chart.Name }}
-roleRef:
-  kind: Role
-  name: controller
-  apiGroup: rbac.authorization.k8s.io
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: d8:{{ .Chart.Name }}:controller
-  {{- include "helm_lib_module_labels" (list . (dict "app" "controller")) | nindent 2 }}
-subjects:
-  - kind: ServiceAccount
-    name: controller
-    namespace: d8-{{ .Chart.Name }}
-roleRef:
-  kind: ClusterRole
-  name: d8:{{ .Chart.Name }}:controller
-  apiGroup: rbac.authorization.k8s.io
-
-
+{{- /* RBAC */ -}}
+{{- $rbacConfig := dict
+  "roleRules" (list
+    (dict "apiGroups" (list "") "resources" (list "secrets") "verbs" (list "get" "list" "watch" "create" "update" "delete"))
+    (dict "apiGroups" (list "") "resources" (list "pods") "verbs" (list "get" "list" "watch" "update" "delete"))
+    (dict "apiGroups" (list "") "resources" (list "events") "verbs" (list "create" "list"))
+    (dict "apiGroups" (list "coordination.k8s.io") "resources" (list "leases") "verbs" (list "get" "watch" "list" "delete" "update" "create"))
+  )
+  "clusterRoleRules" (list
+    (dict "apiGroups" (list "storage.deckhouse.io") "resources" (list "nfsstorageclasses" "nfsstorageclasses/status") "verbs" (list "get" "list" "create" "watch" "update"))
+    (dict "apiGroups" (list "storage.k8s.io") "resources" (list "storageclasses") "verbs" (list "create" "delete" "list" "get" "watch" "update"))
+    (dict "apiGroups" (list "deckhouse.io") "resources" (list "moduleconfigs") "verbs" (list "get" "watch" "list"))
+    (dict "apiGroups" (list "snapshot.storage.k8s.io") "resources" (list "volumesnapshots") "verbs" (list "get" "list" "watch"))
+    (dict "apiGroups" (list "snapshot.storage.k8s.io") "resources" (list "volumesnapshotclasses") "verbs" (list "create" "delete" "list" "get" "watch" "update"))
+    (dict "apiGroups" (list "") "resources" (list "persistentvolumeclaims" "pods" "namespaces") "verbs" (list "get" "list" "watch"))
+    (dict "apiGroups" (list "") "resources" (list "nodes") "verbs" (list "get" "list" "watch" "update"))
+  )
+}}
+{{ include "helm_lib_module_controller_rbac" (list . $rbacConfig) }}
