@@ -100,11 +100,11 @@ spec:
   workloadNodes:
     nodeSelector:
       matchLabels:
-        storage: "true"  
+        storage: "true"
 EOF
 ```
 
-Note that the CSI driver control pods are placed on cluster nodes according to the workloadnodes parameters of all NFSStorageClass. If they are missing, the module workload will not be placed!
+Note that the CSI driver control pods are placed on cluster nodes according to the summarization of the workloadNodes parameters from all NFSStorageClass resources. If the workloadNodes parameter is missing in an NFSStorageClass, the workload will be placed on all nodes.
 
 A directory `<directory from share>/<PV name>` will be created for each PV.
 
