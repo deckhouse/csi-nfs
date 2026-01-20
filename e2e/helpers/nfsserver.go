@@ -150,23 +150,31 @@ func (m *NFSServerManager) createNFSPVC(ctx context.Context, cfg NFSServerConfig
 func (m *NFSServerManager) createNFSDeployment(ctx context.Context, cfg NFSServerConfig) error {
 	replicas := int32(1)
 
-	// NFS server container configuration based on version
+	// Use erichough/nfs-server which has better support for different NFS versions
+	// Environment variables control which versions are enabled
 	env := []corev1.EnvVar{
-		{Name: "SHARED_DIRECTORY", Value: cfg.SharePath},
-		{Name: "SHARED_DIRECTORY_2", Value: cfg.SharePath},
+		// Export path configuration - format: "share_name:path:options"
+		{Name: "NFS_EXPORT_0", Value: fmt.Sprintf("%s *(rw,sync,no_subtree_check,no_root_squash,fsid=0)", cfg.SharePath)},
 	}
 
-	// Add version-specific environment variables
+	// Add version-specific environment variables for erichough/nfs-server
+	// See: https://github.com/ehough/docker-nfs-server
 	switch cfg.NFSVersion {
 	case "3":
-		env = append(env, corev1.EnvVar{Name: "NFS_VERSION", Value: "3"})
-		env = append(env, corev1.EnvVar{Name: "NFS_DISABLE_VERSION_3", Value: "0"})
-	case "4.1":
-		env = append(env, corev1.EnvVar{Name: "NFS_VERSION", Value: "4.1"})
-		env = append(env, corev1.EnvVar{Name: "NFS_DISABLE_VERSION_3", Value: "1"})
-	case "4.2":
-		env = append(env, corev1.EnvVar{Name: "NFS_VERSION", Value: "4.2"})
-		env = append(env, corev1.EnvVar{Name: "NFS_DISABLE_VERSION_3", Value: "1"})
+		// For NFSv3, enable v3 and set static ports for mountd/statd/lockd
+		env = append(env,
+			corev1.EnvVar{Name: "NFS_DISABLE_VERSION_3", Value: "0"},
+			// Static ports for NFSv3 (required for firewall/service discovery)
+			corev1.EnvVar{Name: "NFS_PORT_MOUNTD", Value: "20048"},
+			corev1.EnvVar{Name: "NFS_PORT_STATD_IN", Value: "32765"},
+			corev1.EnvVar{Name: "NFS_PORT_STATD_OUT", Value: "32766"},
+			corev1.EnvVar{Name: "NFS_PORT_NLOCKMGR", Value: "32767"},
+		)
+	case "4.1", "4.2":
+		// For NFSv4.x, disable v3 (only NFSv4 will be available)
+		env = append(env,
+			corev1.EnvVar{Name: "NFS_DISABLE_VERSION_3", Value: "1"},
+		)
 	}
 
 	privileged := true
@@ -200,7 +208,7 @@ func (m *NFSServerManager) createNFSDeployment(ctx context.Context, cfg NFSServe
 					Containers: []corev1.Container{
 						{
 							Name:  "nfs-server",
-							Image: "itsthenetwork/nfs-server-alpine:12",
+							Image: "erichough/nfs-server:2.2.1",
 							Env:   env,
 							Ports: []corev1.ContainerPort{
 								{Name: "nfs", ContainerPort: 2049, Protocol: corev1.ProtocolTCP},
@@ -209,9 +217,16 @@ func (m *NFSServerManager) createNFSDeployment(ctx context.Context, cfg NFSServe
 								{Name: "mountd-udp", ContainerPort: 20048, Protocol: corev1.ProtocolUDP},
 								{Name: "rpcbind", ContainerPort: 111, Protocol: corev1.ProtocolTCP},
 								{Name: "rpcbind-udp", ContainerPort: 111, Protocol: corev1.ProtocolUDP},
+								{Name: "statd", ContainerPort: 32765, Protocol: corev1.ProtocolTCP},
+								{Name: "statd-udp", ContainerPort: 32765, Protocol: corev1.ProtocolUDP},
+								{Name: "lockd", ContainerPort: 32767, Protocol: corev1.ProtocolTCP},
+								{Name: "lockd-udp", ContainerPort: 32767, Protocol: corev1.ProtocolUDP},
 							},
 							SecurityContext: &corev1.SecurityContext{
 								Privileged: &privileged,
+								Capabilities: &corev1.Capabilities{
+									Add: []corev1.Capability{"SYS_ADMIN"},
+								},
 							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
@@ -225,7 +240,7 @@ func (m *NFSServerManager) createNFSDeployment(ctx context.Context, cfg NFSServe
 										Port: intstr.FromInt(2049),
 									},
 								},
-								InitialDelaySeconds: 5,
+								InitialDelaySeconds: 10,
 								PeriodSeconds:       5,
 							},
 						},
@@ -253,6 +268,26 @@ func (m *NFSServerManager) createNFSDeployment(ctx context.Context, cfg NFSServe
 }
 
 func (m *NFSServerManager) createNFSService(ctx context.Context, cfg NFSServerConfig) error {
+	// Base ports for all NFS versions
+	ports := []corev1.ServicePort{
+		{Name: "nfs", Port: 2049, TargetPort: intstr.FromInt(2049), Protocol: corev1.ProtocolTCP},
+		{Name: "nfs-udp", Port: 2049, TargetPort: intstr.FromInt(2049), Protocol: corev1.ProtocolUDP},
+	}
+
+	// Additional ports for NFSv3 (mountd, rpcbind, statd, lockd)
+	if cfg.NFSVersion == "3" {
+		ports = append(ports,
+			corev1.ServicePort{Name: "mountd", Port: 20048, TargetPort: intstr.FromInt(20048), Protocol: corev1.ProtocolTCP},
+			corev1.ServicePort{Name: "mountd-udp", Port: 20048, TargetPort: intstr.FromInt(20048), Protocol: corev1.ProtocolUDP},
+			corev1.ServicePort{Name: "rpcbind", Port: 111, TargetPort: intstr.FromInt(111), Protocol: corev1.ProtocolTCP},
+			corev1.ServicePort{Name: "rpcbind-udp", Port: 111, TargetPort: intstr.FromInt(111), Protocol: corev1.ProtocolUDP},
+			corev1.ServicePort{Name: "statd", Port: 32765, TargetPort: intstr.FromInt(32765), Protocol: corev1.ProtocolTCP},
+			corev1.ServicePort{Name: "statd-udp", Port: 32765, TargetPort: intstr.FromInt(32765), Protocol: corev1.ProtocolUDP},
+			corev1.ServicePort{Name: "lockd", Port: 32767, TargetPort: intstr.FromInt(32767), Protocol: corev1.ProtocolTCP},
+			corev1.ServicePort{Name: "lockd-udp", Port: 32767, TargetPort: intstr.FromInt(32767), Protocol: corev1.ProtocolUDP},
+		)
+	}
+
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cfg.Name,
@@ -268,15 +303,8 @@ func (m *NFSServerManager) createNFSService(ctx context.Context, cfg NFSServerCo
 				"nfs-version": cfg.NFSVersion,
 				"instance":    cfg.Name,
 			},
-			Ports: []corev1.ServicePort{
-				{Name: "nfs", Port: 2049, TargetPort: intstr.FromInt(2049), Protocol: corev1.ProtocolTCP},
-				{Name: "nfs-udp", Port: 2049, TargetPort: intstr.FromInt(2049), Protocol: corev1.ProtocolUDP},
-				{Name: "mountd", Port: 20048, TargetPort: intstr.FromInt(20048), Protocol: corev1.ProtocolTCP},
-				{Name: "mountd-udp", Port: 20048, TargetPort: intstr.FromInt(20048), Protocol: corev1.ProtocolUDP},
-				{Name: "rpcbind", Port: 111, TargetPort: intstr.FromInt(111), Protocol: corev1.ProtocolTCP},
-				{Name: "rpcbind-udp", Port: 111, TargetPort: intstr.FromInt(111), Protocol: corev1.ProtocolUDP},
-			},
-			Type: corev1.ServiceTypeClusterIP,
+			Ports: ports,
+			Type:  corev1.ServiceTypeClusterIP,
 		},
 	}
 

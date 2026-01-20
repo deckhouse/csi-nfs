@@ -118,10 +118,9 @@ var _ = Describe("CSI NFS", Ordered, func() {
 		By("Waiting for Deckhouse webhook to be ready", func() {
 			GinkgoWriter.Printf("    ▶️ Waiting for Deckhouse webhook to be ready...\n")
 			webhookTimeout := 5 * time.Minute
-			err := kubernetes.WaitForDeckhouseWebhookReady(
+			err := cluster.WaitForWebhookHandler(
 				ctx,
 				testClusterResources.Kubeconfig,
-				testClusterResources.SSHClient,
 				webhookTimeout,
 			)
 			Expect(err).NotTo(HaveOccurred(), "Deckhouse webhook is not ready")
@@ -132,6 +131,7 @@ var _ = Describe("CSI NFS", Ordered, func() {
 			GinkgoWriter.Printf("    ▶️ Enabling modules: snapshot-controller and csi-nfs...\n")
 
 			// Define modules to enable
+			// Note: v3support is required to use NFSv3 storage classes
 			modulesToEnable := []*config.ModuleConfig{
 				{
 					Name:               "snapshot-controller",
@@ -145,7 +145,9 @@ var _ = Describe("CSI NFS", Ordered, func() {
 					Name:               "csi-nfs",
 					Version:            1,
 					Enabled:            true,
-					Settings:           map[string]interface{}{},
+					Settings: map[string]interface{}{
+						"v3support": true, // Enable NFSv3 support
+					},
 					Dependencies:       []string{"snapshot-controller"},
 					ModulePullOverride: "main",
 				},
