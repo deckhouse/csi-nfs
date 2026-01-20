@@ -26,7 +26,6 @@ import (
 
 	"fox.flant.com/deckhouse/storage/csi-nfs/e2e/helpers"
 	"github.com/deckhouse/storage-e2e/pkg/cluster"
-	"github.com/deckhouse/storage-e2e/pkg/config"
 	"github.com/deckhouse/storage-e2e/pkg/kubernetes"
 	"github.com/deckhouse/storage-e2e/pkg/testkit"
 )
@@ -42,7 +41,7 @@ var _ = Describe("CSI NFS", Ordered, func() {
 
 	BeforeAll(func() {
 		By("Outputting environment variables", func() {
-			testkit.OutputEnvironmentVariables()
+			cluster.OutputEnvironmentVariables()
 		})
 	})
 
@@ -61,7 +60,7 @@ var _ = Describe("CSI NFS", Ordered, func() {
 			})
 		}
 
-		testkit.CleanupTestClusterResources(testClusterResources)
+		cluster.CleanupTestClusterResources(testClusterResources)
 	})
 
 	// ---=== TEST CLUSTER IS CREATED OR CONNECTED HERE ===--- //
@@ -82,7 +81,7 @@ var _ = Describe("CSI NFS", Ordered, func() {
 						GinkgoWriter.Printf("    ⚠️ Attempt %d failed with panic: %v\n", attempt, r)
 					}
 				}()
-				testClusterResources = testkit.CreateOrConnectToTestCluster()
+				testClusterResources = cluster.CreateOrConnectToTestCluster()
 				lastErr = nil
 			}()
 
@@ -107,7 +106,7 @@ var _ = Describe("CSI NFS", Ordered, func() {
 	////////////////////////////////////
 
 	// Storage class names with random suffix
-	randomSuffix := testkit.GenerateRandomSuffix(6)
+	randomSuffix := cluster.GenerateRandomSuffix(6)
 
 	It("should enable csi-nfs module with dependencies", func() {
 		ctx := context.Background()
@@ -132,19 +131,17 @@ var _ = Describe("CSI NFS", Ordered, func() {
 
 			// Define modules to enable
 			// Note: v3support is required to use NFSv3 storage classes
-			modulesToEnable := []*config.ModuleConfig{
+			modules := []kubernetes.ModuleSpec{
 				{
 					Name:               "snapshot-controller",
 					Version:            1,
 					Enabled:            true,
-					Settings:           map[string]interface{}{},
-					Dependencies:       []string{},
 					ModulePullOverride: "main",
 				},
 				{
-					Name:               "csi-nfs",
-					Version:            1,
-					Enabled:            true,
+					Name:    "csi-nfs",
+					Version: 1,
+					Enabled: true,
 					Settings: map[string]interface{}{
 						"v3support": true, // Enable NFSv3 support
 					},
@@ -153,39 +150,9 @@ var _ = Describe("CSI NFS", Ordered, func() {
 				},
 			}
 
-			// Get registry repo - from ClusterDefinition if available (new cluster mode),
-			// otherwise use default value (existing cluster mode where ClusterDefinition is nil)
-			registryRepo := "dev-registry.deckhouse.io/sys/deckhouse-oss"
-			if testClusterResources.ClusterDefinition != nil {
-				registryRepo = testClusterResources.ClusterDefinition.DKPParameters.RegistryRepo
-			}
-
-			// Create cluster definition with modules to enable
-			clusterDef := &config.ClusterDefinition{
-				DKPParameters: config.DKPParameters{
-					Modules:      modulesToEnable,
-					RegistryRepo: registryRepo,
-				},
-			}
-
-			// Enable and configure modules
-			err := kubernetes.EnableAndConfigureModules(
-				ctx,
-				testClusterResources.Kubeconfig,
-				clusterDef,
-				testClusterResources.SSHClient,
-			)
+			// Enable modules and wait for them to become ready
+			err := kubernetes.EnableModulesAndWait(ctx, testClusterResources.Kubeconfig, testClusterResources.SSHClient, testClusterResources.ClusterDefinition, modules, 10*time.Minute)
 			Expect(err).NotTo(HaveOccurred(), "Failed to enable modules")
-
-			// Wait for modules to become ready
-			timeout := 10 * time.Minute
-			err = kubernetes.WaitForModulesReady(
-				ctx,
-				testClusterResources.Kubeconfig,
-				clusterDef,
-				timeout,
-			)
-			Expect(err).NotTo(HaveOccurred(), "Failed waiting for modules to be ready")
 
 			GinkgoWriter.Printf("    ✅ Modules enabled successfully\n")
 		})
@@ -201,7 +168,7 @@ var _ = Describe("CSI NFS", Ordered, func() {
 			podReadyTimeout := 10 * time.Minute
 			for _, ns := range namespacesToWait {
 				GinkgoWriter.Printf("      ▶️ Waiting for pods in namespace %s...\n", ns)
-				err := testkit.WaitForAllPodsReadyInNamespace(ctx, testClusterResources.Kubeconfig, ns, podReadyTimeout)
+				err := kubernetes.WaitForAllPodsReadyInNamespace(ctx, testClusterResources.Kubeconfig, ns, podReadyTimeout)
 				Expect(err).NotTo(HaveOccurred(), "Failed waiting for pods in namespace %s to be ready", ns)
 				GinkgoWriter.Printf("      ✅ All pods in namespace %s are ready\n", ns)
 			}
