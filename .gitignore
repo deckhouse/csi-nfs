@@ -35,3 +35,6 @@ __pycache__/
 
 # dev
 images/controller/Makefile
+
+base_images.yml
+e2e/test_exports
