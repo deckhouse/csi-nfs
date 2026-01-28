@@ -2,7 +2,8 @@ name: csi-nfs
 stage: "General Availability"
 weight: 910
 descriptions:
-  en: "CSI NFS module"
+  en: "Provides CSI for managing NFS volumes."
+  ru: "Предоставляет CSI для управления NFS-томами."
 requirements:
   deckhouse: ">= 1.71"
   modules:
