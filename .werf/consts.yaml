@@ -1,9 +1,4 @@
 # Edition module settings, default ee
 {{- $_ := set . "MODULE_EDITION" (env "MODULE_EDITION" "ee") }}
 
-# component versions (CSI_DRIVER_NFS is taken from oss.yaml via get_oss_version_by_id in images/csi-nfs/werf.inc.yaml)
-{{- $versions := dict }}
-{{- $_ := set $versions "KMOD" "v33" }}
-{{- $_ := set $versions "KTLS_UTILS" "ktls-utils-0.11" }}
-{{- $_ := set $versions "NFS_UTILS" "nfs-utils-2-7-1" }}  # must match the nfs-utils package from BASE_ALT_P11
-{{- $_ := set . "VERSIONS" $versions }}
+# Component versions are in oss.yaml; images use get_oss_version_by_id (see .werf/defines/oss-yaml.tmpl).

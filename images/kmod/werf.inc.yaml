@@ -10,7 +10,7 @@ secrets:
 
 shell:
   beforeInstall:
-    - git clone --depth 1 --branch {{ .Versions.KMOD }} $(cat /run/secrets/SOURCE_REPO)/kmod-project/kmod.git /src/kmod
+    - git clone --depth 1 --branch {{ include "get_oss_version_by_id" (list "kmod" .) }} $(cat /run/secrets/SOURCE_REPO)/kmod-project/kmod.git /src/kmod
     - rm -rf /src/kmod/.git
 
 ---

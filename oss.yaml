@@ -5,3 +5,9 @@
   license: Apache License 2.0
   id: csi-driver-nfs
   version: 4.12.1
+- id: kmod
+  version: v33
+- id: ktls-utils
+  version: ktls-utils-0.11
+- id: nfs-utils
+  version: nfs-utils-2-7-1  # must match the nfs-utils package from BASE_ALT_P11
