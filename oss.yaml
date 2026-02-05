@@ -1,4 +1,7 @@
-- name: Csi-driver-nfs
+- name: CSI driver NFS
   link: https://github.com/kubernetes-csi/csi-driver-nfs
-  description: Csi-driver-nfs is a CSI driver for NFS that allows Kubernetes to manage NFS volumes.
+  description: CSI driver NFS is a CSI driver for NFS that allows Kubernetes to manage NFS volumes.
+  logo: https://avatars.githubusercontent.com/u/33050221?s=200&v=4
   license: Apache License 2.0
+  id: csi-driver-nfs
+  version: 4.12.1
