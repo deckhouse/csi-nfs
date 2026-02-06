@@ -42,6 +42,7 @@ secrets:
 
 shell:
   install:
+    - apk add --no-cache git
     - cd /usr/src/app/hooks/go
     - GOPROXY=$(cat /run/secrets/GOPROXY) go mod download
     - export GOOS=linux GOARCH=amd64 CGO_ENABLED=0

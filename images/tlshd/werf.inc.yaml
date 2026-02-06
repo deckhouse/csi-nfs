@@ -20,7 +20,7 @@ secrets:
 
 shell:
   beforeInstall:
-    - git clone --depth 1 --branch {{ .Versions.KTLS_UTILS }} $(cat /run/secrets/SOURCE_REPO)/oracle/ktls-utils.git /src/ktls-utils
+    - git clone --depth 1 --branch {{ include "get_oss_version_by_id" (list "ktls-utils" .) }} $(cat /run/secrets/SOURCE_REPO)/oracle/ktls-utils.git /src/ktls-utils
     - rm -rf /src/ktls-utils/.git
 
 ---
