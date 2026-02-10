@@ -1,0 +1,4 @@
+Changes:
+  - Module-sdk update for CVE fix
+  - Refactoring manifests
+  - Fixed an error when placing pods on nodes in the absence of NFSStorageClass
