@@ -100,7 +100,7 @@ func reconcileStorageClassUpdateFunc(
 ) (bool, error) {
 	log.Info(fmt.Sprintf("[reconcileStorageClassUpdateFunc] starts for NFSStorageClass %q", nsc.Name))
 
-	newSC.ObjectMeta.ResourceVersion = oldSC.ObjectMeta.ResourceVersion
+	newSC.ResourceVersion = oldSC.ResourceVersion
 	err := cl.Update(ctx, newSC)
 	if err != nil {
 		err = fmt.Errorf("[reconcileStorageClassUpdateFunc] unable to update a Storage Class %s: %w", newSC.Name, err)
@@ -412,14 +412,14 @@ func CompareStorageClasses(sc, newSC *storagev1.StorageClass) (bool, string) {
 			fmt.Sprintf("MountOptions diff: %s", cmp.Diff(sc.MountOptions, newSC.MountOptions)))
 	}
 
-	if !cmp.Equal(sc.ObjectMeta.Labels, newSC.ObjectMeta.Labels) {
+	if !cmp.Equal(sc.Labels, newSC.Labels) {
 		diffs = append(diffs,
-			fmt.Sprintf("Labels diff: %s", cmp.Diff(sc.ObjectMeta.Labels, newSC.ObjectMeta.Labels)))
+			fmt.Sprintf("Labels diff: %s", cmp.Diff(sc.Labels, newSC.Labels)))
 	}
 
-	if !cmp.Equal(sc.ObjectMeta.Annotations, newSC.ObjectMeta.Annotations) {
+	if !cmp.Equal(sc.Annotations, newSC.Annotations) {
 		diffs = append(diffs,
-			fmt.Sprintf("Annotations diff: %s", cmp.Diff(sc.ObjectMeta.Annotations, newSC.ObjectMeta.Annotations)))
+			fmt.Sprintf("Annotations diff: %s", cmp.Diff(sc.Annotations, newSC.Annotations)))
 	}
 
 	return needRecreate, strings.Join(diffs, ", ")
@@ -803,14 +803,14 @@ func CompareVSClasses(vsClass, newVSClass *snapshotv1.VolumeSnapshotClass) strin
 			fmt.Sprintf("Parameters diff: %s", cmp.Diff(vsClass.Parameters, newVSClass.Parameters)))
 	}
 
-	if !cmp.Equal(vsClass.ObjectMeta.Labels, newVSClass.ObjectMeta.Labels) {
+	if !cmp.Equal(vsClass.Labels, newVSClass.Labels) {
 		diffs = append(diffs,
-			fmt.Sprintf("Labels diff: %s", cmp.Diff(vsClass.ObjectMeta.Labels, newVSClass.ObjectMeta.Labels)))
+			fmt.Sprintf("Labels diff: %s", cmp.Diff(vsClass.Labels, newVSClass.Labels)))
 	}
 
-	if !cmp.Equal(vsClass.ObjectMeta.Annotations, newVSClass.ObjectMeta.Annotations) {
+	if !cmp.Equal(vsClass.Annotations, newVSClass.Annotations) {
 		diffs = append(diffs,
-			fmt.Sprintf("Annotations diff: %s", cmp.Diff(vsClass.ObjectMeta.Annotations, newVSClass.ObjectMeta.Annotations)))
+			fmt.Sprintf("Annotations diff: %s", cmp.Diff(vsClass.Annotations, newVSClass.Annotations)))
 	}
 
 	return strings.Join(diffs, ", ")
@@ -852,7 +852,7 @@ func reconcileVolumeSnapshotClassUpdateFunc(
 ) (bool, error) {
 	log.Debug(fmt.Sprintf("[reconcileVolumeSnapshotClassUpdateFunc] starts for VolumeSnapshotClass %q", newVSClass.Name))
 
-	newVSClass.ObjectMeta.ResourceVersion = oldVSClass.ObjectMeta.ResourceVersion
+	newVSClass.ResourceVersion = oldVSClass.ResourceVersion
 	err := cl.Update(ctx, newVSClass)
 	if err != nil {
 		err = fmt.Errorf("[reconcileVolumeSnapshotClassUpdateFunc] unable to update a VolumeSnapshotClass %s: %w", newVSClass.Name, err)
