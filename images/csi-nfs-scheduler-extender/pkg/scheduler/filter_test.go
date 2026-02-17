@@ -27,7 +27,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -258,11 +257,11 @@ func generatePVC(namespace, name, storageClassName, provisioner string) *corev1.
 				"volume.kubernetes.io/storage-provisioner": provisioner,
 			},
 		},
-		Spec: v1.PersistentVolumeClaimSpec{
+		Spec: corev1.PersistentVolumeClaimSpec{
 			StorageClassName: &storageClassName,
 		},
-		Status: v1.PersistentVolumeClaimStatus{
-			Phase: v1.ClaimBound,
+		Status: corev1.PersistentVolumeClaimStatus{
+			Phase: corev1.ClaimBound,
 		},
 	}
 }
