@@ -1,6 +1,5 @@
 name: csi-nfs
 stage: "General Availability"
-weight: 910
 descriptions:
   en: "Provides CSI for managing NFS volumes."
   ru: "Предоставляет CSI для управления NFS-томами."
