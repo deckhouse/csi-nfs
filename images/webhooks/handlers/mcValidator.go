@@ -42,7 +42,7 @@ func MCValidate(ctx context.Context, arReview *model.AdmissionReview, obj metav1
 		return &kwhvalidating.ValidatorResult{}, nil
 	}
 
-	if nfsModuleConfig.ObjectMeta.DeletionTimestamp != nil || arReview.Operation == "delete" {
+	if nfsModuleConfig.DeletionTimestamp != nil || arReview.Operation == "delete" {
 		return &kwhvalidating.ValidatorResult{Valid: true}, nil
 	}
 

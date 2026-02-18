@@ -48,7 +48,7 @@ func NSCValidate(ctx context.Context, arReview *model.AdmissionReview, obj metav
 		return &kwhvalidating.ValidatorResult{}, nil
 	}
 
-	if nsc.ObjectMeta.DeletionTimestamp != nil || arReview.Operation == "delete" {
+	if nsc.DeletionTimestamp != nil || arReview.Operation == "delete" {
 		return &kwhvalidating.ValidatorResult{Valid: true}, nil
 	}
 

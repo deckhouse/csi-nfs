@@ -24,7 +24,6 @@ import (
 	. "github.com/onsi/gomega"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -489,7 +488,7 @@ var _ = Describe(controller.NodeSelectorReconcilerName, func() {
 			prepareModulePod(ctx, cl, "csi-controller-9d", controllerNamespace, "controller-node-9d", controller.CSIControllerLabel)
 
 			// 3) Create a pending PVC
-			preparePVC(ctx, cl, testNamespace, "pvc-9d", provisionerNFS, v1.ClaimPending)
+			preparePVC(ctx, cl, testNamespace, "pvc-9d", provisionerNFS, corev1.ClaimPending)
 
 			// ReconcileNodeSelector => attempt remove label => sees pending PVC => keep label
 			err := controller.ReconcileNodeSelector(ctx, cl, clusterWideCl, log, controllerNamespace)
@@ -520,7 +519,7 @@ var _ = Describe(controller.NodeSelectorReconcilerName, func() {
 			prepareModulePod(ctx, cl, "csi-nfs-node-9e", controllerNamespace, "controller-node-9e", controller.CSINodeLabel)
 
 			// 3) Pending PVC
-			preparePVC(ctx, cl, testNamespace, "pvc-9e", provisionerNFS, v1.ClaimPending)
+			preparePVC(ctx, cl, testNamespace, "pvc-9e", provisionerNFS, corev1.ClaimPending)
 
 			// ReconcileNodeSelector => no csi-controller Pod to remove => node is considered removable => label removed
 			err := controller.ReconcileNodeSelector(ctx, cl, clusterWideCl, log, controllerNamespace)
@@ -643,7 +642,7 @@ func generatePodWithPVC(name, namespace, nodeName, pvcName, _ string) *corev1.Po
 	}
 }
 
-func generatePVC(namespace, name, provisioner string, phase v1.PersistentVolumeClaimPhase) *corev1.PersistentVolumeClaim {
+func generatePVC(namespace, name, provisioner string, phase corev1.PersistentVolumeClaimPhase) *corev1.PersistentVolumeClaim {
 	return &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -652,8 +651,8 @@ func generatePVC(namespace, name, provisioner string, phase v1.PersistentVolumeC
 				"volume.kubernetes.io/storage-provisioner": provisioner,
 			},
 		},
-		Spec: v1.PersistentVolumeClaimSpec{},
-		Status: v1.PersistentVolumeClaimStatus{
+		Spec: corev1.PersistentVolumeClaimSpec{},
+		Status: corev1.PersistentVolumeClaimStatus{
 			Phase: phase,
 		},
 	}
@@ -674,7 +673,7 @@ func prepareVolumeSnapshot(
 	cl client.Client,
 	namespace, name, nfsProvisioner string, readyToUse *bool,
 ) {
-	preparePVC(ctx, cl, namespace, "some-pvc", nfsProvisioner, v1.ClaimBound)
+	preparePVC(ctx, cl, namespace, "some-pvc", nfsProvisioner, corev1.ClaimBound)
 
 	vs := &snapshotv1.VolumeSnapshot{
 		ObjectMeta: metav1.ObjectMeta{
@@ -701,7 +700,7 @@ func prepareVolumeSnapshot(
 func preparePVC(
 	ctx context.Context,
 	cl client.Client,
-	namespace, name, nfsProvisioner string, phase v1.PersistentVolumeClaimPhase,
+	namespace, name, nfsProvisioner string, phase corev1.PersistentVolumeClaimPhase,
 ) {
 	pvc := generatePVC(namespace, name, nfsProvisioner, phase)
 	Expect(cl.Create(ctx, pvc)).To(Succeed())
@@ -718,7 +717,7 @@ func preparePodWithPVC(
 	cl client.Client,
 	namespace, name, nodeName, pvcName, provisioner string,
 ) {
-	preparePVC(ctx, cl, namespace, pvcName, provisioner, v1.ClaimBound)
+	preparePVC(ctx, cl, namespace, pvcName, provisioner, corev1.ClaimBound)
 
 	pod := generatePodWithPVC(name, namespace, nodeName, pvcName, provisioner)
 	Expect(cl.Create(ctx, pod)).To(Succeed())
