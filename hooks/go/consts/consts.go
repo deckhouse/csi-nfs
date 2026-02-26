@@ -27,3 +27,16 @@ const (
 var AllowedProvisioners = []string{
 	"nfs.csi.k8s.io",
 }
+
+var WebhookConfigurationsToDelete = []string{}
+
+var CRGVKsForFinalizerRemoval = []CRGVK{
+	{Group: "storage.deckhouse.io", Version: "v1alpha1", Kind: "NFSStorageClass", Namespaced: false},
+}
+
+type CRGVK struct {
+	Group      string
+	Version    string
+	Kind       string
+	Namespaced bool
+}
