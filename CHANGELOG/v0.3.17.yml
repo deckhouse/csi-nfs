@@ -1,0 +1,4 @@
+Changes:
+  - Update base images and golang version
+  - Updated hooks that work when a module is removed
+  - Disabled Capacity request from k8s (CSI does not support issuing Capacity)
