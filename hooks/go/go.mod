@@ -1,6 +1,7 @@
 module github.com/deckhouse/csi-nfs/hooks/go
 
 go 1.25.8
+
 require (
 	github.com/deckhouse/csi-nfs/api v0.0.0-20250314071217-91b1f5b52e17
 	github.com/deckhouse/module-sdk v0.7.0
@@ -22,7 +23,7 @@ require (
 	github.com/containerd/stargz-snapshotter/estargz v0.16.3 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/deckhouse/deckhouse/pkg/log v0.1.0 // indirect
-	github.com/docker/cli v28.2.2+incompatible // indirect
+	github.com/docker/cli v29.2.0+incompatible // indirect
 	github.com/docker/distribution v2.8.3+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.9.3 // indirect
 	github.com/emicklei/go-restful/v3 v3.12.2 // indirect
