@@ -20,6 +20,10 @@ Add sockerPermissions to csi-controller
 
 Fix CVE
 
+## 006-Fix-CVE.patch
+
+Fix CVE
+
 ## How to apply
 
 ```bash

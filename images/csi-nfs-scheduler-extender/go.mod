@@ -1,7 +1,6 @@
 module github.com/deckhouse/csi-nfs/images/csi-nfs-scheduler-extender
 
-go 1.25.7
-
+go 1.25.8
 require (
 	github.com/deckhouse/csi-nfs/api v0.0.0-20250213115525-4785a9da80db
 	github.com/go-logr/logr v1.4.2
