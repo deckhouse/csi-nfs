@@ -17,7 +17,7 @@ When creating snapshots of NFS volumes, it's important to understand their creat
 {{< /alert >}}
 
 {{< alert level="info" >}}
-For working with snapshots, the [snapshot-controller](../../snapshot-controller/) module must be connected.
+The [snapshot-controller](../../snapshot-controller/) module must be connected for this module to operate.
 {{< /alert >}}
 
 {{< alert level="info" >}}
