@@ -34,60 +34,6 @@ shell:
     - rm -rf /src/nfs-utils/.git
 
 ---
-{{- $csiBinaries := "/nfs-utils/sbin/* /nfs-utils/usr/bin/* /nfs-utils/usr/sbin/* /lib64/libnss_files.so.2 /lib64/libnss_dns.so.2 /bin/cp /bin/mount /bin/umount /usr/bin/shred" }}
-image: {{ .ModuleNamePrefix }}{{ .ImageName }}-binaries-artifact
-fromImage: builder/alt
-final: false
-import:
-  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
-    add: /src
-    to: /src
-    before: install
-  - image: {{ .ModuleNamePrefix }}wrap-mount
-    add: /bin
-    to: /wrap-mount
-    before: setup
-git:
-  - add: {{ .ModuleDir }}/tools/dev_images/additional_tools/binary_replace.sh
-    to: /binary_replace.sh
-    stageDependencies:
-      beforeSetup:
-        - '**/*'
-shell:
-  beforeInstall:
-    {{- include "alt packages proxy" . | nindent 4 }}
-    - apt-get update
-    - apt-get install -y make automake pkg-config gcc libtool git curl
-    - apt-get install -y libmount-devel libnl-devel libreadline-devel libtirpc libtirpc-devel libuuid-devel libevent-devel libsqlite3x-devel libdevmapper-devel libblkid-devel libkeyutils-devel libxml2-devel mount
-    - rm -rf /var/lib/apt/lists/* /var/cache/apt/* && mkdir -p /var/lib/apt/lists/partial /var/cache/apt/archives/partial
-    - groupadd -g 64535 deckhouse
-    - useradd -g deckhouse -u 64535 deckhouse
-  install:
-    - cd /src/nfs-utils
-    - ./autogen.sh
-    - ./configure --disable-gss --with-statduser=deckhouse --with-rpcgen=internal
-    - make
-    - make install DESTDIR=/nfs-utils
-  beforeSetup:
-    - cp -av /nfs-utils/usr/lib/* /usr/lib/
-    - chmod +x /binary_replace.sh
-    - /binary_replace.sh -i "{{ $csiBinaries }}" -o /relocate
-  setup:
-    - rm -rf /relocate/nfs-utils
-    - cp -av /nfs-utils/sbin     /relocate
-    - mkdir -p /relocate/usr
-    - cp -av /nfs-utils/usr/bin  /relocate/usr
-    - cp -av /nfs-utils/usr/sbin /relocate/usr
-    - cp -av /nfs-utils/var      /relocate
-    - mkdir -p /relocate/etc
-    - cp -av /etc/netconfig /relocate/etc/netconfig
-    - |
-      # wrapping mounting and unmounting
-      mv -v /relocate/bin/mount  /relocate/bin/originalmount
-      mv -v /relocate/bin/umount /relocate/bin/originalumount
-      cp -vP /wrap-mount/* /relocate/bin
-
----
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-golang-artifact
 fromImage: {{ eq .SVACE_ENABLED "false" | ternary "builder/golang-alpine" "builder/golang-alt-svace" }}
 final: false
@@ -128,11 +74,41 @@ import:
   - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-golang-artifact
     add: /{{ $.ImageName }}
     to: /{{ $.ImageName }}
-    before: setup
-  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-binaries-artifact
-    add: /relocate
+    before: install
+  - image: tools/nfs-utils
+    add: /
     to: /
-    before: setup
+    before: install
+  - image: libs/glibc
+    add: /
+    to: /
+    before: install
+    includePaths:
+      - lib64/libnss_files.so.2
+      - lib64/libnss_dns.so.2
+  - image: tools/coreutils
+    add: /
+    to: /
+    before: install
+    includePaths:
+      - usr/bin/cp
+      - usr/bin/shred
+  - image: tools/util-linux
+    add: /bin/mount
+    to: /bin/originalmount
+    before: install
+  - image: tools/util-linux
+    add: /bin/umount
+    to: /bin/originalumount
+    before: install
+  - image: libs/libtirpc
+    add: /usr/etc/netconfig
+    to: /etc/netconfig
+    before: install
+  - image: {{ .ModuleNamePrefix }}wrap-mount
+    add: /bin
+    to: /bin
+    before: install
 git:
 {{- include "image mount points" . }}
 imageSpec:
