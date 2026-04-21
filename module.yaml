@@ -4,7 +4,7 @@ descriptions:
   en: "Provides CSI for managing NFS volumes."
   ru: "Предоставляет CSI для управления NFS-томами."
 requirements:
-  deckhouse: ">= 1.71"
+  deckhouse: ">= 1.72"
   modules:
     snapshot-controller: ">= 0.0.0"
 namespace: "d8-csi-nfs"
