@@ -33,7 +33,15 @@ spec:
       exit 0
     fi
 
-    apt-get install rpcbind nfs-utils
+    install_packages() {
+      apt-get update && apt-get install -y rpcbind nfs-utils
+    }
+
+    if ! install_packages; then
+      bb-log-error "Failed to install required packages (rpcbind nfs-utils). Skipping further configuration on this node."
+      exit 0
+    fi
+
     systemctl start rpcbind
     systemctl start rpc-statd.service
     systemctl enable rpcbind
