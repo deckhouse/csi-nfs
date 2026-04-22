@@ -33,9 +33,9 @@ spec:
       exit 0
     fi
 
-    install_packages() {
+    install_packages() (
       bb-apt-install "nfs-common" "rpcbind"
-    }
+    )
 
     if ! install_packages; then
       bb-log-error "Failed to install required packages (nfs-common rpcbind). Skipping further configuration on this node."
