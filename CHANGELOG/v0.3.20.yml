@@ -1,0 +1,3 @@
+Изменения:
+- Installing packages in NodeGroupConfiguration no longer causes the script to crash
+  on errors
