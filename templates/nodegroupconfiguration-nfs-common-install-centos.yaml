@@ -33,8 +33,15 @@ spec:
       exit 0
     fi
 
-    bb-dnf-install "nfs-utils" "rpcbind"
-    
+    install_packages() (
+      bb-dnf-install "nfs-utils" "rpcbind"
+    )
+
+    if ! install_packages; then
+      bb-log-error "Failed to install required packages (nfs-utils rpcbind). Skipping further configuration on this node."
+      exit 0
+    fi
+
     # This is dirty hack for statd, because it can't be enabled via systemd in newer distributive (Bashible performs a full cycle at every node reboot, so statd will be started)
     systemctl start rpc-statd.service
 {{- end }}
