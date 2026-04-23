@@ -8,7 +8,7 @@ metadata:
     rbac.deckhouse.io/kind: manage
     rbac.deckhouse.io/level: module
     rbac.deckhouse.io/namespace: d8-csi-nfs
-  name: d8:manage:permission:module:csi-nfs:manage_resources
+  name: d8:manage:permission:module:csi-nfs:edit
 rules:
   - apiGroups:
       - storage.deckhouse.io
