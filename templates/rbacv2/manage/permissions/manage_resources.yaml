@@ -4,11 +4,11 @@ metadata:
   labels:
     heritage: deckhouse
     module: csi-nfs
-    rbac.deckhouse.io/aggregate-to-csi-nfs-as: manager
+    rbac.deckhouse.io/aggregate-to-storage-as: manager
     rbac.deckhouse.io/kind: manage
     rbac.deckhouse.io/level: module
     rbac.deckhouse.io/namespace: d8-csi-nfs
-  name: d8:manage:permission:subsystem:csi-nfs:manage_resources
+  name: d8:manage:permission:module:csi-nfs:manage_resources
 rules:
   - apiGroups:
       - storage.deckhouse.io
