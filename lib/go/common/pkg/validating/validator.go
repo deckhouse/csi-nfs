@@ -41,6 +41,16 @@ func ValidateNFSStorageClass(nfsModuleConfig *d8commonapi.ModuleConfig, nsc *cn.
 		}
 	}
 
+	if nsc.Spec.MountOptions != nil &&
+		nsc.Spec.MountOptions.Nolock != nil && *nsc.Spec.MountOptions.Nolock &&
+		nsc.Spec.Connection.NFSVersion != "3" {
+		return fmt.Errorf(
+			"NFSStorageClass: %s (mountOptions.nolock is set to true, but nfsVersion is %q); "+
+				"the nolock mount option is only applicable to NFSv3; %s",
+			nsc.Name, nsc.Spec.Connection.NFSVersion, logPostfix,
+		)
+	}
+
 	if feature.TLSEnabled() {
 		if nsc.Spec.Connection.Tls || nsc.Spec.Connection.Mtls {
 			var tlsParameters map[string]any

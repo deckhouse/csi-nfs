@@ -114,6 +114,11 @@ func (in *NFSStorageClassMountOptions) DeepCopyInto(out *NFSStorageClassMountOpt
 		*out = new(bool)
 		**out = **in
 	}
+	if in.Nolock != nil {
+		in, out := &in.Nolock, &out.Nolock
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 

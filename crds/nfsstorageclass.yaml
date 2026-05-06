@@ -37,6 +37,8 @@ spec:
                   message: "If reclaimPolicy is 'Retain', volumeCleanup must be omitted."
                 - rule: "self.connection.nfsVersion == '4.2' || !has(self.volumeCleanup)|| self.volumeCleanup != 'Discard'"
                   message: "Discard mode is only available when connection.nfsVersion is '4.2'."
+                - rule: "!has(self.mountOptions) || !has(self.mountOptions.nolock) || !self.mountOptions.nolock || self.connection.nfsVersion == '3'"
+                  message: "mountOptions.nolock can be enabled only when connection.nfsVersion is '3'."
               description: |
                 Defines a Kubernetes StorageClass configuration.
               required:
@@ -131,6 +133,15 @@ spec:
                       type: boolean
                       description: |
                         Share read-only flag.
+                    nolock:
+                      type: boolean
+                      description: |
+                        Disables NLM file locking on the client (mount option `nolock`).
+                        Only applicable to NFSv3 mounts; for NFSv4.x locking is part of the protocol
+                        and this option must not be set.
+                        Useful when the NFS server does not run rpc.statd / rpc.lockd or when
+                        cross-host file locking is not required.
+                      default: false
                 chmodPermissions:
                   type: string
                   description: |

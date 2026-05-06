@@ -572,6 +572,16 @@ func GetSCMountOptions(nsc *v1alpha1.NFSStorageClass) []string {
 				mountOptions = append(mountOptions, "rw")
 			}
 		}
+
+		// nolock is only valid for NFSv3; for NFSv4.x file locking is part of the
+		// protocol itself and adding `nolock` would be silently ignored or rejected.
+		// CRD-level CEL validation prevents setting nolock=true with nfsVersion!=3,
+		// but we double-check here so accidental misconfigurations never leak into
+		// the StorageClass mount options.
+		if nsc.Spec.MountOptions.Nolock != nil && *nsc.Spec.MountOptions.Nolock &&
+			nsc.Spec.Connection != nil && nsc.Spec.Connection.NFSVersion == "3" {
+			mountOptions = append(mountOptions, "nolock")
+		}
 	}
 
 	return mountOptions

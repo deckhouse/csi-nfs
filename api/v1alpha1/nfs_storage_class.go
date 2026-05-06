@@ -63,6 +63,8 @@ type NFSStorageClassMountOptions struct {
 	Timeout         int    `json:"timeout,omitempty"`
 	Retransmissions int    `json:"retransmissions,omitempty"`
 	ReadOnly        *bool  `json:"readOnly,omitempty"`
+	// Nolock disables NLM file locking; only valid for NFSv3.
+	Nolock *bool `json:"nolock,omitempty"`
 }
 
 // +k8s:deepcopy-gen=true
