@@ -27,3 +27,7 @@ Fix CVE
 ## 007-fix-cve.patch
 
 Fix CVE
+
+## 008-Fix-CVE.patch
+
+Fix CVE: bump go.opentelemetry.io/otel to v1.41.0 (CVE-2026-29181)
