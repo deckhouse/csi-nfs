@@ -60,8 +60,16 @@ import:
     to: /{{ $.ImageName }}
     before: install
   - image: tools/ktls-utils
-    add: /
-    to: /
+    add: /lib
+    to: /lib
+    before: install
+  - image: tools/ktls-utils
+    add: /usr
+    to: /usr
+    before: install
+  - image: tools/ktls-utils
+    add: /opt
+    to: /opt
     before: install
 git:
 {{- include "image mount points" . }}
