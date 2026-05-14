@@ -1,0 +1,3 @@
+dirs:
+  - /etc/csi-nfs-scheduler-extender
+  - /etc/csi-nfs-scheduler-extender/certs
