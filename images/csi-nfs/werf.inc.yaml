@@ -76,8 +76,20 @@ import:
     to: /{{ $.ImageName }}
     before: install
   - image: tools/nfs-utils
-    add: /
-    to: /
+    add: /lib
+    to: /lib
+    before: install
+  - image: tools/nfs-utils
+    add: /sbin
+    to: /sbin
+    before: install
+  - image: tools/nfs-utils
+    add: /usr
+    to: /usr
+    before: install
+  - image: tools/nfs-utils
+    add: /var
+    to: /var
     before: install
   - image: libs/glibc
     add: /
