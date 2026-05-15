@@ -1,4 +1,4 @@
-Изменения:
-- Исправление: added mount points in the csi-nfs-scheduler-extender distroless image
-- Документация: NFS server installation guide for RedOS
+Changes:
+- Added mount points in the csi-nfs-scheduler-extender distroless image
+- NFS server installation guide for RedOS
 - Internal changes in module structure and assembly
