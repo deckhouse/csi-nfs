@@ -24,43 +24,6 @@ shell:
     - rm -rf /src/ktls-utils/.git
 
 ---
-image: {{ .ModuleNamePrefix }}{{ .ImageName }}-binaries-artifact
-fromImage: builder/alt
-final: false
-
-import:
-  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
-    add: /src
-    to: /src
-    before: install
-
-git:
-  - add: {{ .ModuleDir }}/tools/dev_images/additional_tools/binary_replace.sh
-    to: /binary_replace.sh
-    stageDependencies:
-      beforeSetup:
-        - '**/*'
-
-shell:
-  beforeInstall:
-    {{- include "alt packages proxy" . | nindent 4 }}
-    - apt-get install -y make automake pkg-config gcc libtool git curl
-    - apt-get install -y libgnutls-devel libkeyutils-devel glib2-devel libnl-devel
-    - rm -rf /var/lib/apt/lists/* /var/cache/apt/* && mkdir -p /var/lib/apt/lists/partial /var/cache/apt/archives/partial
-  install:
-    - cd /src/ktls-utils
-    - ./autogen.sh
-    - ./configure
-    - make
-  beforeSetup:
-    - mkdir -p /opt/deckhouse/csi/bin
-    - cp -v /src/ktls-utils/src/tlshd/tlshd /opt/deckhouse/csi/bin/tlshd
-    - chmod +x /binary_replace.sh
-    - /binary_replace.sh -i "/opt/deckhouse/csi/bin/tlshd" -o /relocate
-    - mkdir -p /relocate/opt/deckhouse/csi/etc
-    - cp -v /src/ktls-utils/src/tlshd/tlshd.conf /relocate/opt/deckhouse/csi/etc/tlshd.conf
-
----
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-golang-artifact
 fromImage: {{ eq .SVACE_ENABLED "false" | ternary "builder/golang-alpine" "builder/golang-alt-svace" }}
 final: false
@@ -92,14 +55,22 @@ image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 fromImage: base/distroless
 
 import:
-  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-binaries-artifact
-    add: /relocate
-    to: /
-    before: setup
   - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-golang-artifact
     add: /{{ $.ImageName }}
     to: /{{ $.ImageName }}
-    before: setup
+    before: install
+  - image: tools/ktls-utils
+    add: /lib
+    to: /lib
+    before: install
+  - image: tools/ktls-utils
+    add: /usr
+    to: /usr
+    before: install
+  - image: tools/ktls-utils
+    add: /opt
+    to: /opt
+    before: install
 git:
 {{- include "image mount points" . }}
 imageSpec:
