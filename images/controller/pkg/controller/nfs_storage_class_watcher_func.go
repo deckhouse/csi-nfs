@@ -459,9 +459,6 @@ func ConfigureStorageClass(oldSC *storagev1.StorageClass, nsc *v1alpha1.NFSStora
 			Annotations: map[string]string{
 				NFSStorageClassVolumeSnapshotClassAnnotationKey: nsc.Name,
 			},
-			Labels: map[string]string{
-				NFSStorageClassManagedLabelKey: NFSStorageClassManagedLabelValue,
-			},
 			Finalizers: []string{NFSStorageClassControllerFinalizerName},
 		},
 		Parameters:           GetSCParams(nsc, controllerNamespace),
@@ -472,12 +469,16 @@ func ConfigureStorageClass(oldSC *storagev1.StorageClass, nsc *v1alpha1.NFSStora
 		AllowVolumeExpansion: &AllowVolumeExpansion,
 	}
 
-	if oldSC != nil {
-		if oldSC.Labels != nil {
-			newSc.Labels = labels.Merge(oldSC.Labels, newSc.Labels)
-		}
-		if oldSC.Annotations != nil {
-			newSc.Annotations = labels.Merge(oldSC.Annotations, newSc.Annotations)
+	if oldSC != nil && oldSC.Annotations != nil {
+		newSc.Annotations = labels.Merge(oldSC.Annotations, newSc.Annotations)
+	}
+
+	if nsc.Labels != nil {
+		newSc.Labels = nsc.Labels
+		newSc.Labels[NFSStorageClassManagedLabelKey] = NFSStorageClassManagedLabelValue
+	} else {
+		newSc.Labels = map[string]string{
+			NFSStorageClassManagedLabelKey: NFSStorageClassManagedLabelValue,
 		}
 	}
 
