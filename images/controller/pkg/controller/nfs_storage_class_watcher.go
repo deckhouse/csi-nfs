@@ -174,8 +174,10 @@ func RunNFSStorageClassWatcherController(
 		UpdateFunc: func(_ context.Context, e event.TypedUpdateEvent[*v1alpha1.NFSStorageClass], q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 			log.Info(fmt.Sprintf("[UpdateFunc] get event for NFSStorageClass %q. Check if it should be reconciled", e.ObjectNew.GetName()))
 
-			if reflect.DeepEqual(e.ObjectOld.Spec, e.ObjectNew.Spec) && e.ObjectNew.DeletionTimestamp == nil {
-				log.Info(fmt.Sprintf("[UpdateFunc] an update event for the NFSStorageClass %s has no Spec field updates. It will not be reconciled", e.ObjectNew.Name))
+			if reflect.DeepEqual(e.ObjectOld.Spec, e.ObjectNew.Spec) &&
+				reflect.DeepEqual(e.ObjectOld.Labels, e.ObjectNew.Labels) &&
+				e.ObjectNew.DeletionTimestamp == nil {
+				log.Info(fmt.Sprintf("[UpdateFunc] an update event for the NFSStorageClass %s has no Spec or Labels updates. It will not be reconciled", e.ObjectNew.Name))
 				return
 			}
 
