@@ -144,7 +144,7 @@ func RunNFSStorageClassWatcherController(
 				return reconcile.Result{}, err
 			}
 
-			shouldRequeue, err := RunEventReconcile(ctx, cl, log, scList, nsc, cfg.ControllerNamespace)
+			shouldRequeue, err := RunEventReconcile(ctx, cl, log, scList, nsc, cfg.ControllerNamespace, cfg.StorageClassLabelIgnoredPrefixes)
 			if err != nil {
 				log.Error(err, fmt.Sprintf("[NFSStorageClassReconciler] an error occurred while reconciles the NFSStorageClass, name: %s", nsc.Name))
 			}
@@ -194,7 +194,7 @@ func RunNFSStorageClassWatcherController(
 	return c, nil
 }
 
-func RunEventReconcile(ctx context.Context, cl client.Client, log logger.Logger, scList *v1.StorageClassList, nsc *v1alpha1.NFSStorageClass, controllerNamespace string) (shouldRequeue bool, err error) {
+func RunEventReconcile(ctx context.Context, cl client.Client, log logger.Logger, scList *v1.StorageClassList, nsc *v1alpha1.NFSStorageClass, controllerNamespace string, ignoredLabelPrefixes []string) (shouldRequeue bool, err error) {
 	added, err := addFinalizerIfNotExists(ctx, cl, nsc, NFSStorageClassControllerFinalizerName)
 	if err != nil {
 		err = fmt.Errorf("[reconcileStorageClassCreateFunc] unable to add a finalizer %s to the NFSStorageClass %s: %w", NFSStorageClassControllerFinalizerName, nsc.Name, err)
@@ -202,7 +202,7 @@ func RunEventReconcile(ctx context.Context, cl client.Client, log logger.Logger,
 	}
 	log.Debug(fmt.Sprintf("[reconcileStorageClassCreateFunc] finalizer %s was added to the NFSStorageClass %s: %t", NFSStorageClassControllerFinalizerName, nsc.Name, added))
 
-	reconcileTypeForStorageClass, oldSC, newSC := IdentifyReconcileFuncForStorageClass(log, scList, nsc, controllerNamespace)
+	reconcileTypeForStorageClass, oldSC, newSC := IdentifyReconcileFuncForStorageClass(log, scList, nsc, controllerNamespace, ignoredLabelPrefixes)
 
 	shouldRequeue = false
 	log.Debug(fmt.Sprintf("[runEventReconcile] reconcile operation for StorageClass %q: %q", nsc.Name, reconcileTypeForStorageClass))

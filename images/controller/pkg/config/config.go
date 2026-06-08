@@ -19,6 +19,7 @@ package config
 import (
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/deckhouse/csi-nfs/images/controller/pkg/logger"
@@ -36,6 +37,10 @@ const (
 	CsiNfsModuleName                     = "csi-nfs"
 	DefaultRequeueNodeSelectorInterval   = 10
 	ConfigSecretName                     = "d8-csi-nfs-controller-config"
+	// StorageClassLabelIgnoredPrefixesEnvName carries a comma-separated list of label-key
+	// prefixes whose matching labels MUST NOT be propagated from an NFSStorageClass to
+	// the managed Kubernetes StorageClass.
+	StorageClassLabelIgnoredPrefixesEnvName = "STORAGE_CLASS_LABEL_IGNORED_PREFIXES"
 )
 
 type Options struct {
@@ -47,6 +52,11 @@ type Options struct {
 	HealthProbeBindAddress      string
 	ControllerNamespace         string
 	CsiNfsModuleName            string
+	// StorageClassLabelIgnoredPrefixes is the union of a system (hardcoded in Helm
+	// internal values) and a user-configured (ModuleConfig) list of label-key prefixes.
+	// Labels on an NFSStorageClass whose keys start with any of these prefixes are
+	// NOT propagated to the managed Kubernetes StorageClass.
+	StorageClassLabelIgnoredPrefixes []string
 }
 
 func NewConfig() *Options {
@@ -84,7 +94,28 @@ func NewConfig() *Options {
 	opts.RequeueNodeSelectorInterval = DefaultRequeueNodeSelectorInterval
 	opts.ConfigSecretName = ConfigSecretName
 
+	opts.StorageClassLabelIgnoredPrefixes = parseStorageClassLabelIgnoredPrefixes(os.Getenv(StorageClassLabelIgnoredPrefixesEnvName))
+
 	return &opts
+}
+
+// parseStorageClassLabelIgnoredPrefixes parses a comma-separated env var value into
+// a slice of non-empty, trimmed prefixes. Whitespace and empty entries are skipped so
+// that a stray comma cannot match every label key via HasPrefix("", ...).
+func parseStorageClassLabelIgnoredPrefixes(raw string) []string {
+	if raw == "" {
+		return nil
+	}
+	parts := strings.Split(raw, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		out = append(out, p)
+	}
+	return out
 }
 
 type CSINFSControllerConfig struct {

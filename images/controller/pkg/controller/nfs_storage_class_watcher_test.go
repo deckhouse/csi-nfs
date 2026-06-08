@@ -148,7 +148,7 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		err = cl.List(ctx, scList)
 		Expect(err).NotTo(HaveOccurred())
 
-		shouldRequeue, err := controller.RunEventReconcile(ctx, cl, log, scList, nsc, controllerNamespace)
+		shouldRequeue, err := controller.RunEventReconcile(ctx, cl, log, scList, nsc, controllerNamespace, nil)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(shouldRequeue).To(BeFalse())
 
@@ -197,7 +197,7 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		err = cl.List(ctx, scList)
 		Expect(err).NotTo(HaveOccurred())
 
-		shouldRequeue, err := controller.RunEventReconcile(ctx, cl, log, scList, nsc, controllerNamespace)
+		shouldRequeue, err := controller.RunEventReconcile(ctx, cl, log, scList, nsc, controllerNamespace, nil)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(shouldRequeue).To(BeFalse())
 
@@ -254,7 +254,7 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		err = cl.List(ctx, scList)
 		Expect(err).NotTo(HaveOccurred())
 
-		shouldRequeue, err := controller.RunEventReconcile(ctx, cl, log, scList, nsc, controllerNamespace)
+		shouldRequeue, err := controller.RunEventReconcile(ctx, cl, log, scList, nsc, controllerNamespace, nil)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(shouldRequeue).To(BeFalse())
 
@@ -305,7 +305,7 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		err = cl.List(ctx, scList)
 		Expect(err).NotTo(HaveOccurred())
 
-		shouldRequeue, err := controller.RunEventReconcile(ctx, cl, log, scList, nsc, controllerNamespace)
+		shouldRequeue, err := controller.RunEventReconcile(ctx, cl, log, scList, nsc, controllerNamespace, nil)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(shouldRequeue).To(BeFalse())
 
@@ -348,7 +348,7 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		err = cl.List(ctx, scList)
 		Expect(err).NotTo(HaveOccurred())
 
-		shouldRequeue, err := controller.RunEventReconcile(ctx, cl, log, scList, nsc, controllerNamespace)
+		shouldRequeue, err := controller.RunEventReconcile(ctx, cl, log, scList, nsc, controllerNamespace, nil)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(shouldRequeue).To(BeFalse())
 
@@ -398,7 +398,7 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		err = cl.List(ctx, scList)
 		Expect(err).NotTo(HaveOccurred())
 
-		shouldRequeue, err := controller.RunEventReconcile(ctx, cl, log, scList, nsc, controllerNamespace)
+		shouldRequeue, err := controller.RunEventReconcile(ctx, cl, log, scList, nsc, controllerNamespace, nil)
 		Expect(err).To(HaveOccurred())
 		Expect(shouldRequeue).To(BeTrue())
 
@@ -428,7 +428,7 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		err = cl.List(ctx, scList)
 		Expect(err).NotTo(HaveOccurred())
 
-		shouldRequeue, err := controller.RunEventReconcile(ctx, cl, log, scList, nsc, controllerNamespace)
+		shouldRequeue, err := controller.RunEventReconcile(ctx, cl, log, scList, nsc, controllerNamespace, nil)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(shouldRequeue).To(BeFalse())
 

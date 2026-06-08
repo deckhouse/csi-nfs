@@ -5,6 +5,10 @@
 }}
 {{ include "helm_lib_module_webhook_certs_secret" (list . $secretConfig) }}
 
+{{- $systemIgnoredPrefixes := default (list) .Values.csiNfs.internal.storageClassLabelIgnoredPrefixesSystem }}
+{{- $userIgnoredPrefixes := default (list) .Values.csiNfs.storageClassLabelIgnoredPrefixes }}
+{{- $ignoredPrefixes := concat $systemIgnoredPrefixes $userIgnoredPrefixes | uniq }}
+
 {{- /* Controller Deployment */ -}}
 {{- $config := dict
   "valuesKey" "csiNfs"
@@ -12,6 +16,7 @@
   "webhookCertPath" "internal.customWebhookCert"
   "onMasterNode" true
   "podSecurityContext" "deckhouse"
+  "additionalControllerEnvs" (list (dict "name" "STORAGE_CLASS_LABEL_IGNORED_PREFIXES" "value" (join "," $ignoredPrefixes)))
 }}
 {{ include "helm_lib_module_controller_manifests" (list . $config) }}
 
