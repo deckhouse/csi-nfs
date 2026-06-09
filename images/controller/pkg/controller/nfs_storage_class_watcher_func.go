@@ -278,7 +278,7 @@ func reconcileSecretDeleteFunc(ctx context.Context, cl client.Client, log logger
 	return false, nil
 }
 
-func IdentifyReconcileFuncForStorageClass(log logger.Logger, scList *storagev1.StorageClassList, nsc *v1alpha1.NFSStorageClass, controllerNamespace string) (reconcileType string, oldSC, newSC *storagev1.StorageClass) {
+func IdentifyReconcileFuncForStorageClass(log logger.Logger, scList *storagev1.StorageClassList, nsc *v1alpha1.NFSStorageClass, controllerNamespace string, ignoredLabelPrefixes []string) (reconcileType string, oldSC, newSC *storagev1.StorageClass) {
 	oldSC = findStorageClass(scList, nsc.Name)
 	if oldSC == nil {
 		log.Debug(fmt.Sprintf("[IdentifyReconcileFuncForStorageClass] no storage class found for the NFSStorageClass %s", nsc.Name))
@@ -291,7 +291,7 @@ func IdentifyReconcileFuncForStorageClass(log logger.Logger, scList *storagev1.S
 		return DeleteReconcile, oldSC, nil
 	}
 
-	newSC = ConfigureStorageClass(oldSC, nsc, controllerNamespace)
+	newSC = ConfigureStorageClass(oldSC, nsc, controllerNamespace, ignoredLabelPrefixes)
 	log.Debug(fmt.Sprintf("[IdentifyReconcileFuncForStorageClass] successfully configurated new storage class for the NFSStorageClass %s", nsc.Name))
 	log.Trace(fmt.Sprintf("[IdentifyReconcileFuncForStorageClass] new storage class: %+v", newSC))
 
@@ -443,7 +443,7 @@ func addFinalizerIfNotExists(ctx context.Context, cl client.Client, obj metav1.O
 	return true, nil
 }
 
-func ConfigureStorageClass(oldSC *storagev1.StorageClass, nsc *v1alpha1.NFSStorageClass, controllerNamespace string) *storagev1.StorageClass {
+func ConfigureStorageClass(oldSC *storagev1.StorageClass, nsc *v1alpha1.NFSStorageClass, controllerNamespace string, ignoredLabelPrefixes []string) *storagev1.StorageClass {
 	reclaimPolicy := corev1.PersistentVolumeReclaimPolicy(nsc.Spec.ReclaimPolicy)
 	volumeBindingMode := storagev1.VolumeBindingMode(nsc.Spec.VolumeBindingMode)
 	AllowVolumeExpansion := AllowVolumeExpansionDefaultValue
@@ -473,8 +473,9 @@ func ConfigureStorageClass(oldSC *storagev1.StorageClass, nsc *v1alpha1.NFSStora
 		newSc.Annotations = labels.Merge(oldSC.Annotations, newSc.Annotations)
 	}
 
-	if nsc.Labels != nil {
-		newSc.Labels = nsc.Labels
+	filteredLabels := filterLabelsForStorageClass(nsc.Labels, ignoredLabelPrefixes)
+	if len(filteredLabels) > 0 {
+		newSc.Labels = filteredLabels
 		newSc.Labels[NFSStorageClassManagedLabelKey] = NFSStorageClassManagedLabelValue
 	} else {
 		newSc.Labels = map[string]string{
@@ -483,6 +484,32 @@ func ConfigureStorageClass(oldSC *storagev1.StorageClass, nsc *v1alpha1.NFSStora
 	}
 
 	return newSc
+}
+
+func filterLabelsForStorageClass(src map[string]string, ignoredPrefixes []string) map[string]string {
+	out := make(map[string]string, len(src))
+	for k, v := range src {
+		if isIgnoredLabelKey(k, ignoredPrefixes) {
+			continue
+		}
+		out[k] = v
+	}
+	return out
+}
+
+// isIgnoredLabelKey reports whether key starts with any non-empty prefix from
+// ignoredPrefixes. Empty prefixes are skipped explicitly: HasPrefix(_, "") is
+// always true and would otherwise drop every label, breaking propagation.
+func isIgnoredLabelKey(key string, ignoredPrefixes []string) bool {
+	for _, p := range ignoredPrefixes {
+		if p == "" {
+			continue
+		}
+		if strings.HasPrefix(key, p) {
+			return true
+		}
+	}
+	return false
 }
 
 func updateNFSStorageClassPhase(ctx context.Context, cl client.Client, nsc *v1alpha1.NFSStorageClass, phase, reason string) error {
