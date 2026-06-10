@@ -1,7 +1,7 @@
 ---
 # do not remove this image: used in external audits (DKP CSE)
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
-fromImage: builder/src
+from: {{ index $.Images "builder/src" }}
 final: false
 git:
   - add: {{ .ModuleDir }}
@@ -35,7 +35,7 @@ shell:
 
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-golang-artifact
-fromImage: {{ eq .SVACE_ENABLED "false" | ternary "builder/golang-alpine" "builder/golang-alt-svace" }}
+from: {{ index $.Images (eq .SVACE_ENABLED "false" | ternary "builder/golang-alpine" "builder/alpine-svace") }}
 final: false
 
 import:
@@ -69,51 +69,51 @@ shell:
 
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
-fromImage: base/distroless
+from: {{ index $.Images "base/distroless" }}
 import:
   - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-golang-artifact
     add: /{{ $.ImageName }}
     to: /{{ $.ImageName }}
     before: install
-  - image: tools/nfs-utils
+  - from: {{ index $.Images "tools/nfs-utils" }}
     add: /lib
     to: /lib
     before: install
-  - image: tools/nfs-utils
+  - from: {{ index $.Images "tools/nfs-utils" }}
     add: /sbin
     to: /sbin
     before: install
-  - image: tools/nfs-utils
+  - from: {{ index $.Images "tools/nfs-utils" }}
     add: /usr
     to: /usr
     before: install
-  - image: tools/nfs-utils
+  - from: {{ index $.Images "tools/nfs-utils" }}
     add: /var
     to: /var
     before: install
-  - image: libs/glibc
+  - from: {{ index $.Images "libs/glibc" }}
     add: /
     to: /
     before: install
     includePaths:
       - lib64/libnss_files.so.2
       - lib64/libnss_dns.so.2
-  - image: tools/coreutils
+  - from: {{ index $.Images "tools/coreutils" }}
     add: /
     to: /
     before: install
     includePaths:
       - usr/bin/cp
       - usr/bin/shred
-  - image: tools/util-linux
+  - from: {{ index $.Images "tools/util-linux" }}
     add: /bin/mount
     to: /bin/originalmount
     before: install
-  - image: tools/util-linux
+  - from: {{ index $.Images "tools/util-linux" }}
     add: /bin/umount
     to: /bin/originalumount
     before: install
-  - image: libs/libtirpc
+  - from: {{ index $.Images "libs/libtirpc" }}
     add: /usr/etc/netconfig
     to: /etc/netconfig
     before: install

@@ -1,7 +1,7 @@
 ---
 # do not remove this image: used in external audits (DKP CSE)
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
-fromImage: builder/src
+from: {{ index $.Images "builder/src" }}
 final: false
 git:
   - add: {{ .ModuleDir }}
@@ -25,7 +25,7 @@ shell:
 
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-golang-artifact
-fromImage: {{ eq .SVACE_ENABLED "false" | ternary "builder/golang-alpine" "builder/golang-alt-svace" }}
+from: {{ index $.Images (eq .SVACE_ENABLED "false" | ternary "builder/golang-alpine" "builder/alpine-svace") }}
 final: false
 
 import:
@@ -52,22 +52,22 @@ shell:
 
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
-fromImage: base/distroless
+from: {{ index $.Images "base/distroless" }}
 
 import:
   - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-golang-artifact
     add: /{{ $.ImageName }}
     to: /{{ $.ImageName }}
     before: install
-  - image: tools/ktls-utils
+  - from: {{ index $.Images "tools/ktls-utils" }}
     add: /lib
     to: /lib
     before: install
-  - image: tools/ktls-utils
+  - from: {{ index $.Images "tools/ktls-utils" }}
     add: /usr
     to: /usr
     before: install
-  - image: tools/ktls-utils
+  - from: {{ index $.Images "tools/ktls-utils" }}
     add: /opt
     to: /opt
     before: install

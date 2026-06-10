@@ -1,7 +1,7 @@
 ---
 # do not remove this image: used in external audits (DKP CSE)
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
-fromImage: builder/src
+from: {{ index $.Images "builder/src" }}
 final: false
 
 secrets:
@@ -15,11 +15,11 @@ shell:
 
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
-fromImage: base/distroless
+from: {{ index $.Images "base/distroless" }}
 git:
 {{- include "image mount points" . }}
 import:
-  - image: tools/kmod
+  - from: {{ index $.Images "tools/kmod" }}
     add: /bin
     to: /opt/deckhouse/csi/bin
     before: setup
