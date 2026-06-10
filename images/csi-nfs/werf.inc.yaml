@@ -76,10 +76,6 @@ import:
     to: /{{ $.ImageName }}
     before: install
   - from: {{ index $.Images "nfs-utils" }}
-    add: /lib
-    to: /lib
-    before: install
-  - from: {{ index $.Images "nfs-utils" }}
     add: /sbin
     to: /sbin
     before: install
@@ -106,11 +102,11 @@ import:
       - usr/bin/cp
       - usr/bin/shred
   - from: {{ index $.Images "util-linux" }}
-    add: /bin/mount
+    add: /usr/bin/mount
     to: /bin/originalmount
     before: install
   - from: {{ index $.Images "util-linux" }}
-    add: /bin/umount
+    add: /usr/bin/umount
     to: /bin/originalumount
     before: install
   - from: {{ index $.Images "libtirpc" }}
