@@ -75,45 +75,45 @@ import:
     add: /{{ $.ImageName }}
     to: /{{ $.ImageName }}
     before: install
-  - from: {{ index $.Images "tools/nfs-utils" }}
+  - from: {{ index $.Images "nfs-utils" }}
     add: /lib
     to: /lib
     before: install
-  - from: {{ index $.Images "tools/nfs-utils" }}
+  - from: {{ index $.Images "nfs-utils" }}
     add: /sbin
     to: /sbin
     before: install
-  - from: {{ index $.Images "tools/nfs-utils" }}
+  - from: {{ index $.Images "nfs-utils" }}
     add: /usr
     to: /usr
     before: install
-  - from: {{ index $.Images "tools/nfs-utils" }}
+  - from: {{ index $.Images "nfs-utils" }}
     add: /var
     to: /var
     before: install
-  - from: {{ index $.Images "libs/glibc" }}
+  - from: {{ index $.Images "gnu-glibc" }}
     add: /
     to: /
     before: install
     includePaths:
       - lib64/libnss_files.so.2
       - lib64/libnss_dns.so.2
-  - from: {{ index $.Images "tools/coreutils" }}
+  - from: {{ index $.Images "coreutils" }}
     add: /
     to: /
     before: install
     includePaths:
       - usr/bin/cp
       - usr/bin/shred
-  - from: {{ index $.Images "tools/util-linux" }}
+  - from: {{ index $.Images "util-linux" }}
     add: /bin/mount
     to: /bin/originalmount
     before: install
-  - from: {{ index $.Images "tools/util-linux" }}
+  - from: {{ index $.Images "util-linux" }}
     add: /bin/umount
     to: /bin/originalumount
     before: install
-  - from: {{ index $.Images "libs/libtirpc" }}
+  - from: {{ index $.Images "libtirpc" }}
     add: /usr/etc/netconfig
     to: /etc/netconfig
     before: install

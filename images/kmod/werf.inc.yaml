@@ -19,7 +19,7 @@ from: {{ index $.Images "base/distroless" }}
 git:
 {{- include "image mount points" . }}
 import:
-  - from: {{ index $.Images "tools/kmod" }}
+  - from: {{ index $.Images "kmod" }}
     add: /bin
     to: /opt/deckhouse/csi/bin
     before: setup
