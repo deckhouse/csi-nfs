@@ -17,7 +17,7 @@ shell:
 
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-golang-artifact
-from: {{ index $.Images (eq .SVACE_ENABLED "false" | ternary "builder/golang-alpine" "builder/alpine-svace") }}
+from: {{ index $.Images (eq .SVACE_ENABLED "false" | ternary "builder/golang" "builder/alpine-svace") }}
 final: false
 
 import:
