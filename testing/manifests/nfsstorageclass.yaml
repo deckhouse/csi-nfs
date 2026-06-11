@@ -1,0 +1,63 @@
+---
+apiVersion: storage.deckhouse.io/v1alpha1
+kind: NFSStorageClass
+metadata:
+  name: nfs-test-v3
+spec:
+  connection:
+    host: nfs-server-v3.nfs-test.svc
+    share: /exports
+    nfsVersion: "3"
+  reclaimPolicy: Delete
+  volumeBindingMode: WaitForFirstConsumer
+---
+apiVersion: storage.deckhouse.io/v1alpha1
+kind: NFSStorageClass
+metadata:
+  name: nfs-test-v41
+spec:
+  connection:
+    host: nfs-server-v41.nfs-test.svc
+    share: /
+    nfsVersion: "4.1"
+  reclaimPolicy: Delete
+  volumeBindingMode: WaitForFirstConsumer
+---
+apiVersion: storage.deckhouse.io/v1alpha1
+kind: NFSStorageClass
+metadata:
+  name: nfs-test-v42
+spec:
+  connection:
+    host: nfs-server-v42.nfs-test.svc
+    share: /
+    nfsVersion: "4.2"
+  reclaimPolicy: Delete
+  volumeBindingMode: WaitForFirstConsumer
+---
+apiVersion: storage.deckhouse.io/v1alpha1
+kind: NFSStorageClass
+metadata:
+  name: nfs-test-tls
+spec:
+  connection:
+    host: nfs-server-tls.nfs-test.svc
+    share: /
+    nfsVersion: "4.2"
+    tls: true
+  reclaimPolicy: Delete
+  volumeBindingMode: WaitForFirstConsumer
+---
+apiVersion: storage.deckhouse.io/v1alpha1
+kind: NFSStorageClass
+metadata:
+  name: nfs-test-tls-mtls
+spec:
+  connection:
+    host: nfs-server-tls.nfs-test.svc
+    share: /
+    nfsVersion: "4.2"
+    tls: true
+    mtls: true
+  reclaimPolicy: Delete
+  volumeBindingMode: WaitForFirstConsumer

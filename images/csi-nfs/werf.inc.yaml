@@ -74,50 +74,15 @@ import:
     add: /{{ $.ImageName }}
     to: /{{ $.ImageName }}
     before: install
-  - from: {{ index $.Images "nfs-utils" }}
-    add: /sbin
-    to: /sbin
-    before: install
-  - from: {{ index $.Images "nfs-utils" }}
-    add: /usr
-    to: /usr
-    before: install
-  - from: {{ index $.Images "nfs-utils" }}
-    add: /var
-    to: /var
-    before: install
-  - from: {{ index $.Images "gnu-glibc" }}
-    add: /
-    to: /
-    before: install
-    includePaths:
-      - lib64/libnss_files.so.2
-      - lib64/libnss_dns.so.2
-  - from: {{ index $.Images "coreutils" }}
-    add: /
-    to: /
-    before: install
-    includePaths:
-      - usr/bin/cp
-      - usr/bin/shred
-  - from: {{ index $.Images "util-linux" }}
-    add: /usr/bin/mount
-    to: /bin/originalmount
-    before: install
-  - from: {{ index $.Images "util-linux" }}
-    add: /usr/bin/umount
-    to: /bin/originalumount
-    before: install
-  - from: {{ index $.Images "libtirpc" }}
-    add: /usr/etc/netconfig
-    to: /etc/netconfig
-    before: install
   - image: {{ .ModuleNamePrefix }}wrap-mount
     add: /bin
     to: /bin
     before: install
 git:
 {{- include "image mount points" . }}
+shell:
+  setup:
+    - pm install libtirpc util-linux coreutils gnu-glibc nfs-utils
 imageSpec:
   config:
     entrypoint: ["/{{ $.ImageName }}"]

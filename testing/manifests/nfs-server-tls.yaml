@@ -1,0 +1,106 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nfs-server-tls
+  namespace: nfs-test
+  labels:
+    app: nfs-server-tls
+spec:
+  selector:
+    app: nfs-server-tls
+  ports:
+    - name: nfs
+      port: 2049
+      protocol: TCP
+    - name: rpcbind
+      port: 111
+      protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nfs-server-tls
+  namespace: nfs-test
+  labels:
+    app: nfs-server-tls
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nfs-server-tls
+  template:
+    metadata:
+      labels:
+        app: nfs-server-tls
+    spec:
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      initContainers:
+        - name: load-nfs-kernel-modules
+          image: busybox:1.36.1
+          command:
+            - sh
+            - -c
+            - modprobe nfs && modprobe nfsd
+          securityContext:
+            privileged: true
+            capabilities:
+              add:
+                - SYS_ADMIN
+                - SYS_MODULE
+          volumeMounts:
+            - name: host-modules
+              mountPath: /lib/modules
+              readOnly: true
+      containers:
+        - name: nfs-server
+          image: quay.io/rockylinux/rockylinux:9
+          command:
+            - /bin/bash
+            - /scripts/start.sh
+          ports:
+            - containerPort: 2049
+              protocol: TCP
+            - containerPort: 111
+              protocol: TCP
+          securityContext:
+            privileged: true
+            capabilities:
+              add:
+                - SYS_MODULE
+          volumeMounts:
+            - name: data
+              mountPath: /exports
+            - name: tls
+              mountPath: /tls
+              readOnly: true
+            - name: scripts
+              mountPath: /scripts
+              readOnly: true
+            - name: host-modules
+              mountPath: /lib/modules
+              readOnly: true
+          readinessProbe:
+            exec:
+              command:
+                - bash
+                - -c
+                - ps -C tlshd >/dev/null 2>&1 && exportfs -v | grep -q xprtsec=tls
+            initialDelaySeconds: 120
+            periodSeconds: 15
+            failureThreshold: 12
+      volumes:
+        - name: data
+          emptyDir: {}
+        - name: tls
+          secret:
+            secretName: nfs-server-tls-certs
+        - name: scripts
+          configMap:
+            name: nfs-server-tls-startup
+            defaultMode: 0755
+        - name: host-modules
+          hostPath:
+            path: /lib/modules
+            type: Directory
