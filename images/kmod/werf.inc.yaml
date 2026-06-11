@@ -1,25 +1,9 @@
 ---
-# do not remove this image: used in external audits (DKP CSE)
-image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
-from: {{ index $.Images "builder/src" }}
-final: false
-
-secrets:
-- id: SOURCE_REPO
-  value: {{ .SOURCE_REPO }}
-
-shell:
-  beforeInstall:
-    - git clone --depth 1 --branch {{ include "get_oss_version_by_id" (list "kmod" .) }} $(cat /run/secrets/SOURCE_REPO)/kmod-project/kmod.git /src/kmod
-    - rm -rf /src/kmod/.git
-
----
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 from: {{ index $.Images "builder/distroless" }}
 git:
 {{- include "image mount points" . }}
-import:
-  - from: {{ index $.Images "kmod" }}
-    add: /bin
-    to: /opt/deckhouse/csi/bin
-    before: setup
+
+shell:
+  setup:
+    - pm install kmod
