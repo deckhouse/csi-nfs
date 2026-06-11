@@ -46,7 +46,7 @@ shell:
 
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
-from: {{ index $.Images "base/distroless" }}
+from: {{ index $.Images "builder/distroless" }}
 git:
 {{- include "image mount points" . }}
 

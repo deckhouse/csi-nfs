@@ -68,7 +68,7 @@ shell:
 
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
-from: {{ index $.Images "base/distroless" }}
+from: {{ index $.Images "builder/distroless" }}
 import:
   - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-golang-artifact
     add: /{{ $.ImageName }}
