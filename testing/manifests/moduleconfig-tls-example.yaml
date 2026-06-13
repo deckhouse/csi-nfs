@@ -1,5 +1,5 @@
-# Заполните base64-значения из Secret nfs-server-tls-certs перед применением.
-# kubectl get secret -n nfs-test nfs-server-tls-certs -o jsonpath='{.data.ca\.crt}{"\n"}'
+# Заполните base64-значения сертификатов с внешнего TLS NFS-сервера.
+# cat /etc/ssl/tlshd/ca.crt | base64 -w0
 apiVersion: deckhouse.io/v1alpha1
 kind: ModuleConfig
 metadata:
