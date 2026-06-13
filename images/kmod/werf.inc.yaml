@@ -6,4 +6,4 @@ git:
 
 shell:
   setup:
-    - pm install kmod openssl libc
+    - pm install kmod
