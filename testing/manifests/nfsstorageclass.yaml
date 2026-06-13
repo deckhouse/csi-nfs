@@ -1,16 +1,3 @@
----
-apiVersion: storage.deckhouse.io/v1alpha1
-kind: NFSStorageClass
-metadata:
-  name: nfs-test-v3
-spec:
-  connection:
-    host: nfs-server-v3.nfs-test.svc
-    share: /exports
-    nfsVersion: "3"
-  reclaimPolicy: Delete
-  volumeBindingMode: WaitForFirstConsumer
----
 apiVersion: storage.deckhouse.io/v1alpha1
 kind: NFSStorageClass
 metadata:
