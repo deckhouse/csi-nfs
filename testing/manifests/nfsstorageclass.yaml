@@ -1,0 +1,23 @@
+apiVersion: storage.deckhouse.io/v1alpha1
+kind: NFSStorageClass
+metadata:
+  name: nfs-test-v41
+spec:
+  connection:
+    host: nfs-server-v41.nfs-test.svc
+    share: /
+    nfsVersion: "4.1"
+  reclaimPolicy: Delete
+  volumeBindingMode: WaitForFirstConsumer
+---
+apiVersion: storage.deckhouse.io/v1alpha1
+kind: NFSStorageClass
+metadata:
+  name: nfs-test-v42
+spec:
+  connection:
+    host: nfs-server-v42.nfs-test.svc
+    share: /
+    nfsVersion: "4.2"
+  reclaimPolicy: Delete
+  volumeBindingMode: WaitForFirstConsumer

@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nfs-test
+  labels:
+    app.kubernetes.io/part-of: csi-nfs
+    app.kubernetes.io/component: nfs-test-servers
+    security.deckhouse.io/pod-policy: privileged

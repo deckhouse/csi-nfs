@@ -30,7 +30,7 @@ checksum/ca: {{ .Values.csiNfs.tlsParameters.ca | sha256sum | quote }}
 {{- if .Values.csiNfs.tlsParameters.ca }}
 - name: ktls-enabler
   image: {{ include "helm_lib_module_image" (list . "kmod") }}
-  command: ["/opt/deckhouse/csi/bin/modprobe", "tls"]
+  command: ["/bin/modprobe", "tls"]
   imagePullPolicy: IfNotPresent
   securityContext:
     privileged: true

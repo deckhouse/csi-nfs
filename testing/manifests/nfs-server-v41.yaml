@@ -1,0 +1,89 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nfs-server-v41
+  namespace: nfs-test
+  labels:
+    app: nfs-server-v41
+spec:
+  selector:
+    app: nfs-server-v41
+  ports:
+    - name: nfs
+      port: 2049
+      protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nfs-server-v41
+  namespace: nfs-test
+  labels:
+    app: nfs-server-v41
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nfs-server-v41
+  template:
+    metadata:
+      labels:
+        app: nfs-server-v41
+    spec:
+      initContainers:
+        - name: load-nfs-kernel-modules
+          image: busybox:1.36.1
+          command:
+            - sh
+            - -c
+            - modprobe nfs && modprobe nfsd
+          securityContext:
+            privileged: true
+            capabilities:
+              add:
+                - SYS_ADMIN
+                - SYS_MODULE
+          volumeMounts:
+            - name: host-modules
+              mountPath: /lib/modules
+              readOnly: true
+      containers:
+        - name: nfs-server
+          image: ghcr.io/obeone/nfs-server:latest
+          env:
+            - name: NFS_VERSION
+              value: "4.1"
+            - name: NFS_DISABLE_VERSION_3
+              value: "1"
+            - name: NFS_EXPORT_0
+              value: "/exports *(rw,sync,no_subtree_check,no_root_squash,insecure,fsid=0,crossmnt)"
+          ports:
+            - containerPort: 2049
+              protocol: TCP
+          securityContext:
+            privileged: true
+            capabilities:
+              add:
+                - SYS_MODULE
+          volumeMounts:
+            - name: data
+              mountPath: /exports
+            - name: host-modules
+              mountPath: /lib/modules
+              readOnly: true
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - grep -qE '\+4\.1|\+4 ' /proc/fs/nfsd/versions
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      volumes:
+        - name: data
+          emptyDir: {}
+        - name: host-modules
+          hostPath:
+            path: /lib/modules
+            type: Directory
