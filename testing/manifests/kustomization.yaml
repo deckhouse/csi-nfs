@@ -1,0 +1,9 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace.yaml
+  - nfs-server-v3.yaml
+  - nfs-server-v41.yaml
+  - nfs-server-v42.yaml
+  - nfsstorageclass.yaml
