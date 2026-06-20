@@ -55,6 +55,10 @@ linters-settings:
         - kind: DaemonSet
           name: csi-node
           container: node-driver-registrar
+  no-cyrillic:
+    exclude-rules:
+      directories:
+        - hack/
   openapi:
     exclude-rules:
       enum:
