@@ -59,6 +59,7 @@ linters-settings:
     exclude-rules:
       directories:
         - hack/
+        - testing/
   openapi:
     exclude-rules:
       enum:
