@@ -12,17 +12,3 @@
   license: LGPL-2.1-or-later
   id: kmod
   version: v33
-- name: ktls-utils
-  link: https://github.com/oracle/ktls-utils
-  description: Kernel TLS (kTLS) userspace utilities and tlshd daemon.
-  logo: https://avatars.githubusercontent.com/u/1211441?s=200&v=4
-  license: Universal Permissive License (UPL) 1.0
-  id: ktls-utils
-  version: ktls-utils-0.11
-- name: nfs-utils
-  link: https://github.com/steved/nfs-utils
-  description: NFS utilities and daemons for the Linux kernel NFS server and client.
-  logo: https://avatars.githubusercontent.com/u/464563?s=200&v=4
-  license: GPL-2.0
-  id: nfs-utils
-  version: nfs-utils-2-7-1  # must match the nfs-utils package from BASE_ALT_P11

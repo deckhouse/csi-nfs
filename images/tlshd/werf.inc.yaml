@@ -1,3 +1,7 @@
+{{- /*
+tlshd distroless image. The Go wrapper launches the upstream tlshd daemon
+from the container-base ktls-utils package (opt/deckhouse/csi/bin/tlshd).
+*/ -}}
 ---
 # do not remove this image: used in external audits (DKP CSE)
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
@@ -13,52 +17,9 @@ git:
     stageDependencies:
       install:
         - '**/*'
-
-secrets:
-- id: SOURCE_REPO
-  value: {{ .SOURCE_REPO }}
-
 shell:
-  beforeInstall:
-    - git clone --depth 1 --branch {{ include "get_oss_version_by_id" (list "ktls-utils" .) }} $(cat /run/secrets/SOURCE_REPO)/oracle/ktls-utils.git /src/ktls-utils
-    - rm -rf /src/ktls-utils/.git
-
----
-image: {{ .ModuleNamePrefix }}{{ .ImageName }}-binaries-artifact
-from: {{ index $.Images "builder/golang-alt" }}
-final: false
-
-import:
-  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
-    add: /src
-    to: /src
-    before: install
-
-git:
-  - add: {{ .ModuleDir }}/tools/dev_images/additional_tools/binary_replace.sh
-    to: /binary_replace.sh
-    stageDependencies:
-      beforeSetup:
-        - '**/*'
-
-shell:
-  beforeInstall:
-    {{- include "alt packages proxy" . | nindent 4 }}
-    - apt-get install -y make automake pkg-config gcc libtool git curl
-    - apt-get install -y libgnutls-devel libkeyutils-devel glib2-devel libnl-devel
-    - rm -rf /var/lib/apt/lists/* /var/cache/apt/* && mkdir -p /var/lib/apt/lists/partial /var/cache/apt/archives/partial
   install:
-    - cd /src/ktls-utils
-    - ./autogen.sh
-    - ./configure
-    - make
-  beforeSetup:
-    - mkdir -p /opt/deckhouse/csi/bin
-    - cp -v /src/ktls-utils/src/tlshd/tlshd /opt/deckhouse/csi/bin/tlshd
-    - chmod +x /binary_replace.sh
-    - /binary_replace.sh -i "/opt/deckhouse/csi/bin/tlshd" -o /relocate
-    - mkdir -p /relocate/opt/deckhouse/csi/etc
-    - cp -v /src/ktls-utils/src/tlshd/tlshd.conf /relocate/opt/deckhouse/csi/etc/tlshd.conf
+    - rm -rf /src/.git
 
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-golang-artifact
@@ -92,16 +53,18 @@ image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 from: {{ index $.Images "builder/distroless" }}
 
 import:
-  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-binaries-artifact
-    add: /relocate
-    to: /
-    before: setup
   - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-golang-artifact
     add: /{{ $.ImageName }}
     to: /{{ $.ImageName }}
     before: setup
+
 git:
 {{- include "image mount points" . }}
+
+shell:
+  setup:
+    - pm install ktls-utils
+
 imageSpec:
   config:
     entrypoint: ["/{{ $.ImageName }}"]
