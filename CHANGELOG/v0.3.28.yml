@@ -1,0 +1,3 @@
+Changes:
+- Transition of module images to distroless
+- Updating container-base images to v1.1.2
