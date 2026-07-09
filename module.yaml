@@ -1,5 +1,7 @@
 name: csi-nfs
 stage: "General Availability"
+subsystems:
+  - storage
 descriptions:
   en: "Provides CSI for managing NFS volumes."
   ru: "Предоставляет CSI для управления NFS-томами."

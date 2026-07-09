@@ -18,16 +18,9 @@ Add sockerPermissions to csi-controller
 
 ## 005-fix-cve.patch
 
-Fix CVE
+Fix CVE (combined). Cumulative dependency bumps and re-vendoring:
 
-## 006-Fix-CVE.patch
-
-Fix CVE
-
-## 007-fix-cve.patch
-
-Fix CVE
-
-## 008-Fix-CVE.patch
-
-Fix CVE: bump go.opentelemetry.io/otel to v1.41.0 (CVE-2026-29181)
+- go.opentelemetry.io/otel and otel/metric,sdk,trace v1.41.0 (CVE-2026-29181)
+- golang.org/x/net v0.55.0 (CVE-2026-25681, CVE-2026-27136, CVE-2026-39821,
+  CVE-2026-25680, CVE-2026-42502, CVE-2026-42506, CVE-2026-33814)
+- golang.org/x/sys v0.45.0 (CVE-2026-39824)
