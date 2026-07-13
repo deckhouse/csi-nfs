@@ -58,8 +58,8 @@ jobs:
           module_name: ${{ vars.MODULE_NAME }}
           module_tag: ${{ github.ref_name }}
           secondary_repo: "${{ vars.DEV_MODULE_SOURCE }}/${{ vars.MODULE_NAME }}"
-          registry_user: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
-          registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
+          registry_user: ${{ vars.PROD_MODULES_REGISTRY_LOGIN }}
+          registry_password: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}
           source_repo: ${{ secrets.SOURCE_REPO }}
           source_repo_ssh_key: ${{ secrets.SOURCE_REPO_SSH_KEY }}
 
@@ -103,8 +103,8 @@ jobs:
           module_name: ${{ vars.MODULE_NAME }}
           module_tag: ${{ github.ref_name }}
           secondary_repo: "${{ vars.DEV_MODULE_SOURCE }}/${{ vars.MODULE_NAME }}"
-          registry_user: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
-          registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
+          registry_user: ${{ vars.PROD_MODULES_REGISTRY_LOGIN }}
+          registry_password: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}
           source_repo: ${{ secrets.SOURCE_REPO }}
           source_repo_ssh_key: ${{ secrets.SOURCE_REPO_SSH_KEY }}
 
@@ -148,8 +148,8 @@ jobs:
           module_name: ${{ vars.MODULE_NAME }}
           module_tag: ${{ github.ref_name }}
           secondary_repo: "${{ vars.DEV_MODULE_SOURCE }}/${{ vars.MODULE_NAME }}"
-          registry_user: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
-          registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
+          registry_user: ${{ vars.PROD_MODULES_REGISTRY_LOGIN }}
+          registry_password: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}
           source_repo: ${{ secrets.SOURCE_REPO }}
           source_repo_ssh_key: ${{ secrets.SOURCE_REPO_SSH_KEY }}
 
@@ -193,8 +193,8 @@ jobs:
           module_name: ${{ vars.MODULE_NAME }}
           module_tag: ${{ github.ref_name }}
           secondary_repo: "${{ vars.DEV_MODULE_SOURCE }}/${{ vars.MODULE_NAME }}"
-          registry_user: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
-          registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
+          registry_user: ${{ vars.PROD_MODULES_REGISTRY_LOGIN }}
+          registry_password: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}
           source_repo: ${{ secrets.SOURCE_REPO }}
           source_repo_ssh_key: ${{ secrets.SOURCE_REPO_SSH_KEY }}
 
@@ -238,7 +238,7 @@ jobs:
           module_name: ${{ vars.MODULE_NAME }}
           module_tag: ${{ github.ref_name }}
           secondary_repo: "${{ vars.DEV_MODULE_SOURCE }}/${{ vars.MODULE_NAME }}"
-          registry_user: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
-          registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
+          registry_user: ${{ vars.PROD_MODULES_REGISTRY_LOGIN }}
+          registry_password: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}
           source_repo: ${{ secrets.SOURCE_REPO }}
           source_repo_ssh_key: ${{ secrets.SOURCE_REPO_SSH_KEY }}
