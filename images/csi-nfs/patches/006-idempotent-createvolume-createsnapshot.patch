@@ -1,0 +1,736 @@
+From fed8491342797bd18eab7887420f818d03e811b3 Mon Sep 17 00:00:00 2001
+From: Dmitry Rakitin <dmitry.rakitin@flant.com>
+Date: Tue, 14 Jul 2026 22:32:22 +0200
+Subject: [PATCH] Make CreateVolume/CreateSnapshot data copy idempotent
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+CSI requires CreateVolume and CreateSnapshot to be idempotent, but the
+data-copy step is re-run on every call: a retried CreateVolume-from-snapshot
+truncates (os.Create) and rewrites the volume content even when the volume
+was already provisioned and published to a workload. With late binding the
+PVC is bound and mounted right after the first successful call, so a retry
+lands while the workload is reading: observed as VMs failing to boot from
+freshly cloned disks (SYSLINUX "EDD Load error", SeaBIOS "no bootable
+device") although the final file content converges.
+
+The copy functions now populate a staging path (.populating suffix) and
+atomically rename it into place while they still hold the internal mount of
+the destination volume; the existence of the final path always means the
+content is complete, so retries skip the copy. If the final path appears
+concurrently, the staging copy is discarded and the existing content wins.
+The same is done for the snapshot archive in CreateSnapshot, which could
+previously truncate an archive while a volume restore was reading it. Stale
+staging leftovers are removed on retry and on DeleteVolume.
+
+Also give TarPack a named error return: its deferred Close error joins were
+assigned to a local variable and dropped, hiding delayed NFS write-back
+failures (e.g. ENOSPC) behind a success response with a truncated archive.
+
+A symlink-based test mounter emulates real mount visibility (content
+disappears from the target path on unmount), pinning the requirement that
+the destination volume is only accessed while its internal mount is held —
+plain FakeMounter cannot catch that class of bugs.
+
+Signed-off-by: Dmitry Rakitin <dmitry.rakitin@flant.com>
+---
+ pkg/nfs/controllerserver.go                  | 165 +++++++--
+ pkg/nfs/controllerserver_idempotency_test.go | 367 +++++++++++++++++++
+ pkg/nfs/controllerserver_test.go             |  10 +-
+ pkg/nfs/tar.go                               |   8 +-
+ 4 files changed, 516 insertions(+), 34 deletions(-)
+ create mode 100644 pkg/nfs/controllerserver_idempotency_test.go
+
+diff --git a/pkg/nfs/controllerserver.go b/pkg/nfs/controllerserver.go
+index bae0524..739332a 100644
+--- a/pkg/nfs/controllerserver.go
++++ b/pkg/nfs/controllerserver.go
+@@ -113,6 +113,14 @@ const (
+ 	totalIDSnapElements // Always last
+ )
+ 
++// populatingSuffix marks a staging directory (volume) or file (snapshot
++// archive) whose content is still being copied. The staging path is renamed
++// to its final name only after the copy fully succeeds, so the existence of
++// the final path always means the content is complete. This keeps retried
++// CreateVolume/CreateSnapshot calls from truncating and rewriting data that
++// may already be consumed (CSI requires these calls to be idempotent).
++const populatingSuffix = ".populating"
++
+ // CreateVolume create a volume
+ func (cs *ControllerServer) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
+ 	name := req.GetName()
+@@ -179,20 +187,37 @@ func (cs *ControllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
+ 
+ 	// Create subdirectory under base-dir
+ 	internalVolumePath := getInternalVolumePath(cs.Driver.workingMountDir, nfsVol)
+-	if err = os.MkdirAll(internalVolumePath, 0777); err != nil {
+-		return nil, status.Errorf(codes.Internal, "failed to make subdirectory: %v", err)
+-	}
+ 
+-	if mountPermissions > 0 {
+-		// Reset directory permissions because of umask problems
+-		if err := chmodIfPermissionMismatch(internalVolumePath, os.FileMode(mountPermissions)); err != nil {
+-			return nil, status.Error(codes.Internal, err.Error())
++	if req.GetVolumeContentSource() != nil {
++		// A retried CreateVolume (e.g. the CO failed to record a previous
++		// success) may arrive when the volume is already provisioned and even
++		// published to a workload; re-running the data copy would truncate and
++		// rewrite files under a live consumer. Populate a staging directory
++		// and atomically rename it into place instead: an existing volume
++		// directory then always means the copy has completed, so it is skipped.
++		if _, err := os.Stat(internalVolumePath); err == nil {
++			klog.V(2).Infof("CreateVolume: volume %s is already populated at %s, skipping data copy", name, internalVolumePath)
++		} else if !os.IsNotExist(err) {
++			return nil, status.Errorf(codes.Internal, "failed to check volume directory %s: %v", internalVolumePath, err)
++		} else {
++			// The staging directory is created, populated and renamed inside
++			// copyVolume: the copy functions re-mount the destination at the
++			// same path and unmount it on return, so every access to dstPath
++			// has to happen while they hold that mount.
++			if err := cs.copyVolume(ctx, req, nfsVol, internalVolumePath, mountPermissions); err != nil {
++				return nil, err
++			}
++		}
++	} else {
++		if err = os.MkdirAll(internalVolumePath, 0777); err != nil {
++			return nil, status.Errorf(codes.Internal, "failed to make subdirectory: %v", err)
+ 		}
+-	}
+ 
+-	if req.GetVolumeContentSource() != nil {
+-		if err := cs.copyVolume(ctx, req, nfsVol); err != nil {
+-			return nil, err
++		if mountPermissions > 0 {
++			// Reset directory permissions because of umask problems
++			if err := chmodIfPermissionMismatch(internalVolumePath, os.FileMode(mountPermissions)); err != nil {
++				return nil, status.Error(codes.Internal, err.Error())
++			}
+ 		}
+ 	}
+ 
+@@ -252,6 +277,11 @@ func (cs *ControllerServer) DeleteVolume(ctx context.Context, req *csi.DeleteVol
+ 
+ 		internalVolumePath := getInternalVolumePath(cs.Driver.workingMountDir, nfsVol)
+ 
++		// remove leftovers of an interrupted volume population, if any
++		if err := os.RemoveAll(internalVolumePath + populatingSuffix); err != nil {
++			klog.Warningf("failed to remove staging directory %s: %v", internalVolumePath+populatingSuffix, err)
++		}
++
+ 		if strings.EqualFold(nfsVol.onDelete, archive) {
+ 			archivedInternalVolumePath := filepath.Join(getInternalMountPath(cs.Driver.workingMountDir, nfsVol), "archived-"+nfsVol.subDir)
+ 			if strings.Contains(nfsVol.subDir, "/") {
+@@ -417,17 +447,36 @@ func (cs *ControllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateS
+ 	srcPath := getInternalVolumePath(cs.Driver.workingMountDir, srcVol)
+ 	dstPath := filepath.Join(snapInternalVolPath, snapshot.archiveName())
+ 
+-	klog.V(2).Infof("tar %v -> %v", srcPath, dstPath)
+-	if cs.Driver.useTarCommandInSnapshot {
+-		if out, err := exec.Command("tar", "-C", srcPath, "-czvf", dstPath, ".").CombinedOutput(); err != nil {
+-			return nil, status.Errorf(codes.Internal, "failed to create archive for snapshot: %v: %v", err, string(out))
+-		}
++	if _, err := os.Stat(dstPath); err == nil {
++		// A retried CreateSnapshot (e.g. the CO failed to record a previous
++		// success) may arrive when the archive is already complete and possibly
++		// being read by a volume restore; re-creating it would truncate the
++		// file under the reader. The archive is written to a staging path and
++		// renamed once complete, so its existence means it is whole.
++		klog.V(2).Infof("CreateSnapshot: archive %s already exists, skipping copy", dstPath)
++	} else if !os.IsNotExist(err) {
++		return nil, status.Errorf(codes.Internal, "failed to check snapshot archive %s: %v", dstPath, err)
+ 	} else {
+-		if err := TarPack(srcPath, dstPath, true); err != nil {
+-			return nil, status.Errorf(codes.Internal, "failed to create archive for snapshot: %v", err)
++		stagingPath := dstPath + populatingSuffix
++		// remove leftovers of a previously interrupted copy
++		if err := os.RemoveAll(stagingPath); err != nil {
++			return nil, status.Errorf(codes.Internal, "failed to remove stale staging archive %s: %v", stagingPath, err)
++		}
++		klog.V(2).Infof("tar %v -> %v", srcPath, dstPath)
++		if cs.Driver.useTarCommandInSnapshot {
++			if out, err := exec.Command("tar", "-C", srcPath, "-czvf", stagingPath, ".").CombinedOutput(); err != nil {
++				return nil, status.Errorf(codes.Internal, "failed to create archive for snapshot: %v: %v", err, string(out))
++			}
++		} else {
++			if err := TarPack(srcPath, stagingPath, true); err != nil {
++				return nil, status.Errorf(codes.Internal, "failed to create archive for snapshot: %v", err)
++			}
++		}
++		if err := os.Rename(stagingPath, dstPath); err != nil {
++			return nil, status.Errorf(codes.Internal, "failed to finalize snapshot archive %s: %v", dstPath, err)
+ 		}
++		klog.V(2).Infof("tar %s -> %s complete", srcPath, dstPath)
+ 	}
+-	klog.V(2).Infof("tar %s -> %s complete", srcPath, dstPath)
+ 
+ 	var snapshotSize int64
+ 	fi, err := os.Stat(dstPath)
+@@ -558,7 +607,7 @@ func (cs *ControllerServer) internalUnmount(ctx context.Context, vol *nfsVolume)
+ 	return err
+ }
+ 
+-func (cs *ControllerServer) copyFromSnapshot(ctx context.Context, req *csi.CreateVolumeRequest, dstVol *nfsVolume) error {
++func (cs *ControllerServer) copyFromSnapshot(ctx context.Context, req *csi.CreateVolumeRequest, dstVol *nfsVolume, dstPath string, mountPermissions uint64) error {
+ 	snap, err := getNfsSnapFromID(req.VolumeContentSource.GetSnapshot().GetSnapshotId())
+ 	if err != nil {
+ 		return status.Error(codes.NotFound, err.Error())
+@@ -587,32 +636,38 @@ func (cs *ControllerServer) copyFromSnapshot(ctx context.Context, req *csi.Creat
+ 		}
+ 	}()
+ 
+-	// untar snapshot archive to dst path
++	// untar snapshot archive to a staging path and atomically rename it into
++	// place; this must happen while the destination mount above is held
++	stagingPath, err := prepareStagingDir(dstPath, mountPermissions)
++	if err != nil {
++		return err
++	}
+ 	snapPath := filepath.Join(getInternalVolumePath(cs.Driver.workingMountDir, snapVol), snap.archiveName())
+-	dstPath := getInternalVolumePath(cs.Driver.workingMountDir, dstVol)
+ 	klog.V(2).Infof("copy volume from snapshot %v -> %v", snapPath, dstPath)
+ 
+ 	if cs.Driver.useTarCommandInSnapshot {
+-		if out, err := exec.Command("tar", "-xzvf", snapPath, "-C", dstPath).CombinedOutput(); err != nil {
++		if out, err := exec.Command("tar", "-xzvf", snapPath, "-C", stagingPath).CombinedOutput(); err != nil {
+ 			return status.Errorf(codes.Internal, "failed to copy volume for snapshot: %v: %v", err, string(out))
+ 		}
+ 	} else {
+-		if err := TarUnpack(snapPath, dstPath, true); err != nil {
++		if err := TarUnpack(snapPath, stagingPath, true); err != nil {
+ 			return status.Errorf(codes.Internal, "failed to copy volume for snapshot: %v", err)
+ 		}
+ 	}
++	if err := finalizeStagingDir(stagingPath, dstPath); err != nil {
++		return err
++	}
+ 	klog.V(2).Infof("volume copied from snapshot %v -> %v", snapPath, dstPath)
+ 	return nil
+ }
+ 
+-func (cs *ControllerServer) copyFromVolume(ctx context.Context, req *csi.CreateVolumeRequest, dstVol *nfsVolume) error {
++func (cs *ControllerServer) copyFromVolume(ctx context.Context, req *csi.CreateVolumeRequest, dstVol *nfsVolume, dstPath string, mountPermissions uint64) error {
+ 	srcVol, err := getNfsVolFromID(req.GetVolumeContentSource().GetVolume().GetVolumeId())
+ 	if err != nil {
+ 		return status.Error(codes.NotFound, err.Error())
+ 	}
+ 	// Note that the source path must include trailing '/.', can't use 'filepath.Join()' as it performs path cleaning
+ 	srcPath := fmt.Sprintf("%v/.", getInternalVolumePath(cs.Driver.workingMountDir, srcVol))
+-	dstPath := getInternalVolumePath(cs.Driver.workingMountDir, dstVol)
+ 	klog.V(2).Infof("copy volume from volume %v -> %v", srcPath, dstPath)
+ 
+ 	var volCap *csi.VolumeCapability
+@@ -636,27 +691,73 @@ func (cs *ControllerServer) copyFromVolume(ctx context.Context, req *csi.CreateV
+ 		}
+ 	}()
+ 
++	// copy to a staging path and atomically rename it into place; this must
++	// happen while the destination mount above is held
++	stagingPath, err := prepareStagingDir(dstPath, mountPermissions)
++	if err != nil {
++		return err
++	}
+ 	// recursive 'cp' with '-a' to handle symlinks
+-	out, err := exec.Command("cp", "-a", srcPath, dstPath).CombinedOutput()
++	out, err := exec.Command("cp", "-a", srcPath, stagingPath).CombinedOutput()
+ 	if err != nil {
+ 		return status.Errorf(codes.Internal, "failed to copy volume %v: %v", err, string(out))
+ 	}
++	if err := finalizeStagingDir(stagingPath, dstPath); err != nil {
++		return err
++	}
+ 	klog.V(2).Infof("copied %s -> %s", srcPath, dstPath)
+ 	return nil
+ }
+ 
+-func (cs *ControllerServer) copyVolume(ctx context.Context, req *csi.CreateVolumeRequest, vol *nfsVolume) error {
++func (cs *ControllerServer) copyVolume(ctx context.Context, req *csi.CreateVolumeRequest, vol *nfsVolume, dstPath string, mountPermissions uint64) error {
+ 	vs := req.VolumeContentSource
+ 	switch vs.Type.(type) {
+ 	case *csi.VolumeContentSource_Snapshot:
+-		return cs.copyFromSnapshot(ctx, req, vol)
++		return cs.copyFromSnapshot(ctx, req, vol, dstPath, mountPermissions)
+ 	case *csi.VolumeContentSource_Volume:
+-		return cs.copyFromVolume(ctx, req, vol)
++		return cs.copyFromVolume(ctx, req, vol, dstPath, mountPermissions)
+ 	default:
+ 		return status.Errorf(codes.InvalidArgument, "%v not a proper volume source", vs)
+ 	}
+ }
+ 
++// prepareStagingDir removes leftovers of a previously interrupted copy and
++// creates a fresh staging directory next to dstPath.
++func prepareStagingDir(dstPath string, mountPermissions uint64) (string, error) {
++	stagingPath := dstPath + populatingSuffix
++	if err := os.RemoveAll(stagingPath); err != nil {
++		return "", status.Errorf(codes.Internal, "failed to remove stale staging directory %s: %v", stagingPath, err)
++	}
++	if err := os.MkdirAll(stagingPath, 0777); err != nil {
++		return "", status.Errorf(codes.Internal, "failed to make staging directory: %v", err)
++	}
++	if mountPermissions > 0 {
++		// Reset directory permissions because of umask problems
++		if err := chmodIfPermissionMismatch(stagingPath, os.FileMode(mountPermissions)); err != nil {
++			return "", status.Error(codes.Internal, err.Error())
++		}
++	}
++	return stagingPath, nil
++}
++
++// finalizeStagingDir atomically renames a fully populated staging directory to
++// its final name. If the final path already exists (a concurrent or earlier
++// attempt completed the copy), the staging directory is discarded and the
++// existing content wins: per CSI, an already existing volume is a success.
++func finalizeStagingDir(stagingPath, dstPath string) error {
++	if err := os.Rename(stagingPath, dstPath); err != nil {
++		if _, statErr := os.Stat(dstPath); statErr == nil {
++			klog.V(2).Infof("volume directory %s already exists, discarding staging copy %s", dstPath, stagingPath)
++			if rmErr := os.RemoveAll(stagingPath); rmErr != nil {
++				klog.Warningf("failed to remove staging directory %s: %v", stagingPath, rmErr)
++			}
++			return nil
++		}
++		return status.Errorf(codes.Internal, "failed to finalize volume directory %s: %v", dstPath, err)
++	}
++	return nil
++}
++
+ // newNFSSnapshot Convert VolumeSnapshot parameters to a nfsSnapshot
+ func newNFSSnapshot(name string, params map[string]string, vol *nfsVolume) (*nfsSnapshot, error) {
+ 	server := vol.server
+@@ -887,6 +988,10 @@ func validateSnapshot(snapInternalVolPath string, snap *nfsSnapshot) error {
+ 		if err != nil {
+ 			return err
+ 		}
++		if d.Name() == snap.archiveName()+populatingSuffix {
++			// leftover of a previously interrupted copy, removed on retry
++			return nil
++		}
+ 		if d.Name() != snap.archiveName() {
+ 			// there should be just one archive in the snapshot path and archive name should match
+ 			return status.Errorf(codes.AlreadyExists, "snapshot with the same name but different source volume ID already exists: found %q, desired %q", d.Name(), snap.archiveName())
+diff --git a/pkg/nfs/controllerserver_idempotency_test.go b/pkg/nfs/controllerserver_idempotency_test.go
+new file mode 100644
+index 0000000..b840b7e
+--- /dev/null
++++ b/pkg/nfs/controllerserver_idempotency_test.go
+@@ -0,0 +1,367 @@
++/*
++Copyright 2026 The Kubernetes Authors.
++
++Licensed under the Apache License, Version 2.0 (the "License");
++you may not use this file except in compliance with the License.
++You may obtain a copy of the License at
++
++    http://www.apache.org/licenses/LICENSE-2.0
++
++Unless required by applicable law or agreed to in writing, software
++distributed under the License is distributed on an "AS IS" BASIS,
++WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++See the License for the specific language governing permissions and
++limitations under the License.
++*/
++
++package nfs
++
++import (
++	"context"
++	"os"
++	"path/filepath"
++	"testing"
++
++	"github.com/container-storage-interface/spec/lib/go/csi"
++	mount "k8s.io/mount-utils"
++)
++
++// The CO may retry CreateVolume/CreateSnapshot after failing to record a
++// previous success. By then the created volume can already be published to a
++// workload (with WaitForFirstConsumer binding this is the common case), so a
++// retry must never re-run the data copy: re-populating the directory
++// truncates and rewrites files under a live consumer. These tests pin the
++// idempotency of the copy step.
++
++const (
++	idemSnapshotName = "snapshot-idem"
++	idemSrcVolume    = "src-pv-idem"
++	idemSnapshotID   = testServer + "#" + testBaseDir + "#" + idemSnapshotName + "#" + idemSnapshotName + "#" + idemSrcVolume
++)
++
++func idemVolCap() []*csi.VolumeCapability {
++	return []*csi.VolumeCapability{
++		{
++			AccessType: &csi.VolumeCapability_Mount{
++				Mount: &csi.VolumeCapability_MountVolume{},
++			},
++			AccessMode: &csi.VolumeCapability_AccessMode{
++				Mode: csi.VolumeCapability_AccessMode_MULTI_NODE_MULTI_WRITER,
++			},
++		},
++	}
++}
++
++// prepareIdemSnapshot lays out a ready-to-restore snapshot archive containing
++// disk.img with the given content and returns the archive path.
++func prepareIdemSnapshot(t *testing.T, workingMountDir, content string) string {
++	t.Helper()
++
++	srcContentDir := filepath.Join(workingMountDir, "idem-snapshot-content")
++	if err := os.MkdirAll(srcContentDir, 0777); err != nil {
++		t.Fatalf("failed to create snapshot content dir: %v", err)
++	}
++	t.Cleanup(func() { os.RemoveAll(srcContentDir) })
++	if err := os.WriteFile(filepath.Join(srcContentDir, "disk.img"), []byte(content), 0644); err != nil {
++		t.Fatalf("failed to write snapshot content: %v", err)
++	}
++
++	snapDir := filepath.Join(workingMountDir, idemSnapshotName, idemSnapshotName)
++	if err := os.MkdirAll(snapDir, 0777); err != nil {
++		t.Fatalf("failed to create snapshot dir: %v", err)
++	}
++	t.Cleanup(func() { os.RemoveAll(filepath.Join(workingMountDir, idemSnapshotName)) })
++
++	archivePath := filepath.Join(snapDir, idemSrcVolume+".tar.gz")
++	if err := TarPack(srcContentDir, archivePath, true); err != nil {
++		t.Fatalf("failed to pack snapshot archive: %v", err)
++	}
++	return archivePath
++}
++
++func createVolumeFromSnapshotReq(volumeName string) *csi.CreateVolumeRequest {
++	return &csi.CreateVolumeRequest{
++		Name:               volumeName,
++		VolumeCapabilities: idemVolCap(),
++		Parameters: map[string]string{
++			paramServer: testServer,
++			paramShare:  testBaseDir,
++		},
++		VolumeContentSource: &csi.VolumeContentSource{
++			Type: &csi.VolumeContentSource_Snapshot{
++				Snapshot: &csi.VolumeContentSource_SnapshotSource{
++					SnapshotId: idemSnapshotID,
++				},
++			},
++		},
++	}
++}
++
++// TestCreateVolumeFromSnapshotRetryDoesNotRewrite verifies that a retried
++// CreateVolume does not re-populate an already provisioned volume.
++func TestCreateVolumeFromSnapshotRetryDoesNotRewrite(t *testing.T) {
++	cs := initTestController(t)
++	prepareIdemSnapshot(t, cs.Driver.workingMountDir, "snapshot-data")
++
++	volumeName := "pvc-idem-retry"
++	t.Cleanup(func() { os.RemoveAll(filepath.Join(cs.Driver.workingMountDir, volumeName)) })
++	req := createVolumeFromSnapshotReq(volumeName)
++
++	if _, err := cs.CreateVolume(context.TODO(), req); err != nil {
++		t.Fatalf("first CreateVolume failed: %v", err)
++	}
++
++	volumePath := filepath.Join(cs.Driver.workingMountDir, volumeName, volumeName)
++	diskPath := filepath.Join(volumePath, "disk.img")
++	data, err := os.ReadFile(diskPath)
++	if err != nil {
++		t.Fatalf("failed to read restored disk.img: %v", err)
++	}
++	if string(data) != "snapshot-data" {
++		t.Fatalf("restored disk.img content mismatch: got %q, want %q", data, "snapshot-data")
++	}
++	if _, err := os.Stat(volumePath + populatingSuffix); !os.IsNotExist(err) {
++		t.Fatalf("staging directory left behind after successful CreateVolume: %v", err)
++	}
++
++	// Emulate a consumer that already wrote to the published volume.
++	if err := os.WriteFile(diskPath, []byte("live-consumer-data"), 0644); err != nil {
++		t.Fatalf("failed to overwrite disk.img: %v", err)
++	}
++
++	if _, err := cs.CreateVolume(context.TODO(), req); err != nil {
++		t.Fatalf("retried CreateVolume failed: %v", err)
++	}
++
++	data, err = os.ReadFile(diskPath)
++	if err != nil {
++		t.Fatalf("failed to read disk.img after retry: %v", err)
++	}
++	if string(data) != "live-consumer-data" {
++		t.Fatalf("retried CreateVolume rewrote the volume: got %q, want %q", data, "live-consumer-data")
++	}
++}
++
++// TestCreateVolumeFromSnapshotStaleStagingRedone verifies that leftovers of an
++// interrupted copy do not prevent a retry from fully re-populating the volume.
++func TestCreateVolumeFromSnapshotStaleStagingRedone(t *testing.T) {
++	cs := initTestController(t)
++	prepareIdemSnapshot(t, cs.Driver.workingMountDir, "snapshot-data")
++
++	volumeName := "pvc-idem-staging"
++	t.Cleanup(func() { os.RemoveAll(filepath.Join(cs.Driver.workingMountDir, volumeName)) })
++
++	// Simulate an interrupted previous attempt: a stale staging directory
++	// with partial content, and no final volume directory.
++	volumePath := filepath.Join(cs.Driver.workingMountDir, volumeName, volumeName)
++	stagingPath := volumePath + populatingSuffix
++	if err := os.MkdirAll(stagingPath, 0777); err != nil {
++		t.Fatalf("failed to create stale staging dir: %v", err)
++	}
++	if err := os.WriteFile(filepath.Join(stagingPath, "disk.img"), []byte("partial"), 0644); err != nil {
++		t.Fatalf("failed to write partial content: %v", err)
++	}
++
++	if _, err := cs.CreateVolume(context.TODO(), createVolumeFromSnapshotReq(volumeName)); err != nil {
++		t.Fatalf("CreateVolume failed: %v", err)
++	}
++
++	data, err := os.ReadFile(filepath.Join(volumePath, "disk.img"))
++	if err != nil {
++		t.Fatalf("failed to read restored disk.img: %v", err)
++	}
++	if string(data) != "snapshot-data" {
++		t.Fatalf("restored disk.img content mismatch: got %q, want %q", data, "snapshot-data")
++	}
++	if _, err := os.Stat(stagingPath); !os.IsNotExist(err) {
++		t.Fatalf("stale staging directory left behind: %v", err)
++	}
++}
++
++// TestCreateSnapshotRetryDoesNotRewrite verifies that a retried CreateSnapshot
++// does not re-create an already completed archive: a restore may be reading it.
++func TestCreateSnapshotRetryDoesNotRewrite(t *testing.T) {
++	cs := initTestController(t)
++
++	srcVolumeID := testServer + "#" + testBaseDir + "#subdir-idem#" + idemSrcVolume
++	srcPath := filepath.Join(cs.Driver.workingMountDir, idemSrcVolume, "subdir-idem")
++	if err := os.MkdirAll(srcPath, 0777); err != nil {
++		t.Fatalf("failed to create source volume dir: %v", err)
++	}
++	t.Cleanup(func() { os.RemoveAll(filepath.Join(cs.Driver.workingMountDir, idemSrcVolume)) })
++	if err := os.WriteFile(filepath.Join(srcPath, "disk.img"), []byte("source-data"), 0644); err != nil {
++		t.Fatalf("failed to write source content: %v", err)
++	}
++	t.Cleanup(func() { os.RemoveAll(filepath.Join(cs.Driver.workingMountDir, idemSnapshotName)) })
++
++	req := &csi.CreateSnapshotRequest{
++		SourceVolumeId: srcVolumeID,
++		Name:           idemSnapshotName,
++	}
++
++	if _, err := cs.CreateSnapshot(context.TODO(), req); err != nil {
++		t.Fatalf("first CreateSnapshot failed: %v", err)
++	}
++
++	archivePath := filepath.Join(cs.Driver.workingMountDir, idemSnapshotName, idemSnapshotName, idemSrcVolume+".tar.gz")
++	if _, err := os.Stat(archivePath); err != nil {
++		t.Fatalf("snapshot archive missing after CreateSnapshot: %v", err)
++	}
++	if _, err := os.Stat(archivePath + populatingSuffix); !os.IsNotExist(err) {
++		t.Fatalf("staging archive left behind after successful CreateSnapshot: %v", err)
++	}
++
++	// Emulate a completed archive that must not be touched by a retry.
++	if err := os.WriteFile(archivePath, []byte("sentinel"), 0644); err != nil {
++		t.Fatalf("failed to overwrite archive: %v", err)
++	}
++
++	resp, err := cs.CreateSnapshot(context.TODO(), req)
++	if err != nil {
++		t.Fatalf("retried CreateSnapshot failed: %v", err)
++	}
++	if resp.GetSnapshot().GetSizeBytes() != int64(len("sentinel")) {
++		t.Fatalf("retried CreateSnapshot did not report the existing archive size: got %d, want %d",
++			resp.GetSnapshot().GetSizeBytes(), len("sentinel"))
++	}
++
++	data, err := os.ReadFile(archivePath)
++	if err != nil {
++		t.Fatalf("failed to read archive after retry: %v", err)
++	}
++	if string(data) != "sentinel" {
++		t.Fatalf("retried CreateSnapshot rewrote the archive: got %q, want %q", data, "sentinel")
++	}
++}
++
++// TestCreateSnapshotStaleStagingRedone verifies that a leftover staging
++// archive from an interrupted attempt is discarded and the snapshot is
++// re-created from scratch.
++func TestCreateSnapshotStaleStagingRedone(t *testing.T) {
++	cs := initTestController(t)
++
++	srcVolumeID := testServer + "#" + testBaseDir + "#subdir-idem#" + idemSrcVolume
++	srcPath := filepath.Join(cs.Driver.workingMountDir, idemSrcVolume, "subdir-idem")
++	if err := os.MkdirAll(srcPath, 0777); err != nil {
++		t.Fatalf("failed to create source volume dir: %v", err)
++	}
++	t.Cleanup(func() { os.RemoveAll(filepath.Join(cs.Driver.workingMountDir, idemSrcVolume)) })
++	if err := os.WriteFile(filepath.Join(srcPath, "disk.img"), []byte("source-data"), 0644); err != nil {
++		t.Fatalf("failed to write source content: %v", err)
++	}
++
++	// Simulate an interrupted previous attempt: stale staging archive only.
++	snapDir := filepath.Join(cs.Driver.workingMountDir, idemSnapshotName, idemSnapshotName)
++	if err := os.MkdirAll(snapDir, 0777); err != nil {
++		t.Fatalf("failed to create snapshot dir: %v", err)
++	}
++	t.Cleanup(func() { os.RemoveAll(filepath.Join(cs.Driver.workingMountDir, idemSnapshotName)) })
++	archivePath := filepath.Join(snapDir, idemSrcVolume+".tar.gz")
++	if err := os.WriteFile(archivePath+populatingSuffix, []byte("partial"), 0644); err != nil {
++		t.Fatalf("failed to write stale staging archive: %v", err)
++	}
++
++	req := &csi.CreateSnapshotRequest{
++		SourceVolumeId: srcVolumeID,
++		Name:           idemSnapshotName,
++	}
++	if _, err := cs.CreateSnapshot(context.TODO(), req); err != nil {
++		t.Fatalf("CreateSnapshot failed: %v", err)
++	}
++
++	if _, err := os.Stat(archivePath); err != nil {
++		t.Fatalf("snapshot archive missing after CreateSnapshot: %v", err)
++	}
++	if _, err := os.Stat(archivePath + populatingSuffix); !os.IsNotExist(err) {
++		t.Fatalf("stale staging archive left behind: %v", err)
++	}
++}
++
++// symlinkMounter emulates the one property of real mounts that
++// mount.FakeMounter lacks and that unit tests silently depend on: content is
++// visible at the target path only while the target is mounted. Mount replaces
++// the (freshly created, empty) target directory with a symlink to a shared
++// backing directory (the "NFS server side"); Unmount removes the symlink, so
++// the content disappears from the target path exactly like after a real
++// unmount. This catches bugs where volume data is accessed through an
++// internal mount after the code path holding that mount has released it.
++type symlinkMounter struct {
++	*mount.FakeMounter
++	backingRoot string
++}
++
++func (m *symlinkMounter) Mount(source, target, fstype string, options []string) error {
++	// NodePublishVolume pre-creates the target as an empty directory.
++	if err := os.Remove(target); err != nil && !os.IsNotExist(err) {
++		return err
++	}
++	if err := os.Symlink(m.backingRoot, target); err != nil {
++		return err
++	}
++	return m.FakeMounter.Mount(source, target, fstype, options)
++}
++
++func (m *symlinkMounter) Unmount(target string) error {
++	if fi, err := os.Lstat(target); err == nil && fi.Mode()&os.ModeSymlink != 0 {
++		if err := os.Remove(target); err != nil {
++			return err
++		}
++	}
++	return m.FakeMounter.Unmount(target)
++}
++
++func initTestControllerWithMountVisibility(t *testing.T) (*ControllerServer, string) {
++	t.Helper()
++	backing := t.TempDir()
++	mounter := &symlinkMounter{
++		FakeMounter: &mount.FakeMounter{MountPoints: []mount.MountPoint{}},
++		backingRoot: backing,
++	}
++	driver := NewDriver(&DriverOptions{
++		WorkingMountDir:  t.TempDir(),
++		MountPermissions: 0777,
++	})
++	driver.ns = NewNodeServer(driver, mounter)
++	return NewControllerServer(driver), backing
++}
++
++// TestCreateVolumeFromSnapshotMountVisibility runs the snapshot-restore path
++// against a mounter with realistic mount visibility. It pins the requirement
++// that every access to the destination volume happens while the corresponding
++// internal mount is still held: a regression where the volume directory is
++// touched after copyFromSnapshot released its mount (e.g. finalizing a staging
++// directory in CreateVolume) fails here with ENOENT, which plain FakeMounter
++// cannot detect.
++func TestCreateVolumeFromSnapshotMountVisibility(t *testing.T) {
++	cs, backing := initTestControllerWithMountVisibility(t)
++
++	// Snapshot fixture on the "server side": <snap-uuid>/<src>.tar.gz.
++	contentDir := t.TempDir()
++	if err := os.WriteFile(filepath.Join(contentDir, "disk.img"), []byte("snapshot-data"), 0644); err != nil {
++		t.Fatalf("failed to write snapshot content: %v", err)
++	}
++	snapDir := filepath.Join(backing, idemSnapshotName)
++	if err := os.MkdirAll(snapDir, 0777); err != nil {
++		t.Fatalf("failed to create snapshot dir: %v", err)
++	}
++	if err := TarPack(contentDir, filepath.Join(snapDir, idemSrcVolume+".tar.gz"), true); err != nil {
++		t.Fatalf("failed to pack snapshot archive: %v", err)
++	}
++
++	volumeName := "pvc-mount-visibility"
++	if _, err := cs.CreateVolume(context.TODO(), createVolumeFromSnapshotReq(volumeName)); err != nil {
++		t.Fatalf("CreateVolume failed: %v", err)
++	}
++
++	// The restored volume must be fully populated on the "server side".
++	data, err := os.ReadFile(filepath.Join(backing, volumeName, "disk.img"))
++	if err != nil {
++		t.Fatalf("failed to read restored disk.img on the server side: %v", err)
++	}
++	if string(data) != "snapshot-data" {
++		t.Fatalf("restored disk.img content mismatch: got %q, want %q", data, "snapshot-data")
++	}
++	if _, err := os.Stat(filepath.Join(backing, volumeName) + populatingSuffix); !os.IsNotExist(err) {
++		t.Fatalf("staging directory left behind on the server side: %v", err)
++	}
++}
+diff --git a/pkg/nfs/controllerserver_test.go b/pkg/nfs/controllerserver_test.go
+index 0fd4e04..e6f2796 100644
+--- a/pkg/nfs/controllerserver_test.go
++++ b/pkg/nfs/controllerserver_test.go
+@@ -902,7 +902,7 @@ func TestCopyVolume(t *testing.T) {
+ 				}
+ 			}
+ 			cs := initTestController(t)
+-			err := cs.copyVolume(context.TODO(), test.req, test.dstVol)
++			err := cs.copyVolume(context.TODO(), test.req, test.dstVol, getInternalVolumePath(cs.Driver.workingMountDir, test.dstVol), 0)
+ 			if (err == nil) == test.expectErr {
+ 				t.Errorf(`[test: %s] Error expectation mismatch, expected error: "%v", received: %q`, test.desc, test.expectErr, err)
+ 			}
+@@ -941,7 +941,13 @@ func TestCreateSnapshot(t *testing.T) {
+ 				},
+ 			},
+ 			prepare: func() error { return os.MkdirAll("/tmp/src-pv-name/subdir", 0777) },
+-			cleanup: func() error { return os.RemoveAll("/tmp/src-pv-name") },
++			cleanup: func() error {
++				if err := os.RemoveAll("/tmp/src-pv-name"); err != nil {
++					return err
++				}
++				// remove the created archive so the following cases start clean
++				return os.RemoveAll("/tmp/snapshot-name")
++			},
+ 		},
+ 		{
+ 			desc: "create snapshot from nonexisting volume",
+diff --git a/pkg/nfs/tar.go b/pkg/nfs/tar.go
+index ef4171d..e5b53c7 100644
+--- a/pkg/nfs/tar.go
++++ b/pkg/nfs/tar.go
+@@ -28,9 +28,13 @@ import (
+ 	"strings"
+ )
+ 
+-func TarPack(srcDirPath string, dstPath string, enableCompression bool) error {
++// TarPack has a named error return so the deferred Close calls below can
++// propagate their errors: on NFS the destination file's Close is what
++// reports delayed write-back failures (e.g. ENOSPC), and dropping it would
++// leave a silently truncated archive behind a success response.
++func TarPack(srcDirPath string, dstPath string, enableCompression bool) (err error) {
+ 	// normalize all paths to be absolute and clean
+-	dstPath, err := filepath.Abs(dstPath)
++	dstPath, err = filepath.Abs(dstPath)
+ 	if err != nil {
+ 		return fmt.Errorf("normalizing destination path: %w", err)
+ 	}
+-- 
+2.43.0
+
