@@ -35,3 +35,14 @@ atomically renamed into place; retries skip the copy when the final path
 exists. Same for the snapshot archive in CreateSnapshot. Also fix TarPack
 dropping Close() errors (named return), which could hide NFS write-back
 failures (e.g. ENOSPC) behind a truncated-but-ready archive.
+
+## 007-fix-cve-golang-x.patch
+
+Fix fixable golang.org/x CVEs, incremental on top of 005. go.mod/go.sum only
+(the image builds non-vendored via `go mod download`):
+
+- golang.org/x/net v0.56.0 (CVE-2026-46600)
+- golang.org/x/text v0.39.0 (CVE-2026-56852)
+
+Pulls the transitive golang.org/x/crypto v0.53.0, x/sys v0.46.0,
+x/sync v0.21.0, x/term v0.44.0 bumps.
