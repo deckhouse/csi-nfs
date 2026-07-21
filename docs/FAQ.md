@@ -1,6 +1,6 @@
 ---
-title: "The csi-nfs module: FAQ"
-description: CSI NFS module FAQ
+title: "Module csi-nfs: FAQ"
+description: FAQ for the csi-nfs module.
 ---
 
 ## How to check the module's functionality?
@@ -8,7 +8,7 @@ description: CSI NFS module FAQ
 To do this, you need to check the pod statuses in the `d8-csi-nfs` namespace. All pods should be in the `Running` or `Completed` state and should be running on all nodes. You can check this with the following command:
 
 ```shell
-kubectl -n d8-csi-nfs get pod -owide -w
+d8 k -n d8-csi-nfs get pod -owide -w
 ```
 
 ## Is it possible to change the parameters of an NFS server for already created PVs?
@@ -20,7 +20,7 @@ No, the connection data to the NFS server is stored directly in the PV manifest 
 {{< alert level="warning" >}}
 **Warning about using snapshots (Volume Snapshots)**
 
-When creating snapshots of NFS volumes, it's important to understand their creation scheme and associated limitations. We recommend avoiding the use of snapshots in csi-nfs when possible:
+When creating snapshots of NFS volumes, it is important to understand their creation scheme and associated limitations. Avoid using snapshots in `csi-nfs` when possible:
 
 1. The CSI driver creates a snapshot at the NFS server level.
 2. For this, tar is used, which packages the volume contents, with all the limitations that may arise from this.
@@ -32,8 +32,8 @@ In `csi-nfs`, snapshots are created by archiving the volume folder. The archive 
 
 1. Enable the `snapshot-controller`:
 
-   ```yaml
-   kubectl apply -f - <<EOF
+   ```shell
+   d8 k apply -f - <<EOF
    apiVersion: deckhouse.io/v1alpha1
    kind: ModuleConfig
    metadata:
@@ -46,8 +46,8 @@ In `csi-nfs`, snapshots are created by archiving the volume folder. The archive 
 
 1. Create volume snapshots. To do this, run the following command, specifying the required parameters:
 
-   ```yaml
-   kubectl apply -f - <<EOF
+   ```shell
+   d8 k apply -f - <<EOF
    apiVersion: snapshot.storage.k8s.io/v1
    kind: VolumeSnapshot
    metadata:
@@ -63,17 +63,70 @@ In `csi-nfs`, snapshots are created by archiving the volume folder. The archive 
 1. Check the status of the created snapshot using the following command:
 
    ```shell
-   kubectl get volumesnapshot
+   d8 k get volumesnapshot
    ```
 
 This command will display a list of all snapshots and their current status.
 
-## Why are PVs created in a StorageClass with RPC-with-TLS support not being deleted, along with their `<PV name>` directories on the NFS server?
+
+## How to select the method to clean the volume before deleting the PV
+
+{{< alert level="warning" >}}
+**Volume cleanup functionality is only available in commercial editions of Deckhouse Kubernetes Platform.**
+{{< /alert >}}
+
+Files with user data may remain on the volume to be deleted. These files will be deleted and will not be accessible to other users via NFS.
+
+However, the deleted files' data may be available to other clients if the server grants block-level access to its storage.
+
+The `volumeCleanup` parameter will help you choose how to clean the volume before deleting it.
+
+{{< alert level="warning" >}}
+This option does not affect files already deleted by the client application.
+
+This option affects only commands sent via the NFS protocol. The server-side execution of these commands is defined by:
+
+- NFS server service;
+- the file system;
+- the level of block devices and their virtualization (e.g. LVM);
+- the physical devices themselves.
+
+Make sure the server is trusted. Do not send sensitive data to servers that you are not sure of.
+{{< /alert >}}
+
+### SinglePass method
+
+Used if `volumeCleanup` is set to `RandomFillSinglePass`.
+
+The contents of the files are overwritten with a random sequence before deletion. The random sequence is transmitted over the network.
+
+### ThreePass method
+
+Used if `volumeCleanup` is set to `RandomFillThreePass`.
+
+The contents of the files are overwritten three times with a random sequence before deletion. The three random sequences are transmitted over the network.
+
+### Discard method
+
+Used if `volumeCleanup` is set to `Discard`.
+
+Many file systems implement support for solid-state drives, allowing the space occupied by a file to be freed at the block level without writing new data to extend the life of the solid-state drive. However, not all solid-state drives guarantee that the freed block data is inaccessible.
+
+If `volumeCleanup` is set to `Discard`, file contents are marked as free via the `falloc` system call with the `FALLOC_FL_PUNCH_HOLE` flag. The file system will free the blocks fully used by the file, via the `blkdiscard` call, and the remaining space will be overwritten with zeros.
+
+Advantages of this method:
+
+- the amount of traffic does not depend on the size of the files, only on the number of files;
+- the method can make old data unavailable in some server configurations;
+- works for both hard disks and SSDs;
+- can maximize SSD lifetime.
+
+## Why are PVs created in a StorageClass with RPC-with-TLS support not being deleted, along with their <PV name> directories on the NFS server?
 
 If the [NFSStorageClass](./cr.html#nfsstorageclass) resource was configured with RPC-with-TLS support, there might be a situation where the PV fails to be deleted.
 This happens due to the removal of the secret (for example, after deleting `NFSStorageClass`), which holds the mount options. As a result, the controller is unable to mount the NFS folder to delete the `<PV name>` folder.
 
-## How to place multiple CAs in the `tlsParameters.ca` setting in ModuleConfig?
+## How to place multiple CAs in the tlsParameters.ca setting in ModuleConfig?
 
 - for two CAs
 ```shell
@@ -94,13 +147,13 @@ cat CA1.crt CA2.crt CA3.crt | base64 -w0
 
 
 
-## Installing NFS server with RPC-with-TLS 2.7.1 support on RedOS 8
+## Installing NFS server with RPC-with-TLS 2.7.1 support on RED OS 8
 
 
 ### Generating TLS certificates (optional)
 #### Generating the root CA certificate
 
-```
+```shell
 # mkdir /etc/ssl/tlshd
 # cd /etc/ssl/tlshd
 # openssl genrsa -out ca.key 4096
@@ -109,7 +162,7 @@ cat CA1.crt CA2.crt CA3.crt | base64 -w0
 
 #### Generating the server certificate, where **10.0.5.111** is the IP address of the NFS server
 
-```
+```shell
 # openssl req -new -nodes -out nfs_tlshd.csr -newkey rsa:4096 -keyout nfs_tlshd.key -subj "/CN=nfs/O=Flant"
 
 # cat > "nfs.v3.ext" << EOF
@@ -126,7 +179,7 @@ EOF
 
 #### Generating the client certificate
 
-```
+```shell
 # openssl req -new -nodes -out nfs_client.csr -newkey rsa:4096 -keyout nfs_client.key -subj "/CN=nfs-client/O=Flant"
 
 # cat > "nfs_client.v3.ext" << EOF
@@ -147,14 +200,14 @@ EOF
 
 For RPC-with-TLS to work, a Linux kernel newer than 6.4 is required:
 
-```
+```shell
 # uname -r
 6.6.76-1.red80.x86_64
 ```
 
 The kernel is compiled with the necessary parameters:
 
-```
+```shell
 # grep -P 'CONFIG_TLS|CONFIG_NET_HANDSHAK' /boot/config-$(uname -r)
 CONFIG_TLS=m
 CONFIG_TLS_DEVICE=y
@@ -168,13 +221,13 @@ CONFIG_NET_HANDSHAKE=y
 
 Installing dependencies: 
 
-```
+```shell
 # dnf install automake gcc gnutls-devel keyutils-libs-devel libnl3-devel glib2-devel wget
 ```
 
 Download the source code and compile:
 
-```
+```shell
 # wget https://github.com/oracle/ktls-utils/releases/download/ktls-utils-0.11/ktls-utils-0.11.tar.gz
 # tar xf ktls-utils-0.11.tar.gz 
 # cd ktls-utils-0.11/ 
@@ -190,7 +243,7 @@ Download the source code and compile:
 
 Edit the tlshd configuration
 
-```
+```shell
 # cat /etc/tlshd.conf
 [debug]
 loglevel=2
@@ -209,7 +262,7 @@ x509.private_key= /etc/ssl/tlshd/nfs_tlshd.key
 
 Restart the tlshd service
 
-```
+```shell
 # systemctl restart tlshd
 ```
 
@@ -217,7 +270,7 @@ Restart the tlshd service
 
 Check that NFS is enabled in the kernel:
 
-```
+```shell
 # grep -P 'CONFIG_NFSD_V4|CONFIG_NETWORK_FILESYSTEMS|CONFIG_NFS_FS|CONFIG_NFSD' /boot/config-$(uname -r)
 CONFIG_NETWORK_FILESYSTEMS=y
 CONFIG_NFS_FS=m
@@ -238,7 +291,7 @@ Building nfs-utils from source:
 
 Install dependencies:
 
-```
+```shell
 # dnf install libxml2-devel rpcgen libtirpc-devel libuuid-devel libevent-devel sqlite-devel device-mapper-devel sssd-krb5-common krb5-devel gssproxy libev libnfsidmap libverto-libev quota quota-nls rpcbind sssd-nfs-idmap
 ```
 
@@ -246,7 +299,7 @@ Install dependencies:
 
 Download the source code and compile:
 
-```
+```shell
 # wget https://www.kernel.org/pub/linux/utils/nfs-utils/2.7.1/nfs-utils-2.7.1.tar.gz
 # tar xf nfs-utils-2.7.1.tar.gz
 # cd nfs-utils-2.7.1
@@ -258,7 +311,7 @@ Download the source code and compile:
 
 Create an NFS share and configure it:
 
-```
+```shell
 # echo '/mnt/shared 10.0.5.0/24(rw,sync,no_subtree_check,no_root_squash,xprtsec=mtls)' >> /etc/exports
 # exportfs -a
 # exportfs -v
@@ -269,7 +322,7 @@ Create an NFS share and configure it:
 
 Enable the module with TLS configured:
 
-```
+```yaml
 apiVersion: deckhouse.io/v1alpha1
 kind: ModuleConfig
 metadata:
@@ -287,13 +340,13 @@ spec:
 
 Wait for the module to transition to the Ready state:
 
-```
-# kubectl get module csi-nfs -w
+```shell
+# d8 k get module csi-nfs -w
 ```
 
 Create NFSStorageClass
 
-```
+```yaml
 apiVersion: storage.deckhouse.io/v1alpha1
 kind: NFSStorageClass
 metadata:
@@ -313,7 +366,7 @@ spec:
 
 Create a deployment with a disk request in the created NFS
 
-```
+```yaml
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -361,7 +414,7 @@ spec:
 
 The tlshd logs will contain information about successful connection to the NFS server
 
-```
+```shell
 # journalctl -fu tlshd
 Mar 24 18:21:43 nfs-source-ee-test-sidorov-arch tlshd[36512]: The certificate is trusted.
 Mar 24 18:21:43 nfs-source-ee-test-sidorov-arch tlshd[36512]: The peer offered 1 certificate(s).
