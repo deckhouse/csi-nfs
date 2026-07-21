@@ -95,10 +95,10 @@ func main() {
 
 	log.Printf("Launch in %s mode", opt.Mode)
 
-	path := "/opt/deckhouse/csi/bin/tlshd"
+	path := "/usr/bin/tlshd"
 	args := []string{"-s"}
 	if opt.Mode == "init-containers" {
-		args = append(args, "-c", "/opt/deckhouse/csi/etc/tlshd.conf")
+		args = append(args, "-c", "/etc/tlshd.conf")
 	} else {
 		args = append(args, "-c", "/etc/tlshd.conf")
 

@@ -1,6 +1,6 @@
 {{- /*
 tlshd distroless image. The Go wrapper launches the upstream tlshd daemon
-from the container-base ktls-utils package (opt/deckhouse/csi/bin/tlshd).
+from the container-base ktls-utils package (/usr/bin/tlshd).
 */ -}}
 ---
 # do not remove this image: used in external audits (DKP CSE)
