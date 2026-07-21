@@ -1,5 +1,4 @@
 ---
-title: "The csi-nfs module: configuration"
+title: "Module csi-nfs: Configuration"
 force_searchable: true
-description: The csi-nfs Deckhouse Kubernetes Platform module's configuration.
 ---
