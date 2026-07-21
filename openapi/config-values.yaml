@@ -13,7 +13,12 @@ properties:
   v3support:
     type: boolean
     default: false
-    description: NFS version v3 support. After enabling this setting, rpcbind package will be installed on nodes. When this setting is disabled, it will NOT be removed from the nodes.
+    description: |
+      Enables NFS v3 support.
+
+      After enabling this parameter, the `rpcbind` package will be installed on nodes.
+
+      > When this parameter is disabled, the package is not removed automatically.
   storageClassLabelIgnoredPrefixes:
     type: array
     default:
@@ -38,9 +43,9 @@ properties:
     default: {}
     x-doc-d8editions: [se, se-plus, ee, fe]
     description: |
-      **This feature is available in SE, SE+, EE, and FE.**
+      > Available in SE, SE+, EE, and FE editions.
 
-      RPC-with-TLS (RFC 9289) configuration.
+      RPC-with-TLS mode configuration ([RFC 9289](https://datatracker.ietf.org/doc/rfc9289/)).
     properties:
       ca:
         type: string
