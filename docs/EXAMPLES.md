@@ -1,9 +1,11 @@
 ---
-title: "The csi-nfs module: examples"
-description: examples of configuring the CSI NFS
+title: "Module csi-nfs: examples"
+description: Examples of configuring the csi-nfs module.
 ---
 
 ## Configuration of the module with RPC-with-TLS support
+
+Example ModuleConfig with TLS parameters:
 
 ```yaml
 apiVersion: deckhouse.io/v1alpha1
@@ -22,6 +24,8 @@ spec:
 ```
 
 ## Creating a StorageClass with RPC-with-TLS support
+
+Example NFSStorageClass with RPC-with-TLS enabled:
 
 ```yaml
 apiVersion: storage.deckhouse.io/v1alpha1
