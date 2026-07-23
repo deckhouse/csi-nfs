@@ -4,9 +4,9 @@ description: "The csi-nfs module: General Concepts and Principles."
 ---
 
 The `csi-nfs` module provides a CSI driver for managing NFS volumes in Kubernetes.
-Use it to provision PersistentVolumes on an NFS server through [custom resources](./cr.html#nfsstorageclass) NFSStorageClass.
+Use it to provision PersistentVolumes on an NFS server through the [NFSStorageClass](./cr.html#nfsstorageclass) custom resources.
 
-## Main Features
+## Main features
 
 The `csi-nfs` module provides the following capabilities:
 
@@ -31,7 +31,7 @@ Before using the module, make sure the following requirements are met:
   - For DKP modules where StorageClass is used, it may be necessary to allow access to clients with root privileges. In Linux, this is implemented via the `no_root_squash` option. On other operating systems and storage systems, a similar setting may have a different name;
   - For virtual disk storage in the [Deckhouse Virtualization Platform](/products/virtualization-platform/documentation/), the `no_root_squash` option is mandatory.
 - To support RPC-with-TLS, enable `CONFIG_TLS` and `CONFIG_NET_HANDSHAKE` options in the Linux kernel.
-- The [snapshot-controller](/modules/snapshot-controller/) module must be enabled for this module to operate.
+- The [`snapshot-controller`](/modules/snapshot-controller/) module must be enabled for this module to operate.
 
 ### Recommendations
 

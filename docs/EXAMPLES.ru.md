@@ -45,8 +45,8 @@ spec:
 
 ## Установка NFS-сервера с поддержкой RPC-with-TLS 2.7.1 на РЕД ОС 8
 
-
 ### Генерация TLS-сертификатов (опционально)
+
 #### Генерация корневого сертификата CA
 
 ```shell
@@ -111,11 +111,9 @@ CONFIG_TLS_DEVICE=y
 CONFIG_NET_HANDSHAKE=y
 ```
 
- 
-
 #### Сборка tlshd из исходных кодов
 
-Установка зависимостей: 
+Установка зависимостей:
 
 ```shell
 # dnf install automake gcc gnutls-devel keyutils-libs-devel libnl3-devel glib2-devel wget
@@ -190,8 +188,6 @@ CONFIG_NFSD_V4_SECURITY_LABEL=y
 ```shell
 # dnf install libxml2-devel rpcgen libtirpc-devel libuuid-devel libevent-devel sqlite-devel device-mapper-devel sssd-krb5-common krb5-devel gssproxy libev libnfsidmap libverto-libev quota quota-nls rpcbind sssd-nfs-idmap
 ```
-
- 
 
 Скачайте исходный код и скомпилируйте:
 

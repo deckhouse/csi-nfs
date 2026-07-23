@@ -17,7 +17,7 @@ No, the connection data to the NFS server is stored directly in the PV manifest 
 
 ## How to create volume snapshots?
 
-Before creating snapshots, review the limitations in [Creating volume snapshots](./#creating-volume-snapshots).
+Before creating snapshots, review the limitations in ["Creating volume snapshots"](./#creating-volume-snapshots).
 
 In `csi-nfs`, snapshots are created by archiving the volume directory. The archive is stored in the root of the NFS server directory specified in the `spec.connection.share` parameter.
 
@@ -58,7 +58,6 @@ In `csi-nfs`, snapshots are created by archiving the volume directory. The archi
    ```
 
 This command will display a list of all snapshots and their current status.
-
 
 ## How to select the method to clean the volume before deleting the PV?
 
@@ -117,21 +116,23 @@ Advantages of this method:
 If the [NFSStorageClass](./cr.html#nfsstorageclass) resource was configured with RPC-with-TLS support, there might be a situation where the PV fails to be deleted.
 This happens due to the removal of the secret (for example, after deleting NFSStorageClass), which holds the mount options. As a result, the controller is unable to mount the NFS directory to delete the `<PV name>` directory.
 
-## How to place multiple CAs in the [`tlsParameters`](configuration.html#parameters-tlsparameters).ca setting in ModuleConfig?
+## How to place multiple CAs in the tlsParameters.ca setting in ModuleConfig?
 
 Concatenate the certificates into a single file and encode the result in Base64. Examples:
 
-- for two CAs
-```shell
-cat CA1.crt CA2.crt | base64 -w0
-```
+- For two CAs:
 
-- for three CAs
-```shell
-cat CA1.crt CA2.crt CA3.crt | base64 -w0
-```
+  ```shell
+  cat CA1.crt CA2.crt | base64 -w0
+  ```
 
-- and so on
+- For three CAs:
+
+  ```shell
+  cat CA1.crt CA2.crt CA3.crt | base64 -w0
+  ```
+
+- And so on.
 
 ## What are the requirements for a Linux distribution to deploy an NFS server with RPC-with-TLS support?
 
