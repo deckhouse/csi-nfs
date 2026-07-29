@@ -12,9 +12,44 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Copy of deckhouse/storage-e2e/.github/templates/e2e-tests.yml with module inputs adjusted.
-# Required: PR labels e2e/run, e2e/keep-cluster, e2e/label:* and the inherited
-# org/repo secrets (see storage-e2e README "Enabling e2e in your module").
+# Thin caller for the reusable storage-e2e pipeline, mirroring csi-ceph. The e2e
+# run only fires when the PR carries the `e2e/commander/run` label. Other labels:
+# `e2e/keep-cluster` (skip teardown), `e2e/label:<suite>` (Ginkgo label filter).
+#
+# csi-nfs has no in-cluster storage backend: the suite provisions against four
+# EXTERNAL NFS servers passed in through E2E_NFS_* variables, so the Commander
+# template MUST place the cluster where those addresses are directly reachable --
+# mounts are issued from the worker nodes' host network namespace, not from the
+# pod network. The template also decides the node OS: the tls/mtls suites need
+# kernel >= 6.5 (CONFIG_TLS + CONFIG_NET_HANDSHAKE) on the cluster nodes, and at
+# least two schedulable workers for the migration / RWX specs.
+#
+# The shared template is multi-distro, and its Astra and Debian nodes ship
+# kernels without CONFIG_NET_HANDSHAKE, so the csi-nfs net-handshake-checker init
+# container crashloops there once tlsParameters are set -- in the CSI controller
+# Deployment as well as the node DaemonSet, which can leave the cluster with no
+# provisioner at all. The node set is shaped through the repository variable
+# E2E_COMMANDER_VALUES (a JSON blob of template inputs the pipeline merges with
+# the cluster prefix):
+#
+#   {"astraNodeCount": 0, "debianNodeCount": 0, "ubuntuNodeCount": 2}
+#
+# leaving one master and three handshake-capable workers (2x Ubuntu, 1x RedOS) --
+# also the minimum the migration, RWX and workloadNodes specs need.
+#
+# The server addresses ride the reusable pipeline's `extra_env` input; the
+# RPC-with-TLS PEM material is secret and travels in the repository secret
+# E2E_MODULE_ENV, which the pipeline reads by fixed name (see storage-e2e
+# docs/CI.md "Module-specific environment").
+#
+# The default filter excludes one suite:
+#   - workload-nodes : it only holds when it owns the cluster (the controller
+#                      unions the workloadNodes selectors of every
+#                      NFSStorageClass). Run it with `e2e/label:workload-nodes`.
+#
+# The tls and mtls suites DO run by default: they sit on separate server hosts,
+# because the kernel NFS client keys its transport by server address and one
+# address cannot serve both security modes at once.
 
 name: E2E
 
@@ -24,13 +59,37 @@ on:
 
 jobs:
   e2e:
-    # Heavy e2e runs only when the PR carries the e2e/run label.
-    if: ${{ contains(github.event.pull_request.labels.*.name, 'e2e/run') }}
+    # Gate: run only when the PR is labeled e2e/commander/run.
+    if: ${{ contains(github.event.pull_request.labels.*.name, 'e2e/commander/run') }}
     uses: deckhouse/storage-e2e/.github/workflows/e2e.yml@main
     with:
       module_slug: ${{ vars.MODULE_NAME }}
+      # The e2e Go module lives under e2e/; tests are in e2e/tests/.
       module_path: e2e
       test_package: ./tests/
-      cluster_config: e2e/tests/cluster_config.yml
+      # CI config: modulePullOverride is ${E2E_MODULE_IMAGE_TAG}, resolved during
+      # bootstrap (module enablement) to the PR image tag below. In the commander
+      # flow only the modules list is consumed -- the cluster itself comes from
+      # the Commander template. cluster_config.yml keeps a literal tag and the
+      # full node definition for local runs.
+      cluster_config: e2e/tests/cluster_config.ci.yml
+      # Create a fresh cluster through Deckhouse Commander for each run.
+      cluster_provider: commander
+      # Check out the same storage-e2e ref for scripts / cmd / Go code.
+      storage_e2e_ref: main
+      # Install the image built for this PR (build_dev publishes the pr<N> tag).
       module_image_tag: pr${{ github.event.pull_request.number }}
+      # Default runs skip the workloadNodes suite; add e2e/label:workloadNodes.
+      label_filter: '!workload-nodes'
+      # Non-secret stand coordinates. Each suite skips itself when its host is
+      # empty, so a partially configured repo degrades to fewer specs rather
+      # than to failures. The *_SHARE paths default to the stand layout and are
+      # only listed here when a repository variable overrides them.
+      extra_env: |
+        E2E_NFS_V3_HOST=${{ vars.E2E_NFS_V3_HOST }}
+        E2E_NFS_V4_HOST=${{ vars.E2E_NFS_V4_HOST }}
+        E2E_NFS_TLS_HOST=${{ vars.E2E_NFS_TLS_HOST }}
+        E2E_NFS_MTLS_HOST=${{ vars.E2E_NFS_MTLS_HOST }}
+    # E2E_NFS_TLS_CA / _CLIENT_CERT / _CLIENT_KEY come from the E2E_MODULE_ENV
+    # secret, picked up by the pipeline through this inherit.
     secrets: inherit
