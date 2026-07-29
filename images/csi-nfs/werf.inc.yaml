@@ -81,6 +81,22 @@ git:
 shell:
   setup:
     - pm install libtirpc util-linux coreutils gnu-glibc nfs-utils
+    # /etc/netconfig is libtirpc's transport table, and the pm libtirpc package
+    # does not ship it. Without the file every userspace SUN RPC call inside
+    # mount.nfs fails with RPC_UNKNOWNPROTO ("mount.nfs: Protocol not supported"),
+    # which makes ALL NFSv3 mounts impossible: v3 needs userspace RPC for the
+    # portmapper/MOUNT probes and the statd check, while v4 mounts are kernel-only
+    # and never notice. Content is the stock netconfig(5) table.
+    - |
+      cat >/etc/netconfig <<'EOF'
+      udp        tpi_clts      v     inet     udp     -       -
+      tcp        tpi_cots_ord  v     inet     tcp     -       -
+      udp6       tpi_clts      v     inet6    udp     -       -
+      tcp6       tpi_cots_ord  v     inet6    tcp     -       -
+      rawip      tpi_raw       -     inet      -       -       -
+      local      tpi_cots_ord  -     loopback  -       -       -
+      unix       tpi_cots_ord  -     loopback  -       -       -
+      EOF
 imageSpec:
   config:
     entrypoint: ["/{{ $.ImageName }}"]
