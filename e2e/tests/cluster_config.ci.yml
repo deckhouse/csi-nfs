@@ -1,0 +1,75 @@
+# CI-only cluster config for the storage-e2e reusable pipeline (commander
+# provider). It differs from cluster_config.yml in ONE way: the csi-nfs
+# modulePullOverride is the env reference ${E2E_MODULE_IMAGE_TAG}, resolved by
+# the bootstrap step (LoadClusterDefinition) to the PR's image tag. The local-run
+# loader rejects ${...}, which is why this lives in a separate file and
+# cluster_config.yml keeps a literal tag.
+#
+# In the commander CI flow only the `modules:` list + dkpParameters.registryRepo
+# are consumed (module enablement runs inside bootstrap); the masters/workers/
+# subnets below are present to satisfy validation - the cluster itself is created
+# from the Commander template, not from this block.
+#
+# That makes two requirements the TEMPLATE has to satisfy, since this file cannot:
+#   - node kernel >= 6.5 with CONFIG_TLS and CONFIG_NET_HANDSHAKE (Ubuntu 24.04 or
+#     newer). NFS xprtsec and the kernel handshake upcall landed in Linux 6.5; on
+#     the 22.04 / 6.2 image the tls and mtls suites cannot work at all;
+#   - at least two schedulable workers, for the pod-migration and RWX-from-two-
+#     nodes specs (they Skip rather than fail when there is only one).
+#
+# The nodes below therefore mirror cluster_config.yml only for readability.
+clusterDefinition:
+  masters:
+    - hostname: "master-1"
+      hostType: "vm"
+      osType: "Ubuntu 24.04 6.8.0-53-generic"
+      cpu: 4
+      coreFraction: 50
+      ram: 8
+      diskSize: 50
+  workers:
+    - hostname: "worker-1"
+      hostType: "vm"
+      osType: "Ubuntu 24.04 6.8.0-53-generic"
+      cpu: 4
+      coreFraction: 50
+      ram: 8
+      diskSize: 50
+    - hostname: "worker-2"
+      hostType: "vm"
+      osType: "Ubuntu 24.04 6.8.0-53-generic"
+      cpu: 4
+      coreFraction: 50
+      ram: 8
+      diskSize: 50
+    - hostname: "worker-3"
+      hostType: "vm"
+      osType: "Ubuntu 24.04 6.8.0-53-generic"
+      cpu: 4
+      coreFraction: 50
+      ram: 8
+      diskSize: 50
+  dkpParameters:
+    kubernetesVersion: "Automatic"
+    podSubnetCIDR: "10.112.0.0/16"
+    serviceSubnetCIDR: "10.225.0.0/16"
+    clusterDomain: "cluster.local"
+    registryRepo: "dev-registry.deckhouse.io/sys/deckhouse-oss"
+    devBranch: "main"
+    modules:
+      - name: "snapshot-controller"
+        version: 1
+        enabled: true
+        modulePullOverride: "main"
+        dependencies: []
+      - name: "csi-nfs"
+        version: 1
+        enabled: true
+        # Resolved during bootstrap to the PR image tag (e.g. pr123). The
+        # pipeline exports E2E_MODULE_IMAGE_TAG from the module_image_tag input.
+        modulePullOverride: "${E2E_MODULE_IMAGE_TAG}"
+        settings:
+          v3support: true
+          logLevel: DEBUG
+        dependencies:
+          - "snapshot-controller"

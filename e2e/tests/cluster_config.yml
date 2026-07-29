@@ -1,0 +1,86 @@
+# csi-nfs e2e test cluster.
+#
+# 1 master + 3 workers. Unlike csi-ceph, this suite does NOT stand its storage
+# backend up inside the cluster: csi-nfs only *connects* to an NFS server, so the
+# three NFS servers are external hosts passed in through E2E_NFS_* env vars (see
+# ../README.md). The cluster must therefore be created somewhere with direct
+# network reachability to them - mounts are issued from the host network
+# namespace of the worker nodes, not from the pod network.
+#
+# Three workers, none of which carry extra disks:
+#   - two are needed for the pod-migration and RWX-from-two-nodes specs;
+#   - the third gives the workloadNodes suite a node that must NOT be labelled
+#     storage.deckhouse.io/csi-nfs-node, so the scheduler-extender assertion has
+#     something to reject against.
+#
+# Ubuntu 24.04 / kernel 6.8 is REQUIRED, not a preference: RPC-with-TLS needs the
+# kernel handshake upcall (CONFIG_NET_HANDSHAKE) and NFS xprtsec support, which
+# landed in Linux 6.5. On the 22.04 / 6.2 image used elsewhere the tls and mtls
+# suites cannot work at all.
+#
+# Modules enabled here are the minimum the suite needs on top of a freshly
+# bootstrapped Deckhouse:
+#   - snapshot-controller : CSI snapshotter; csi-nfs snapshots (tar archives of
+#                           the volume directory) depend on it.
+#   - csi-nfs             : the module under test. modulePullOverride defaults to
+#                           the literal "main"; override it for CI by exporting
+#                           CSI_NFS_MODULE_PULL_OVERRIDE=pr<N>/mr<N>.
+clusterDefinition:
+  masters:
+    - hostname: "master-1"
+      hostType: "vm"
+      osType: "Ubuntu 24.04 6.8.0-53-generic"
+      cpu: 4
+      coreFraction: 50
+      ram: 8
+      diskSize: 50
+  workers:
+    - hostname: "worker-1"
+      hostType: "vm"
+      osType: "Ubuntu 24.04 6.8.0-53-generic"
+      cpu: 4
+      coreFraction: 50
+      ram: 8
+      diskSize: 50
+    - hostname: "worker-2"
+      hostType: "vm"
+      osType: "Ubuntu 24.04 6.8.0-53-generic"
+      cpu: 4
+      coreFraction: 50
+      ram: 8
+      diskSize: 50
+    - hostname: "worker-3"
+      hostType: "vm"
+      osType: "Ubuntu 24.04 6.8.0-53-generic"
+      cpu: 4
+      coreFraction: 50
+      ram: 8
+      diskSize: 50
+  dkpParameters:
+    kubernetesVersion: "Automatic"
+    podSubnetCIDR: "10.112.0.0/16"
+    serviceSubnetCIDR: "10.225.0.0/16"
+    clusterDomain: "cluster.local"
+    registryRepo: "dev-registry.deckhouse.io/sys/deckhouse-oss"
+    devBranch: "main"
+    modules:
+      - name: "snapshot-controller"
+        version: 1
+        enabled: true
+        modulePullOverride: "main"
+        dependencies: []
+      - name: "csi-nfs"
+        version: 1
+        enabled: true
+        # Static default tag (must be literal - storage-e2e rejects ${VAR} here).
+        # CI overrides it WITHOUT editing this file by exporting
+        # CSI_NFS_MODULE_PULL_OVERRIDE, e.g. "pr<N>" on GitHub.
+        modulePullOverride: "main"
+        settings:
+          # NFSv3 support installs rpcbind + nfs-common on every csi-nfs node.
+          # Without it the webhook rejects any NFSStorageClass with
+          # nfsVersion: "3", and the whole v3 suite is unrunnable.
+          v3support: true
+          logLevel: DEBUG
+        dependencies:
+          - "snapshot-controller"
