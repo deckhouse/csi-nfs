@@ -1,0 +1,12 @@
+Changes:
+- Fixed tlshd startup: The wrapper uses the installation paths of the ktls-utils package,
+    so the net-handshake-checker containers in csi-controller and csi-node no longer
+    crash with the error “no such file or directory”
+- Fixed NFSv3 mounts: the /etc/netconfig file was added to the image, without which
+    SUN RPC calls from userspace did not go beyond the portmapper (NFSv4 is not affected)
+- Fixed CreateVolume/CreateSnapshot idempotency: a repeated call no longer overwrites
+    the data of an already created volume - previously this led to the inability to
+    boot VMs from newly cloned disks
+- Updating base images, Go 1.26.5 and lib-helm to 1.72.10
+- Documentation updated: README, examples, FAQ and CR descriptions
+- Internal changes in module assembly and CI, added a set of e2e tests
