@@ -1,0 +1,2 @@
+Изменения:
+  - Модуль snapshot-controller больше не обязательная зависимость: VolumeSnapshotClass (общий и на каждый NFSStorageClass) создаётся только при наличии CRD snapshot.storage.k8s.io, иначе NFSStorageClass обрабатывается без снапшотной части
