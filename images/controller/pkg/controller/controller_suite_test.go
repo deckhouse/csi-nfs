@@ -28,7 +28,9 @@ import (
 	coordinationv1 "k8s.io/api/coordination/v1"
 	sv1 "k8s.io/api/storage/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -61,8 +63,21 @@ func NewFakeClient() client.Client {
 	}
 
 	// See https://github.com/kubernetes-sigs/controller-runtime/issues/2362#issuecomment-1837270195
-	builder := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(&v1alpha1.NFSStorageClass{})
+	builder := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithStatusSubresource(&v1alpha1.NFSStorageClass{}).
+		WithRESTMapper(snapshotRESTMapper())
 
 	cl := builder.Build()
 	return cl
+}
+
+// snapshotRESTMapper makes the fake client report the VolumeSnapshotClass CRD as
+// registered. The controller gates VolumeSnapshotClass reconciliation on that lookup,
+// and the fake client would otherwise default to an empty mapper, which reads as
+// "the snapshot CRDs are not installed".
+func snapshotRESTMapper() meta.RESTMapper {
+	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{snapshotv1.SchemeGroupVersion})
+	mapper.Add(snapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotClass"), meta.RESTScopeRoot)
+	return mapper
 }
