@@ -31,7 +31,7 @@ Before using the module, make sure the following requirements are met:
   - For DKP modules where StorageClass is used, it may be necessary to allow access to clients with root privileges. In Linux, this is implemented via the `no_root_squash` option. On other operating systems and storage systems, a similar setting may have a different name;
   - For virtual disk storage in the [Deckhouse Virtualization Platform](/products/virtualization-platform/documentation/), the `no_root_squash` option is mandatory.
 - To support RPC-with-TLS, enable `CONFIG_TLS` and `CONFIG_NET_HANDSHAKE` options in the Linux kernel.
-- The [`snapshot-controller`](/modules/snapshot-controller/) module must be enabled for this module to operate.
+- Volume snapshots require a module that provides the `snapshot.storage.k8s.io` CRDs, for example [`snapshot-controller`](/modules/snapshot-controller/). Without it, the rest of the module keeps working and no VolumeSnapshotClass is created.
 
 ### Recommendations
 

@@ -31,7 +31,7 @@ StorageClass для CSI-драйвера `nfs.csi.k8s.io` создаются т�
   - Для модулей DKP, в настройках которых используется StorageClass, может потребоваться разрешить доступ клиентам с root-правами. В Linux это реализуется через опцию `no_root_squash`. В других операционных системах и СХД аналогичная настройка может иметь иное название;
   - Для хранилища виртуальных дисков в [Deckhouse Virtualization Platform](/products/virtualization-platform/documentation/) опция `no_root_squash` обязательна.
 - Для поддержки RPC-with-TLS включите в ядре Linux опции `CONFIG_TLS` и `CONFIG_NET_HANDSHAKE`.
-- Для работы модуля должен быть включён модуль [`snapshot-controller`](/modules/snapshot-controller/).
+- Для снимков томов требуется модуль, поставляющий CRD группы `snapshot.storage.k8s.io`, — например [`snapshot-controller`](/modules/snapshot-controller/). Без него остальная функциональность модуля работает штатно, а VolumeSnapshotClass не создаётся.
 
 ### Рекомендации
 

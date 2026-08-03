@@ -268,36 +268,40 @@ func RunEventReconcile(ctx context.Context, cl client.Client, log logger.Logger,
 		return shouldRequeue, err
 	}
 
-	vsClassList := &snapshotv1.VolumeSnapshotClassList{}
-	err = cl.List(ctx, vsClassList)
-	if err != nil {
-		err = fmt.Errorf("[runEventReconcile] unable to list VolumeSnapshotClasses: %w", err)
-		upError := updateNFSStorageClassPhase(ctx, cl, nsc, FailedStatusPhase, err.Error())
-		if upError != nil {
-			upError = fmt.Errorf("[reconcileStorageClassCreateFunc] unable to update the NFSStorageClass %s: %w", nsc.Name, upError)
-			err = errors.Join(err, upError)
+	if !VolumeSnapshotClassCRDExists(cl.RESTMapper(), log) {
+		log.Debug(fmt.Sprintf("[runEventReconcile] the VolumeSnapshotClass CRD is not registered in the cluster, skipping the VolumeSnapshotClass for the NFSStorageClass %q", nsc.Name))
+	} else {
+		vsClassList := &snapshotv1.VolumeSnapshotClassList{}
+		err = cl.List(ctx, vsClassList)
+		if err != nil {
+			err = fmt.Errorf("[runEventReconcile] unable to list VolumeSnapshotClasses: %w", err)
+			upError := updateNFSStorageClassPhase(ctx, cl, nsc, FailedStatusPhase, err.Error())
+			if upError != nil {
+				upError = fmt.Errorf("[reconcileStorageClassCreateFunc] unable to update the NFSStorageClass %s: %w", nsc.Name, upError)
+				err = errors.Join(err, upError)
+			}
+			return true, err
 		}
-		return true, err
-	}
 
-	reconcileTypeForVSClass, oldVSClass, newVSClass := IdentifyReconcileFuncForVSClass(log, vsClassList, nsc, controllerNamespace)
+		reconcileTypeForVSClass, oldVSClass, newVSClass := IdentifyReconcileFuncForVSClass(log, vsClassList, nsc, controllerNamespace)
 
-	log.Debug(fmt.Sprintf("[runEventReconcile] reconcile operation for VolumeSnapshotClass %q: %q", nsc.Name, reconcileTypeForVSClass))
-	switch reconcileTypeForVSClass {
-	case CreateReconcile:
-		shouldRequeue, err = reconcileVolumeSnapshotClassCreateFunc(ctx, cl, log, newVSClass, nsc)
-	case UpdateReconcile:
-		shouldRequeue, err = reconcileVolumeSnapshotClassUpdateFunc(ctx, cl, log, oldVSClass, newVSClass, nsc)
-	case DeleteReconcile:
-		shouldRequeue, err = reconcileVolumeSnapshotClassDeleteFunc(ctx, cl, log, oldVSClass, nsc)
-	default:
-		log.Debug(fmt.Sprintf("[runEventReconcile] VolumeSnapshotClass %q should not be reconciled", nsc.Name))
-	}
+		log.Debug(fmt.Sprintf("[runEventReconcile] reconcile operation for VolumeSnapshotClass %q: %q", nsc.Name, reconcileTypeForVSClass))
+		switch reconcileTypeForVSClass {
+		case CreateReconcile:
+			shouldRequeue, err = reconcileVolumeSnapshotClassCreateFunc(ctx, cl, log, newVSClass, nsc)
+		case UpdateReconcile:
+			shouldRequeue, err = reconcileVolumeSnapshotClassUpdateFunc(ctx, cl, log, oldVSClass, newVSClass, nsc)
+		case DeleteReconcile:
+			shouldRequeue, err = reconcileVolumeSnapshotClassDeleteFunc(ctx, cl, log, oldVSClass, nsc)
+		default:
+			log.Debug(fmt.Sprintf("[runEventReconcile] VolumeSnapshotClass %q should not be reconciled", nsc.Name))
+		}
 
-	log.Debug(fmt.Sprintf("[runEventReconcile] ends reconciliataion of VolumeSnapshotClass, name: %s, shouldRequeue: %t, err: %v", nsc.Name, shouldRequeue, err))
+		log.Debug(fmt.Sprintf("[runEventReconcile] ends reconciliataion of VolumeSnapshotClass, name: %s, shouldRequeue: %t, err: %v", nsc.Name, shouldRequeue, err))
 
-	if err != nil || shouldRequeue {
-		return shouldRequeue, err
+		if err != nil || shouldRequeue {
+			return shouldRequeue, err
+		}
 	}
 
 	if nsc.DeletionTimestamp == nil {
