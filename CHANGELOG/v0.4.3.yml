@@ -1,0 +1,6 @@
+Changes:
+- The snapshot-controller module is no longer a required dependency: VolumeSnapshotClass
+    (general and for each NFSStorageClass) is created only if the CRD snapshot.storage.k8s.io
+    is available, otherwise NFSStorageClass is processed without the snapshot part
+- Updating base images, Go 1.26.5 and lib-helm to 1.72.12
+- Internal changes in module assembly
