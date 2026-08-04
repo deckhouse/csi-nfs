@@ -46,3 +46,14 @@ Fix fixable golang.org/x CVEs, incremental on top of 005. go.mod/go.sum only
 
 Pulls the transitive golang.org/x/crypto v0.53.0, x/sys v0.46.0,
 x/sync v0.21.0, x/term v0.44.0 bumps.
+
+## 008-fix-cve-grpc-hrxh.patch
+
+Raise `google.golang.org/grpc` v1.79.3 -> **v1.82.1** for
+**GHSA-hrxh-6v49-42gf** (HIGH, gRPC-Go: xDS RBAC and HTTP/2
+vulnerabilities), the version patch 005 had pinned. go.mod/go.sum only,
+incremental on top of 007.
+
+Transitive bumps from `go mod tidy`: `google.golang.org/protobuf` v1.36.11,
+`go.opentelemetry.io/otel` (+ metric, sdk, trace) v1.43.0,
+`golang.org/x/oauth2` v0.36.0 and `google.golang.org/genproto/googleapis/{api,rpc}`.
