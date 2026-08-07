@@ -36,6 +36,7 @@ import (
 	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	"github.com/deckhouse/csi-nfs/images/controller/pkg/logger"
 	commonfeature "github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature"
+	"github.com/deckhouse/sds-common-lib/conditions"
 )
 
 func reconcileStorageClassCreateFunc(
@@ -512,20 +513,47 @@ func isIgnoredLabelKey(key string, ignoredPrefixes []string) bool {
 	return false
 }
 
+// updateNFSStorageClassPhase records the outcome of a reconcile pass as both the
+// coarse phase and the Ready condition.
+//
+// The phase is the input rather than something derived from the condition,
+// unlike in the other storage modules. This controller reports its verdict from
+// eighteen different call sites, and the phase vocabulary is exactly two values,
+// so the two representations are in one-to-one correspondence: rewriting every
+// call site to pass an error instead would be a large change with no observable
+// difference in the result.
+//
+// Writing goes through conditions.UpdateStatus, which reads fresh state, skips
+// the write when nothing changed, and retries on conflict — the three things the
+// previous implementation's "TODO: add retry logic" stood for.
 func updateNFSStorageClassPhase(ctx context.Context, cl client.Client, nsc *v1alpha1.NFSStorageClass, phase, reason string) error {
-	if nsc.Status == nil {
-		nsc.Status = &v1alpha1.NFSStorageClassStatus{}
-	}
-	nsc.Status.Phase = phase
-	nsc.Status.Reason = reason
+	// The generation that was actually reconciled. Taken from the object the
+	// caller reconciled rather than from the one read inside UpdateStatus: if
+	// the spec changed in between, observedGeneration must still point at the
+	// generation this verdict is about.
+	generation := nsc.Generation
 
-	// TODO: add retry logic
-	err := cl.Status().Update(ctx, nsc)
-	if err != nil {
-		return err
+	cond := metav1.Condition{
+		Type:               v1alpha1.ConditionTypeReady,
+		Status:             metav1.ConditionTrue,
+		Reason:             conditions.ReasonReconciled,
+		Message:            reason,
+		ObservedGeneration: generation,
+	}
+	if phase != CreatedStatusPhase {
+		cond.Status = metav1.ConditionFalse
+		cond.Reason = conditions.ReasonReconcileFailed
 	}
 
-	return nil
+	return conditions.UpdateStatus(ctx, cl, nsc, func(sc *v1alpha1.NFSStorageClass) {
+		if sc.Status == nil {
+			sc.Status = &v1alpha1.NFSStorageClassStatus{}
+		}
+		sc.Status.ObservedGeneration = generation
+		conditions.Set(&sc.Status.Conditions, cond)
+		sc.Status.Phase = phase
+		sc.Status.Reason = reason
+	})
 }
 
 func recreateStorageClass(ctx context.Context, cl client.Client, oldSC, newSC *storagev1.StorageClass) error {
