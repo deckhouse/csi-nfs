@@ -72,6 +72,24 @@ type NFSStorageClassWorkloadNodes struct {
 
 // +k8s:deepcopy-gen=true
 type NFSStorageClassStatus struct {
-	Phase  string `json:"phase,omitempty"`
+	// Phase is a coarse summary derived from Conditions, kept for
+	// compatibility with the printer column and existing tooling.
+	// Conditions are the source of truth.
+	Phase string `json:"phase,omitempty"`
+
+	// Reason mirrors the message of the Ready condition.
 	Reason string `json:"reason,omitempty"`
+
+	// ObservedGeneration is the most recent metadata.generation the
+	// controller has acted on. When it trails metadata.generation the
+	// controller has not yet processed the latest spec.
+	// +optional
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
+	// Conditions holds the latest observations of the resource state.
+	// Condition type: Ready.
+	// +optional
+	// +listType=map
+	// +listMapKey=type
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
