@@ -275,9 +275,13 @@ spec:
                       - type
                       - status
                       - lastTransitionTime
+                      - reason
+                      - message
                     properties:
                       type:
                         type: string
+                        maxLength: 316
+                        pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                         description: |
                           Condition type. `Ready` is `True` once the StorageClass, the mount-options secret and the VolumeSnapshotClass are in place, `False` when a reconcile pass failed, and `Unknown` before the controller has observed the resource.
                       status:
@@ -290,6 +294,7 @@ spec:
                           - "Unknown"
                       observedGeneration:
                         type: integer
+                        minimum: 0
                         format: int64
                         description: |
                           The value of `metadata.generation` this condition was set against.
@@ -301,11 +306,15 @@ spec:
                           when only the reason or the message changes.
                       reason:
                         type: string
+                        maxLength: 1024
+                        minLength: 1
+                        pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
                         description: |
                           Machine-readable reason for the current status, suitable for log filtering
                           and alerting.
                       message:
                         type: string
+                        maxLength: 32768
                         description: |
                           Human-readable explanation of the current status.
       subresources:
