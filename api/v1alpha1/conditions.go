@@ -33,3 +33,15 @@ const (
 	// github.com/deckhouse/sds-common-lib/conditions.
 	ConditionTypeReady = "Ready"
 )
+
+// NFSStorageClassConditionTypes is every condition type an NFSStorageClass
+// publishes.
+//
+// A condition type that is declared but never written is worse than one that
+// does not exist: an absent condition is indistinguishable from "not yet
+// evaluated", so an operator waits for a verdict that never comes and an alert
+// on it never fires. Keeping the set in one list is what lets a test hold the
+// controller to it.
+var NFSStorageClassConditionTypes = []string{
+	ConditionTypeReady,
+}
