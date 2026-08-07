@@ -55,6 +55,67 @@ func readNSC(t *testing.T, cl client.Client) *v1alpha1.NFSStorageClass {
 	return got
 }
 
+// NFSStorageClass declares the condition types it publishes; this checks that
+// the writer delivers exactly those.
+//
+// A condition type that is declared but never written is worse than one that
+// does not exist: an absent condition is indistinguishable from "not yet
+// evaluated", so an operator waits for a verdict that never comes and an alert
+// on it never fires. The writer was already covered; what this adds is the link
+// to the declared set, which nothing but review enforced. With one condition
+// type today the check is cheap; its value is the second type someone adds and
+// forgets to write.
+//
+// Both phases are driven, because a condition written on only one of them would
+// leave the other reporting nothing.
+func TestEveryDeclaredConditionTypeIsWritten(t *testing.T) {
+	for _, tc := range []struct {
+		phase  string
+		reason string
+	}{
+		{CreatedStatusPhase, ""},
+		{FailedStatusPhase, "the server refused the mount"},
+	} {
+		t.Run(tc.phase, func(t *testing.T) {
+			nsc := &v1alpha1.NFSStorageClass{
+				ObjectMeta: metav1.ObjectMeta{Name: testNSCName, Generation: 1},
+			}
+			cl := newStatusTestClient(t, nsc)
+
+			if err := updateNFSStorageClassPhase(context.Background(), cl, nsc, tc.phase, tc.reason); err != nil {
+				t.Fatalf("updateNFSStorageClassPhase: %v", err)
+			}
+
+			got := readNSC(t, cl)
+
+			present := map[string]bool{}
+			for _, c := range got.Status.Conditions {
+				present[c.Type] = true
+
+				if c.Status == "" {
+					t.Errorf("condition %s needs a status", c.Type)
+				}
+				if c.Reason == "" {
+					t.Errorf("condition %s needs a machine-readable reason", c.Type)
+				}
+				if c.Message == "" {
+					t.Errorf("condition %s needs a message", c.Type)
+				}
+			}
+
+			for _, condType := range v1alpha1.NFSStorageClassConditionTypes {
+				if !present[condType] {
+					t.Errorf("NFSStorageClass declares %s but the writer did not set it", condType)
+				}
+				delete(present, condType)
+			}
+			for stray := range present {
+				t.Errorf("NFSStorageClass writes %s, which it does not declare", stray)
+			}
+		})
+	}
+}
+
 func TestUpdateNFSStorageClassPhase_Created(t *testing.T) {
 	nsc := &v1alpha1.NFSStorageClass{
 		ObjectMeta: metav1.ObjectMeta{Name: testNSCName, Generation: 3},

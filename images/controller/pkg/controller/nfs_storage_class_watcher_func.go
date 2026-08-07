@@ -544,6 +544,11 @@ func updateNFSStorageClassPhase(ctx context.Context, cl client.Client, nsc *v1al
 		cond.Status = metav1.ConditionFalse
 		cond.Reason = conditions.ReasonReconcileFailed
 	}
+	if cond.Message == "" {
+		// The success path passes no reason, and a condition with an empty
+		// message tells `kubectl describe` nothing.
+		cond.Message = fmt.Sprintf("the NFSStorageClass is in the %s phase", phase)
+	}
 
 	return conditions.UpdateStatus(ctx, cl, nsc, func(sc *v1alpha1.NFSStorageClass) {
 		if sc.Status == nil {
