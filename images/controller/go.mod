@@ -5,7 +5,7 @@ go 1.26.5
 require (
 	github.com/deckhouse/csi-nfs/api v0.0.0-20250213115525-4785a9da80db
 	github.com/deckhouse/csi-nfs/lib/go/common v0.0.0-20250213115525-4785a9da80db
-	github.com/deckhouse/sds-common-lib v0.7.0
+	github.com/deckhouse/sds-common-lib v0.8.0
 	github.com/go-logr/logr v1.4.2
 	github.com/google/go-cmp v0.7.0
 	github.com/kubernetes-csi/external-snapshotter/client/v8 v8.2.0
