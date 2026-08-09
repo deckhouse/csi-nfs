@@ -18,7 +18,9 @@ package controller
 
 import (
 	"context"
+	"strings"
 	"testing"
+	"unicode/utf8"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
@@ -169,6 +171,38 @@ func TestUpdateNFSStorageClassPhase_Failed(t *testing.T) {
 	}
 	if got.Status.Phase != FailedStatusPhase {
 		t.Errorf("phase = %q, want %q", got.Status.Phase, FailedStatusPhase)
+	}
+}
+
+// The failure paths pass err.Error() through as the condition message, and the
+// schema caps it at 32768. Over the cap the API server rejects the whole status
+// write, so the resource keeps reporting its previous verdict and the reconcile
+// fails on the write instead of on what actually went wrong.
+func TestUpdateNFSStorageClassPhase_TruncatesAnOversizedMessage(t *testing.T) {
+	nsc := &v1alpha1.NFSStorageClass{
+		ObjectMeta: metav1.ObjectMeta{Name: testNSCName, Generation: 1},
+	}
+	cl := newStatusTestClient(t, nsc)
+
+	// Multi-byte on purpose. The schema's maxLength is an OpenAPI string
+	// length, counted in runes, and TruncateMessage counts the same way — a
+	// byte-counting assertion here would fail on a message that is in fact
+	// within the limit.
+	//
+	// Written as an escape rather than the character itself: the module linter
+	// rejects non-ASCII bytes in Go sources.
+	huge := strings.Repeat("\u044f", conditions.MaxMessageLen+100)
+	if err := updateNFSStorageClassPhase(context.Background(), cl, nsc, FailedStatusPhase, huge); err != nil {
+		t.Fatalf("updateNFSStorageClassPhase: %v", err)
+	}
+
+	ready := conditions.Get(readNSC(t, cl).Status.Conditions, v1alpha1.ConditionTypeReady)
+	if ready == nil {
+		t.Fatal("Ready condition was not published")
+	}
+	if utf8.RuneCountInString(ready.Message) > conditions.MaxMessageLen {
+		t.Errorf("message is %d runes, over the %d the schema allows",
+			utf8.RuneCountInString(ready.Message), conditions.MaxMessageLen)
 	}
 }
 
