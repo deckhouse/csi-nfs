@@ -20,6 +20,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
@@ -183,7 +184,11 @@ func TestUpdateNFSStorageClassPhase_TruncatesAnOversizedMessage(t *testing.T) {
 	}
 	cl := newStatusTestClient(t, nsc)
 
-	huge := strings.Repeat("x", conditions.MaxMessageLen+100)
+	// Multi-byte on purpose. The schema's maxLength is an OpenAPI string
+	// length, counted in runes, and TruncateMessage counts the same way — a
+	// byte-counting assertion here would fail on a message that is in fact
+	// within the limit.
+	huge := strings.Repeat("я", conditions.MaxMessageLen+100)
 	if err := updateNFSStorageClassPhase(context.Background(), cl, nsc, FailedStatusPhase, huge); err != nil {
 		t.Fatalf("updateNFSStorageClassPhase: %v", err)
 	}
@@ -192,9 +197,9 @@ func TestUpdateNFSStorageClassPhase_TruncatesAnOversizedMessage(t *testing.T) {
 	if ready == nil {
 		t.Fatal("Ready condition was not published")
 	}
-	if len(ready.Message) > conditions.MaxMessageLen {
-		t.Errorf("message is %d bytes, over the %d the schema allows",
-			len(ready.Message), conditions.MaxMessageLen)
+	if utf8.RuneCountInString(ready.Message) > conditions.MaxMessageLen {
+		t.Errorf("message is %d runes, over the %d the schema allows",
+			utf8.RuneCountInString(ready.Message), conditions.MaxMessageLen)
 	}
 }
 
