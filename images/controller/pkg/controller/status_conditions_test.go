@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -169,6 +170,31 @@ func TestUpdateNFSStorageClassPhase_Failed(t *testing.T) {
 	}
 	if got.Status.Phase != FailedStatusPhase {
 		t.Errorf("phase = %q, want %q", got.Status.Phase, FailedStatusPhase)
+	}
+}
+
+// The failure paths pass err.Error() through as the condition message, and the
+// schema caps it at 32768. Over the cap the API server rejects the whole status
+// write, so the resource keeps reporting its previous verdict and the reconcile
+// fails on the write instead of on what actually went wrong.
+func TestUpdateNFSStorageClassPhase_TruncatesAnOversizedMessage(t *testing.T) {
+	nsc := &v1alpha1.NFSStorageClass{
+		ObjectMeta: metav1.ObjectMeta{Name: testNSCName, Generation: 1},
+	}
+	cl := newStatusTestClient(t, nsc)
+
+	huge := strings.Repeat("x", conditions.MaxMessageLen+100)
+	if err := updateNFSStorageClassPhase(context.Background(), cl, nsc, FailedStatusPhase, huge); err != nil {
+		t.Fatalf("updateNFSStorageClassPhase: %v", err)
+	}
+
+	ready := conditions.Get(readNSC(t, cl).Status.Conditions, v1alpha1.ConditionTypeReady)
+	if ready == nil {
+		t.Fatal("Ready condition was not published")
+	}
+	if len(ready.Message) > conditions.MaxMessageLen {
+		t.Errorf("message is %d bytes, over the %d the schema allows",
+			len(ready.Message), conditions.MaxMessageLen)
 	}
 }
 

@@ -549,6 +549,14 @@ func updateNFSStorageClassPhase(ctx context.Context, cl client.Client, nsc *v1al
 		// message tells `kubectl describe` nothing.
 		cond.Message = fmt.Sprintf("the NFSStorageClass is in the %s phase", phase)
 	}
+	// The schema caps the message at 32768, and the failure paths pass
+	// err.Error() straight through. Over the cap the API server rejects the
+	// whole status write, so the resource keeps reporting its previous verdict
+	// and the reconcile fails on the write rather than on what actually went
+	// wrong. conditions.Set does not truncate: it is a thin wrapper over
+	// meta.SetStatusCondition, and only the library's Ready and
+	// ReadyWithMessage builders truncate for you.
+	cond.Message = conditions.TruncateMessage(cond.Message)
 
 	return conditions.UpdateStatus(ctx, cl, nsc, func(sc *v1alpha1.NFSStorageClass) {
 		if sc.Status == nil {
