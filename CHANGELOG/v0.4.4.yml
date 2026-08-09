@@ -1,0 +1,8 @@
+Changes:
+- NFSStorageClass publishes status.conditions and status.observedGeneration; the Ready
+  condition indicates whether the controller has applied the current specification;
+  a Ready column has been added. The status.phase field retains the same set of values
+  ​​and its column
+- Correction: the condition message is truncated to a valid schema length - otherwise
+    the API server would reject the status record
+- Updating base images to v1.3.25 and lib-helm to 1.72.13
