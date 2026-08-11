@@ -22,6 +22,7 @@ import (
 	"reflect"
 	"time"
 
+	d8commonapi "github.com/deckhouse/sds-common-lib/api/v1alpha1"
 	storagev1 "k8s.io/api/storage/v1"
 	k8serr "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -38,7 +39,6 @@ import (
 	"github.com/deckhouse/csi-nfs/images/controller/pkg/config"
 	"github.com/deckhouse/csi-nfs/images/controller/pkg/logger"
 	commonvalidating "github.com/deckhouse/csi-nfs/lib/go/common/pkg/validating"
-	d8commonapi "github.com/deckhouse/sds-common-lib/api/v1alpha1"
 )
 
 const (

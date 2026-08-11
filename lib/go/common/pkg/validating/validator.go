@@ -19,9 +19,10 @@ package validating
 import (
 	"fmt"
 
+	d8commonapi "github.com/deckhouse/sds-common-lib/api/v1alpha1"
+
 	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	feature "github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature"
-	d8commonapi "github.com/deckhouse/sds-common-lib/api/v1alpha1"
 )
 
 func ValidateNFSStorageClass(nfsModuleConfig *d8commonapi.ModuleConfig, nsc *cn.NFSStorageClass) error {

@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"os"
 
+	d8commonapi "github.com/deckhouse/sds-common-lib/api/v1alpha1"
 	"github.com/sirupsen/logrus"
 	kwhlogrus "github.com/slok/kubewebhook/v2/pkg/log/logrus"
 	storagev1 "k8s.io/api/storage/v1"
@@ -29,7 +30,6 @@ import (
 	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	"github.com/deckhouse/csi-nfs/images/webhooks/handlers"
 	commonfeature "github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature"
-	d8commonapi "github.com/deckhouse/sds-common-lib/api/v1alpha1"
 )
 
 type config struct {

@@ -23,10 +23,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/deckhouse/csi-nfs/api/v1alpha1"
-	"github.com/deckhouse/csi-nfs/hooks/go/consts"
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/pkg/registry"
+
+	"github.com/deckhouse/csi-nfs/api/v1alpha1"
+	"github.com/deckhouse/csi-nfs/hooks/go/consts"
 )
 
 const (

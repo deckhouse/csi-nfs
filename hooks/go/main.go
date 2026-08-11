@@ -17,11 +17,12 @@ limitations under the License.
 package main
 
 import (
+	"github.com/deckhouse/module-sdk/pkg/app"
+
 	_ "github.com/deckhouse/csi-nfs/hooks/go/020-webhook-certs"
 	_ "github.com/deckhouse/csi-nfs/hooks/go/030-remove-finalizers-on-module-delete"
 	_ "github.com/deckhouse/csi-nfs/hooks/go/070-generate-certs"
 	_ "github.com/deckhouse/csi-nfs/hooks/go/080-scheduler-extender-enabler"
-	"github.com/deckhouse/module-sdk/pkg/app"
 )
 
 func main() {

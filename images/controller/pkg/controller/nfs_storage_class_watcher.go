@@ -23,6 +23,7 @@ import (
 	"reflect"
 	"time"
 
+	d8commonapi "github.com/deckhouse/sds-common-lib/api/v1alpha1"
 	snapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/storage/v1"
@@ -41,7 +42,6 @@ import (
 	"github.com/deckhouse/csi-nfs/images/controller/pkg/config"
 	"github.com/deckhouse/csi-nfs/images/controller/pkg/logger"
 	commonvalidating "github.com/deckhouse/csi-nfs/lib/go/common/pkg/validating"
-	d8commonapi "github.com/deckhouse/sds-common-lib/api/v1alpha1"
 )
 
 const (

@@ -1,6 +1,11 @@
-go 1.25.7
+module github.com/deckhouse/csi-nfs/lib/go/common
 
-require github.com/deckhouse/csi-nfs/api v0.0.0-20250116103144-d23aedd591a3
+go 1.26.5
+
+require (
+	github.com/deckhouse/csi-nfs/api v0.0.0-20250116103144-d23aedd591a3
+	github.com/deckhouse/sds-common-lib v0.5.0
+)
 
 require (
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
@@ -11,10 +16,10 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
-	golang.org/x/net v0.38.0 // indirect
-	golang.org/x/text v0.23.0 // indirect
+	golang.org/x/net v0.56.0 // indirect
+	golang.org/x/text v0.39.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
-	k8s.io/apimachinery v0.32.0 // indirect
+	k8s.io/apimachinery v0.32.3 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/utils v0.0.0-20241210054802-24370beab758 // indirect
 	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
