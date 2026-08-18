@@ -23,7 +23,6 @@ import (
 
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/pkg/registry"
-	"github.com/deckhouse/sds-common-lib/kubeclient"
 	snapv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumesnapshot/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -37,6 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/csi-nfs/hooks/go/consts"
+	"github.com/deckhouse/sds-common-lib/kubeclient"
 )
 
 const hookName = "remove-finalizers-on-module-delete"

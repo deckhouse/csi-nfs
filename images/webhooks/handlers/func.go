@@ -20,7 +20,6 @@ import (
 	"context"
 	"net/http"
 
-	d8commonapi "github.com/deckhouse/sds-common-lib/api/v1alpha1"
 	kwhhttp "github.com/slok/kubewebhook/v2/pkg/http"
 	"github.com/slok/kubewebhook/v2/pkg/log"
 	"github.com/slok/kubewebhook/v2/pkg/model"
@@ -30,6 +29,7 @@ import (
 
 	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	commonvalidating "github.com/deckhouse/csi-nfs/lib/go/common/pkg/validating"
+	d8commonapi "github.com/deckhouse/sds-common-lib/api/v1alpha1"
 )
 
 func GetMutatingWebhookHandler(mutationFunc func(ctx context.Context, _ *model.AdmissionReview, obj metav1.Object) (*kwhmutating.MutatorResult, error), mutatorID string, obj metav1.Object, logger log.Logger) (http.Handler, error) {

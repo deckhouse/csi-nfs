@@ -4,7 +4,7 @@ go 1.26.6
 
 require (
 	github.com/deckhouse/csi-nfs/api v0.0.0-20250116103144-d23aedd591a3
-	github.com/deckhouse/sds-common-lib v0.5.0
+	github.com/deckhouse/sds-common-lib v0.9.0
 )
 
 require (

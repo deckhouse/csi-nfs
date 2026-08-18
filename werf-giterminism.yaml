@@ -6,6 +6,7 @@ config:
       - MODULES_MODULE_TAG
       - WERF_DISABLE_META_TAGS
       - GOPROXY
+      - FOX_GO_TOKEN
       - SOURCE_REPO
       - DISTRO_PACKAGES_PROXY
       - MODULE_EDITION
@@ -22,6 +23,7 @@ config:
       - GOPROXY
       - SOURCE_REPO
       - DISTRO_PACKAGES_PROXY
+      - GO_PRIVATE_TOKEN
     allowEnvVariables:
       - REGISTRY_USER
       - REGISTRY_PASSWORD

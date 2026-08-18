@@ -22,13 +22,13 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	"github.com/deckhouse/sds-common-lib/conditions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
+	"github.com/deckhouse/sds-common-lib/conditions"
 )
 
 const testNSCName = "nsc-1"
