@@ -3,7 +3,7 @@
   "roleRules" (list
     (dict "apiGroups" (list "") "resources" (list "secrets") "verbs" (list "get" "list" "watch" "create" "update" "delete"))
     (dict "apiGroups" (list "") "resources" (list "pods") "verbs" (list "get" "list" "watch" "update" "delete"))
-    (dict "apiGroups" (list "") "resources" (list "events") "verbs" (list "create" "list"))
+    (dict "apiGroups" (list "") "resources" (list "events") "verbs" (list "create" "patch"))
     (dict "apiGroups" (list "coordination.k8s.io") "resources" (list "leases") "verbs" (list "get" "watch" "list" "delete" "update" "create"))
   )
   "clusterRoleRules" (list
