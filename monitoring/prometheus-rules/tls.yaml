@@ -1,0 +1,122 @@
+- name: d8.csi-nfs.tls
+  rules:
+    # Certificates for RPC-with-TLS come from the ModuleConfig and nothing in the cluster
+    # rotates them, which is what separates these three rules from the rest of the
+    # module's alerting: they do not report a failure, they report a date. The failure
+    # they exist to prevent looks nothing like an expiry - the handshake of a new mount
+    # fails, mounts that are already up survive until their next reconnect, and the
+    # cluster degrades over hours into "NFS does not work on some nodes".
+    #
+    # The series behind them are exported by the controller, one per certificate, and
+    # only where the feature is on and the chart rendered a tlshd ConfigMap. On every
+    # other cluster there is no series, so these rules have nothing to evaluate and stay
+    # silent - which is deliberate, and why none of them carries an absent() arm that
+    # would fire wherever the module is merely installed.
+    #
+    # What none of them can see is the certificate of the NFS SERVER. Only our own end of
+    # the handshake is in the cluster; a server certificate that expires produces failing
+    # mounts with nothing here firing beforehand.
+    - alert: CsiNfsTLSCertificateExpiringSoon
+      # No `for:`, deliberately: the threshold is measured on a timestamp rather than on
+      # an instantaneous condition, so it is already a delay, and a `for:` on top would
+      # only make the alert fire later than its own text says.
+      #
+      # The lower bound is not cosmetic. Without it an expired certificate matches this
+      # rule too, and an operator gets a warning and a critical alert about one
+      # certificate and has to work out that they are the same one.
+      expr: |
+        (csi_nfs_tls_certificate_not_after_timestamp_seconds - time()) > 0
+        and
+        (csi_nfs_tls_certificate_not_after_timestamp_seconds - time()) < 14 * 24 * 3600
+      labels:
+        severity_level: "5"
+        tier: cluster
+      annotations:
+        plk_markup_format: markdown
+        plk_protocol_version: "1"
+        summary: An RPC-with-TLS certificate of csi-nfs expires in less than two weeks.
+        description: |
+          The `{{ $labels.kind }}` certificate `{{ $labels.subject }}` (serial `{{ $labels.serial }}`) used for
+          RPC-with-TLS expires in less than fourteen days.
+
+          Nothing renews it. Unlike the webhook certificates of this module, which a hook generates and
+          reissues, this one was configured by hand in the ModuleConfig and expires on the date its issuer
+          gave it.
+
+          `kind="ca"` is the truststore that verifies the NFS server, and it is the more expensive one to
+          lose: it is needed for every TLS mount, `mtls` or not. `kind="client"` is the certificate the
+          server verifies, so it only affects the storage classes that use mTLS. Either way there may be
+          more than one series - the field can hold a chain, the handshake needs every certificate in it to
+          be valid, and this alert names the one that has to be replaced.
+
+          What to do: get a new certificate from the same CA and put it into the ModuleConfig, base64
+          encoded, under `tlsParameters.ca` or `tlsParameters.mtls.clientCert` respectively
+          (`kubectl edit mc csi-nfs`).
+
+          Note that the two are picked up differently. The controller and node pods carry a checksum of the
+          CA in their annotations, so replacing `tlsParameters.ca` restarts them with the new one. The
+          client certificate has no such annotation - measured on a stand: replacing it restarted no pod -
+          so the new file reaches the running pods through the mounted ConfigMap at kubelet's next sync
+          instead. If mounts still fail after that, restart the node pods
+          (`kubectl -n d8-csi-nfs rollout restart daemonset/csi-node`), which is the deterministic way to
+          be sure tlshd is using the new certificate. This alert clears on its own either way: it is built
+          on what the controller reads from the API, not on what the pods have mounted.
+    - alert: CsiNfsTLSCertificateExpired
+      expr: (csi_nfs_tls_certificate_not_after_timestamp_seconds - time()) <= 0
+      labels:
+        severity_level: "3"
+        tier: cluster
+      annotations:
+        plk_markup_format: markdown
+        plk_protocol_version: "1"
+        summary: An RPC-with-TLS certificate of csi-nfs has expired.
+        description: |
+          The `{{ $labels.kind }}` certificate `{{ $labels.subject }}` (serial `{{ $labels.serial }}`) used for
+          RPC-with-TLS has expired.
+
+          The cluster does not necessarily look broken yet, and that is the trap in this one: transport
+          security belongs to the connection, so mounts that are already established keep working until
+          they reconnect, and only new mounts fail the handshake. What follows is a cluster where a volume
+          mounts on one node and not on another, and where a rescheduled pod cannot start while its
+          neighbour on an older node runs.
+
+          If `kind="ca"`, every TLS mount is affected; `kind="client"` affects the storage classes that use
+          mTLS. A chain counts as one failure: an expired intermediate fails the handshake exactly as an
+          expired leaf does.
+
+          What to do: replace the certificate in the ModuleConfig, base64 encoded, under
+          `tlsParameters.ca` or `tlsParameters.mtls.clientCert` (`kubectl edit mc csi-nfs`). Replacing the CA
+          restarts the pods, because they carry a checksum of it; replacing the client certificate does not,
+          and it reaches them through the mounted ConfigMap at kubelet's next sync - restart the node pods
+          (`kubectl -n d8-csi-nfs rollout restart daemonset/csi-node`) if mounts keep failing after that.
+
+          Note that the certificate is module-wide, not per storage class, so one expired certificate is one
+          fix for every NFSStorageClass that uses TLS.
+    - alert: CsiNfsTLSCertificateNotYetValid
+      # `for:` here and not on the two above, and for the opposite reason: this condition
+      # IS instantaneous, and the one thing that makes it briefly true without anything
+      # being wrong is clock skew between the host that issued the certificate and the
+      # cluster reading it, right after a replacement. Fifteen minutes outlives that
+      # without hiding a notBefore that is genuinely days away.
+      expr: (csi_nfs_tls_certificate_not_before_timestamp_seconds - time()) > 0
+      for: 15m
+      labels:
+        severity_level: "3"
+        tier: cluster
+      annotations:
+        plk_markup_format: markdown
+        plk_protocol_version: "1"
+        summary: An RPC-with-TLS certificate of csi-nfs is not valid yet.
+        description: |
+          The `{{ $labels.kind }}` certificate `{{ $labels.subject }}` (serial `{{ $labels.serial }}`) used for
+          RPC-with-TLS has a validity period that has not started: its `notBefore` is in the future.
+
+          Such a certificate fails the handshake exactly as an expired one does, and it does so at the worst
+          possible moment - just after somebody replaced a certificate and has every reason to believe the
+          problem is fixed. The two usual causes are a certificate issued by a CA whose clock is ahead of the
+          cluster's, and a certificate prepared for a future rotation and applied early.
+
+          What to do: compare the dates with `openssl x509 -noout -dates` against the certificate in the
+          ModuleConfig, and check the clock of the host that issued it. If the certificate is genuinely for a
+          later date, put the current one back until then - a certificate that is not valid yet protects
+          nothing and blocks every new mount.

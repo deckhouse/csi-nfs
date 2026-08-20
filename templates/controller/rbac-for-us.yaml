@@ -1,10 +1,22 @@
-{{- /* RBAC */ -}}
+{{- /* RBAC
+
+The configmaps rule in roleRules is the tlshd ConfigMap, which tls_metrics.go reads to
+publish when the RPC-with-TLS certificates stop being valid. `get` on that one name and
+nothing else: the pass re-reads it uncached every ten minutes, so it needs neither `list`
+nor `watch` - and those two cannot be restricted to a single object by RBAC, so asking for
+them would hand this ServiceAccount every ConfigMap in the namespace instead of the one it
+actually reads.
+
+(The note lives up here rather than beside the rule because a template comment inside the
+argument list of a dict call is a parse error - "unexpected { in operand" - and the whole
+release then fails to render.) */ -}}
 {{- $rbacConfig := dict
   "roleRules" (list
     (dict "apiGroups" (list "") "resources" (list "secrets") "verbs" (list "get" "list" "watch" "create" "update" "delete"))
     (dict "apiGroups" (list "") "resources" (list "pods") "verbs" (list "get" "list" "watch" "update" "delete"))
     (dict "apiGroups" (list "") "resources" (list "events") "verbs" (list "create" "patch"))
     (dict "apiGroups" (list "coordination.k8s.io") "resources" (list "leases") "verbs" (list "get" "watch" "list" "delete" "update" "create"))
+    (dict "apiGroups" (list "") "resources" (list "configmaps") "resourceNames" (list "tlshd-conf") "verbs" (list "get"))
   )
   "clusterRoleRules" (list
     (dict "apiGroups" (list "storage.deckhouse.io") "resources" (list "nfsstorageclasses" "nfsstorageclasses/status") "verbs" (list "get" "list" "create" "watch" "update"))

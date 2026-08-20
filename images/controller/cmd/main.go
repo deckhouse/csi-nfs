@@ -31,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	"github.com/deckhouse/csi-nfs/images/controller/pkg/config"
@@ -95,7 +96,9 @@ func main() {
 	managerOpts := manager.Options{
 		Scheme: scheme,
 		Cache:  cacheOpt,
-		//MetricsBindAddress: cfgParams.MetricsPort,
+		// The certificate validity gauges live in tls_metrics.go; without a listener
+		// they would be updated and never read.
+		Metrics:                 metricsserver.Options{BindAddress: cfgParams.MetricsBindAddress},
 		HealthProbeBindAddress:  cfgParams.HealthProbeBindAddress,
 		LeaderElection:          true,
 		LeaderElectionNamespace: cfgParams.ControllerNamespace,
@@ -121,6 +124,24 @@ func main() {
 	}
 
 	controller.RunNodeSelectorReconciler(ctx, mgr, *cfgParams, *log)
+
+	// The validity of the RPC-with-TLS certificates, which nothing in this module
+	// rotates: they come from the ModuleConfig and expire on a date the cluster has no
+	// other way of knowing. See tls_metrics.go.
+	//
+	// Gated on the feature and not on the ConfigMap being there, so a cluster that turns
+	// TLS on later needs no restart of this pod to start reporting; the pass itself
+	// treats a missing ConfigMap as "no certificates configured".
+	//
+	// mgr.Add and not a bare goroutine: started directly it would run in every replica
+	// and publish the same series from each of them, and it would run before mgr.Start,
+	// hitting an API server the manager has not finished setting up.
+	if commonfeature.TLSEnabled() {
+		if err = mgr.Add(controller.RunTLSCertificateMetrics(mgr.GetAPIReader(), *cfgParams, *log)); err != nil {
+			log.Error(err, fmt.Sprintf("[main] unable to add %s", controller.TLSCertificateMetricsName))
+			os.Exit(1)
+		}
+	}
 
 	if err = mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		log.Error(err, "[main] unable to mgr.AddHealthzCheck")

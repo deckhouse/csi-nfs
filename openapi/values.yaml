@@ -48,6 +48,14 @@ properties:
           ca:
             type: string
             x-examples: ["YjY0ZW5jX3N0cmluZwo="]
+      controllerMetricsPort:
+        type: integer
+        description: |
+          The port the module controller serves its metrics on. What is on it is
+          the validity of the RPC-with-TLS certificates: one series per
+          certificate, populated only where that feature is on, next to the
+          manager's own metrics, which are there in every case.
+        default: 4223
       shedulerExtenderEnabled:
         type: boolean
         default: false

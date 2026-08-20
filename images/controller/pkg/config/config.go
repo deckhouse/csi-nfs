@@ -32,6 +32,8 @@ const (
 	ControllerName                       = "d8-controller"
 	DefaultHealthProbeBindAddressEnvName = "HEALTH_PROBE_BIND_ADDRESS"
 	DefaultHealthProbeBindAddress        = ":8081"
+	MetricsBindAddressEnvName            = "METRICS_BIND_ADDRESS"
+	DefaultMetricsBindAddress            = ":4223"
 	DefaultRequeueStorageClassInterval   = 10
 	DefaultRequeueModuleConfigInterval   = 10
 	CsiNfsModuleName                     = "csi-nfs"
@@ -50,8 +52,12 @@ type Options struct {
 	RequeueNodeSelectorInterval time.Duration
 	ConfigSecretName            string
 	HealthProbeBindAddress      string
-	ControllerNamespace         string
-	CsiNfsModuleName            string
+	// MetricsBindAddress is where the controller serves /metrics. Empty disables
+	// serving them altogether, which is a legitimate configuration rather than a
+	// misconfiguration: a port nobody scrapes is a port nobody has to reason about.
+	MetricsBindAddress  string
+	ControllerNamespace string
+	CsiNfsModuleName    string
 	// StorageClassLabelIgnoredPrefixes is the union of a system (hardcoded in Helm
 	// internal values) and a user-configured (ModuleConfig) list of label-key prefixes.
 	// Labels on an NFSStorageClass whose keys start with any of these prefixes are
@@ -72,6 +78,11 @@ func NewConfig() *Options {
 	opts.HealthProbeBindAddress = os.Getenv(DefaultHealthProbeBindAddressEnvName)
 	if opts.HealthProbeBindAddress == "" {
 		opts.HealthProbeBindAddress = DefaultHealthProbeBindAddress
+	}
+
+	opts.MetricsBindAddress = os.Getenv(MetricsBindAddressEnvName)
+	if opts.MetricsBindAddress == "" {
+		opts.MetricsBindAddress = DefaultMetricsBindAddress
 	}
 
 	opts.ControllerNamespace = os.Getenv(ControllerNamespaceEnv)

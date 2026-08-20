@@ -16,12 +16,29 @@
   "webhookCertPath" "internal.customWebhookCert"
   "onMasterNode" true
   "podSecurityContext" "deckhouse"
-  "additionalControllerEnvs" (list (dict "name" "STORAGE_CLASS_LABEL_IGNORED_PREFIXES" "value" (join "," $ignoredPrefixes)))
+  "controllerMetricsPort" (int .Values.csiNfs.internal.controllerMetricsPort)
+  "additionalControllerEnvs" (list
+    (dict "name" "STORAGE_CLASS_LABEL_IGNORED_PREFIXES" "value" (join "," $ignoredPrefixes))
+    (dict "name" "METRICS_BIND_ADDRESS" "value" (printf ":%d" (int .Values.csiNfs.internal.controllerMetricsPort))))
 }}
 {{ include "helm_lib_module_controller_manifests" (list . $config) }}
 
-{{- /* Webhook Service */ -}}
-{{ include "helm_lib_module_webhook_service" (list . dict) }}
+{{- /* Webhook Service, with the metrics port next to it.
+
+What is on that port is the validity of the RPC-with-TLS certificates - one series per
+certificate, with its subject, its serial and the two ends of its validity period. It
+lives on the controller and not on the node driver although every node pod mounts the
+same certificates: the ConfigMap is one object for the whole cluster, so reading it once
+per node would publish the same numbers as many times as there are nodes.
+
+The port is exposed whatever the edition and whatever the configuration. The gauges are
+only populated where RPC-with-TLS is on, and the endpoint carries the manager's own
+metrics - reconcile counts, queue depth, Go runtime - in every case. */ -}}
+{{ include "helm_lib_module_webhook_service" (list . (dict
+  "additionalPorts" (list (dict
+    "name" "metrics"
+    "port" (int .Values.csiNfs.internal.controllerMetricsPort)
+    "targetPort" "metrics")))) }}
 
 {{- /* ValidatingWebhookConfiguration for StorageClasses */ -}}
 {{- $scWebhookConfig := dict
