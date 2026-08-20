@@ -72,10 +72,6 @@ import:
     add: /{{ $.ImageName }}
     to: /{{ $.ImageName }}
     before: install
-  - image: {{ .ModuleNamePrefix }}wrap-mount
-    add: /bin
-    to: /bin
-    before: install
 git:
 {{- include "image mount points" . }}
 shell:
@@ -97,6 +93,16 @@ shell:
       local      tpi_cots_ord  -     loopback  -       -       -
       unix       tpi_cots_ord  -     loopback  -       -       -
       EOF
+    # /etc/mtab, without which mount.nfs reports failure for a mount that worked.
+    # The helper updates the mount table after mounting, and when the file is
+    # missing it tries to create it: /etc is read-only in both the csi-controller
+    # and the csi-node container, so it answers "can't create lock file
+    # /etc/mtab~NN: Read-only file system (use -n flag to override)" and exits 16 -
+    # while the export stays mounted. The distroless base used to ship the symlink
+    # (module v0.4.4 has it, v0.4.5 does not) and the base pin floats, so the image
+    # has to place it itself. The symlink is what every distribution ships, and it
+    # makes the mount-table update a no-op.
+    - ln -sf /proc/self/mounts /etc/mtab
 imageSpec:
   config:
     entrypoint: ["/{{ $.ImageName }}"]

@@ -1,3 +1,0 @@
-module github.com/deckhouse/csi-nfs/images/wrap-mount
-
-go 1.26.6
