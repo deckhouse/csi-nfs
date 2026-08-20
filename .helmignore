@@ -19,3 +19,13 @@ testing
 tools
 werf*.yaml
 e2e
+.dmtlint.yaml
+.git
+.gitignore
+.gitlab-ci.yml
+.gitleaks.toml
+.golangci.yaml
+.werf
+known_vulnerabilities.vex
+module.yaml
+oss.yaml
