@@ -5,7 +5,7 @@ go 1.26.6
 require (
 	github.com/deckhouse/csi-nfs/api v0.0.0-20250213115525-4785a9da80db
 	github.com/deckhouse/csi-nfs/lib/go/common v0.0.0-20250213115525-4785a9da80db
-	github.com/deckhouse/sds-common-lib v0.9.0
+	github.com/deckhouse/sds-common-lib v0.10.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/slok/kubewebhook/v2 v2.7.0
 	k8s.io/api v0.32.3
