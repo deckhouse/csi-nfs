@@ -1,0 +1,3 @@
+Changes:
+  - "Fix: the release image is no longer built from cache with an outdated changelog.yaml — git-mapping dependencies are bound to the install stage, where the file is copied"
+  - Internal build changes for the module
