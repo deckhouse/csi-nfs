@@ -1,0 +1,46 @@
+{{- if .Values.csiNfs.internal.shedulerExtenderEnabled }}
+{{- if (include "helm_lib_api_version_exists" (list . "monitoring.coreos.com/v1/PodMonitor")) }}
+{{- /*
+  The metrics are served by the kube-rbac-proxy of the pod, over TLS and behind an
+  authorization check, so the scrape carries the Prometheus token. The certificate
+  is the proxy's own, hence insecureSkipVerify.
+*/ -}}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: csi-nfs-scheduler-extender
+  namespace: d8-monitoring
+  {{- include "helm_lib_module_labels" (list $ (dict "prometheus" "main")) | nindent 2 }}
+spec:
+  podMetricsEndpoints:
+    - port: https-metrics
+      scheme: https
+      path: /metrics
+      bearerTokenSecret:
+        name: "prometheus-token"
+        key: "token"
+      tlsConfig:
+        insecureSkipVerify: true
+      relabelings:
+        - regex: endpoint|namespace|pod|container
+          action: labeldrop
+        - targetLabel: job
+          replacement: csi-nfs-scheduler-extender
+        - targetLabel: tier
+          replacement: cluster
+        # A PodMonitor selects pods by label, so without this the terminating pod of a
+        # rolling update and a pod whose proxy is not ready yet stay in the target list
+        # and every scrape of them fails. The ServiceMonitors get the same filter from
+        # the EndpointSlice conditions.
+        - sourceLabels: [__meta_kubernetes_pod_ready]
+          regex: "true"
+          action: keep
+  selector:
+    matchLabels:
+      app: csi-nfs-scheduler-extender
+  namespaceSelector:
+    matchNames:
+      - d8-{{ .Chart.Name }}
+{{- end }}
+{{- end }}

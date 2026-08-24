@@ -21,7 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/deckhouse/csi-nfs/images/controller/pkg/logger"
+	"github.com/deckhouse/sds-common-lib/logger"
 )
 
 var volumeSnapshotClassGK = schema.GroupKind{Group: snapshotv1.GroupName, Kind: "VolumeSnapshotClass"}
@@ -41,7 +41,7 @@ func VolumeSnapshotClassCRDExists(mapper meta.RESTMapper, log logger.Logger) boo
 	case meta.IsNoMatchError(err):
 		return false
 	default:
-		log.Error(err, "[VolumeSnapshotClassCRDExists] unable to resolve the VolumeSnapshotClass REST mapping")
+		log.Error("unable to resolve the VolumeSnapshotClass REST mapping", logger.Err(err))
 		return false
 	}
 }

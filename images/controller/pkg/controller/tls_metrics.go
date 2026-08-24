@@ -58,7 +58,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"github.com/deckhouse/csi-nfs/images/controller/pkg/config"
-	"github.com/deckhouse/csi-nfs/images/controller/pkg/logger"
+	"github.com/deckhouse/sds-common-lib/logger"
 )
 
 const (
@@ -154,7 +154,7 @@ func RunTLSCertificateMetrics(reader client.Reader, cfg config.Options, log logg
 	return manager.RunnableFunc(func(ctx context.Context) error {
 		for {
 			if err := publishTLSCertificateMetrics(ctx, reader, log, cfg.ControllerNamespace); err != nil {
-				log.Error(err, "Failed to publish the validity of the RPC-with-TLS certificates.")
+				log.Error("Failed to publish the validity of the RPC-with-TLS certificates.", logger.Err(err))
 			}
 
 			timer := time.NewTimer(tlsCertificateMetricsInterval)
@@ -202,8 +202,8 @@ func publishTLSCertificateMetrics(ctx context.Context, reader client.Reader, log
 			// Logged rather than returned: the other kind is still worth publishing, and
 			// a chain with one unreadable block is still a chain whose readable
 			// certificates expire on a date somebody has to know.
-			log.Error(err, fmt.Sprintf("Failed to parse the %s certificate from ConfigMap %s/%s, key %s.",
-				source.kind, namespace, tlshdConfigMapName, source.key))
+			log.Error(fmt.Sprintf("Failed to parse the %s certificate from ConfigMap %s/%s, key %s.",
+				source.kind, namespace, tlshdConfigMapName, source.key), logger.Err(err))
 		}
 
 		for _, certificate := range certificates {

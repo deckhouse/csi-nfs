@@ -27,11 +27,11 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	"github.com/deckhouse/csi-nfs/images/csi-nfs-scheduler-extender/pkg/logger"
+	"github.com/deckhouse/sds-common-lib/logger"
 )
 
 func TestShouldProcessPod(t *testing.T) {
-	log := logger.Logger{}
+	log := logger.NewNop()
 	ctx := context.Background()
 
 	tt := []struct {

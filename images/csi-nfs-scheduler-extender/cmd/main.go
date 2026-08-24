@@ -34,12 +34,14 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/yaml"
 
 	"github.com/deckhouse/csi-nfs/api/v1alpha1"
 	"github.com/deckhouse/csi-nfs/images/csi-nfs-scheduler-extender/pkg/kubutils"
-	"github.com/deckhouse/csi-nfs/images/csi-nfs-scheduler-extender/pkg/logger"
 	"github.com/deckhouse/csi-nfs/images/csi-nfs-scheduler-extender/pkg/scheduler"
+	"github.com/deckhouse/sds-common-lib/logger"
+	"github.com/deckhouse/sds-common-lib/monitoring"
 )
 
 const (
@@ -109,6 +111,12 @@ func main() {
 	}
 }
 
+// defaultMetricsBindAddress keeps the endpoint on loopback when the chart says
+// nothing: the kube-rbac-proxy of the same pod is what publishes it. The fleet-wide
+// fallback is the wildcard ":8080", which would both answer unauthenticated on the
+// pod IP and collide with the proxy, since the two carry the same port number.
+const defaultMetricsBindAddress = "127.0.0.1:8080"
+
 func subMain(ctx context.Context) error {
 	if len(cfgFilePath) != 0 {
 		b, err := os.ReadFile(cfgFilePath)
@@ -128,56 +136,61 @@ func subMain(ctx context.Context) error {
 		print(fmt.Sprintf("[subMain] unable to initialize logger, err: %s", err))
 		return err
 	}
-	log.Info(fmt.Sprintf("[subMain] logger has been initialized, log level: %s", config.LogLevel))
+	subMainLog := log.Named("subMain")
+	subMainLog.Info(fmt.Sprintf("logger has been initialized, log level: %s", config.LogLevel))
 	ctrl.SetLogger(log.GetLogger())
 
 	kConfig, err := kubutils.KubernetesDefaultConfigCreate()
 	if err != nil {
-		log.Error(err, "[subMain] unable to KubernetesDefaultConfigCreate")
+		log.Error("unable to KubernetesDefaultConfigCreate", logger.Err(err))
 		return err
 	}
-	log.Info("[subMain] kubernetes config has been successfully created.")
+	subMainLog.Info("kubernetes config has been successfully created.")
 
 	scheme := runtime.NewScheme()
 	for _, f := range resourcesSchemeFuncs {
 		if err := f(scheme); err != nil {
-			log.Error(err, "[subMain] unable to add scheme to func")
+			log.Error("unable to add scheme to func", logger.Err(err))
 			return err
 		}
 	}
-	log.Info("[subMain] successfully read scheme CR")
+	subMainLog.Info("successfully read scheme CR")
 
 	managerOpts := manager.Options{
-		Scheme:                 scheme,
-		Logger:                 log.GetLogger(),
+		Scheme: scheme,
+		Logger: log.GetLogger(),
+		// controller-runtime binds :8080 whenever this is empty, so this manager has
+		// always served its reconcile and workqueue metrics with nothing declaring the
+		// port. The chart points it at loopback and puts a kube-rbac-proxy in front.
+		Metrics:                metricsserver.Options{BindAddress: monitoring.BindAddressFromEnvOr(defaultMetricsBindAddress)},
 		HealthProbeBindAddress: config.HealthProbeBindAddress,
 		BaseContext:            func() context.Context { return ctx },
 	}
 
 	mgr, err := manager.New(kConfig, managerOpts)
 	if err != nil {
-		log.Error(err, "[subMain] unable to create manager for creating controllers")
+		log.Error("unable to create manager for creating controllers", logger.Err(err))
 		return err
 	}
 
-	httpHandler, err := scheduler.NewHandler(ctx, mgr.GetClient(), *log)
+	httpHandler, err := scheduler.NewHandler(ctx, mgr.GetClient(), log)
 	if err != nil {
-		log.Error(err, "[subMain] unable to create http.Handler of the scheduler extender")
+		log.Error("unable to create http.Handler of the scheduler extender", logger.Err(err))
 		return err
 	}
-	log.Info("[subMain] scheduler handler initialized")
+	subMainLog.Info("scheduler handler initialized")
 
 	if err = mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
-		log.Error(err, "[subMain] unable to mgr.AddHealthzCheck")
+		log.Error("unable to mgr.AddHealthzCheck", logger.Err(err))
 		return err
 	}
-	log.Info("[subMain] successfully AddHealthzCheck")
+	subMainLog.Info("successfully AddHealthzCheck")
 
 	if err = mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
-		log.Error(err, "[subMain] unable to mgr.AddReadyzCheck")
+		log.Error("unable to mgr.AddReadyzCheck", logger.Err(err))
 		return err
 	}
-	log.Info("[subMain] successfully AddReadyzCheck")
+	subMainLog.Info("successfully AddReadyzCheck")
 
 	serv := &http.Server{
 		Addr:         config.ListenAddr,
@@ -185,12 +198,13 @@ func subMain(ctx context.Context) error {
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
 	}
-	log.Info("[subMain] server was initialized")
+	subMainLog.Info("server was initialized")
 
 	return runServer(ctx, serv, mgr, log)
 }
 
-func runServer(ctx context.Context, serv *http.Server, mgr manager.Manager, log *logger.Logger) error {
+func runServer(ctx context.Context, serv *http.Server, mgr manager.Manager, log logger.Logger) error {
+	log = log.Named("runServer")
 	ctx, stop := context.WithCancel(ctx)
 
 	var wg sync.WaitGroup
@@ -202,22 +216,22 @@ func runServer(ctx context.Context, serv *http.Server, mgr manager.Manager, log 
 		defer wg.Done()
 		<-ctx.Done()
 		if err := serv.Shutdown(ctx); err != nil {
-			log.Error(err, "[runServer] failed to shutdown gracefully")
+			log.Error("failed to shutdown gracefully", logger.Err(err))
 		}
 	}()
 
 	go func() {
-		log.Info("[runServer] kube manager will start now")
+		log.Info("kube manager will start now")
 		if err := mgr.Start(ctx); err != nil {
-			log.Error(err, "[runServer] unable to mgr.Start")
+			log.Error("unable to mgr.Start", logger.Err(err))
 			stop()
 		}
 	}()
 
-	log.Info(fmt.Sprintf("[runServer] starts serving on: %s", config.ListenAddr))
+	log.Info(fmt.Sprintf("starts serving on: %s", config.ListenAddr))
 
 	if err := serv.ListenAndServeTLS(config.CertFile, config.KeyFile); !errors.Is(err, http.ErrServerClosed) {
-		log.Error(err, "[runServer] unable to run the server")
+		log.Error("unable to run the server", logger.Err(err))
 		return err
 	}
 

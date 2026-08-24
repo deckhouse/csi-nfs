@@ -17,9 +17,9 @@
   "onMasterNode" true
   "podSecurityContext" "deckhouse"
   "controllerMetricsPort" (int .Values.csiNfs.internal.controllerMetricsPort)
+  "controllerMetricsProxyPort" (int .Values.csiNfs.internal.controllerMetricsProxyPort)
   "additionalControllerEnvs" (list
-    (dict "name" "STORAGE_CLASS_LABEL_IGNORED_PREFIXES" "value" (join "," $ignoredPrefixes))
-    (dict "name" "METRICS_BIND_ADDRESS" "value" (printf ":%d" (int .Values.csiNfs.internal.controllerMetricsPort))))
+    (dict "name" "STORAGE_CLASS_LABEL_IGNORED_PREFIXES" "value" (join "," $ignoredPrefixes)))
 }}
 {{ include "helm_lib_module_controller_manifests" (list . $config) }}
 
@@ -36,9 +36,9 @@ only populated where RPC-with-TLS is on, and the endpoint carries the manager's 
 metrics - reconcile counts, queue depth, Go runtime - in every case. */ -}}
 {{ include "helm_lib_module_webhook_service" (list . (dict
   "additionalPorts" (list (dict
-    "name" "metrics"
-    "port" (int .Values.csiNfs.internal.controllerMetricsPort)
-    "targetPort" "metrics")))) }}
+    "name" "https-metrics"
+    "port" (int .Values.csiNfs.internal.controllerMetricsProxyPort)
+    "targetPort" "https-metrics")))) }}
 
 {{- /* ValidatingWebhookConfiguration for StorageClasses */ -}}
 {{- $scWebhookConfig := dict

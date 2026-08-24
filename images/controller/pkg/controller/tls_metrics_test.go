@@ -39,7 +39,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	"github.com/deckhouse/csi-nfs/images/controller/pkg/logger"
+	"github.com/deckhouse/sds-common-lib/logger"
 )
 
 const tlsTestNamespace = "d8-csi-nfs"
@@ -59,7 +59,7 @@ func TestPublishTLSCertificateMetricsPublishesEveryCertificateOfAChain(t *testin
 		"client.crt": leaf.pem + intermediate.pem,
 	})
 
-	if err := publishTLSCertificateMetrics(context.Background(), cl, logger.Logger{}, tlsTestNamespace); err != nil {
+	if err := publishTLSCertificateMetrics(context.Background(), cl, logger.NewNop(), tlsTestNamespace); err != nil {
 		t.Fatalf("publishing the certificate metrics: %v", err)
 	}
 
@@ -95,7 +95,7 @@ func TestPublishTLSCertificateMetricsRetiresReplacedCertificates(t *testing.T) {
 	fresh := newTestCertificate(t, "nfs-client", time.Now().Add(-time.Hour), time.Now().Add(8760*time.Hour))
 
 	cl := newTLSTestClient(t, map[string]string{"client.crt": old.pem})
-	if err := publishTLSCertificateMetrics(context.Background(), cl, logger.Logger{}, tlsTestNamespace); err != nil {
+	if err := publishTLSCertificateMetrics(context.Background(), cl, logger.NewNop(), tlsTestNamespace); err != nil {
 		t.Fatalf("publishing the certificate metrics: %v", err)
 	}
 
@@ -108,7 +108,7 @@ func TestPublishTLSCertificateMetricsRetiresReplacedCertificates(t *testing.T) {
 		t.Fatalf("replacing the certificate: %v", err)
 	}
 
-	if err := publishTLSCertificateMetrics(context.Background(), cl, logger.Logger{}, tlsTestNamespace); err != nil {
+	if err := publishTLSCertificateMetrics(context.Background(), cl, logger.NewNop(), tlsTestNamespace); err != nil {
 		t.Fatalf("publishing the certificate metrics: %v", err)
 	}
 
@@ -131,7 +131,7 @@ func TestPublishTLSCertificateMetricsExportsNothingWithoutTheConfigMap(t *testin
 	withConfigMap := newTLSTestClient(t, map[string]string{
 		"ca.crt": newTestCertificate(t, "nfs-ca", time.Now().Add(-time.Hour), time.Now().Add(time.Hour)).pem,
 	})
-	if err := publishTLSCertificateMetrics(context.Background(), withConfigMap, logger.Logger{}, tlsTestNamespace); err != nil {
+	if err := publishTLSCertificateMetrics(context.Background(), withConfigMap, logger.NewNop(), tlsTestNamespace); err != nil {
 		t.Fatalf("publishing the certificate metrics: %v", err)
 	}
 	if got := testutil.CollectAndCount(tlsCertificateNotAfter); got != 1 {
@@ -139,7 +139,7 @@ func TestPublishTLSCertificateMetricsExportsNothingWithoutTheConfigMap(t *testin
 	}
 
 	empty := fake.NewClientBuilder().WithScheme(tlsTestScheme(t)).Build()
-	if err := publishTLSCertificateMetrics(context.Background(), empty, logger.Logger{}, tlsTestNamespace); err != nil {
+	if err := publishTLSCertificateMetrics(context.Background(), empty, logger.NewNop(), tlsTestNamespace); err != nil {
 		t.Fatalf("a missing ConfigMap must not be an error: %v", err)
 	}
 	if got := testutil.CollectAndCount(tlsCertificateNotAfter); got != 0 {
@@ -157,7 +157,7 @@ func TestPublishTLSCertificateMetricsWithoutAClientCertificate(t *testing.T) {
 	ca := newTestCertificate(t, "nfs-ca", time.Now().Add(-time.Hour), time.Now().Add(24*time.Hour))
 	cl := newTLSTestClient(t, map[string]string{"ca.crt": ca.pem})
 
-	if err := publishTLSCertificateMetrics(context.Background(), cl, logger.Logger{}, tlsTestNamespace); err != nil {
+	if err := publishTLSCertificateMetrics(context.Background(), cl, logger.NewNop(), tlsTestNamespace); err != nil {
 		t.Fatalf("publishing the certificate metrics: %v", err)
 	}
 
@@ -183,7 +183,7 @@ func TestPublishTLSCertificateMetricsKeepsGoingPastAnUnreadableBlock(t *testing.
 		"ca.crt":     ca.pem,
 	})
 
-	if err := publishTLSCertificateMetrics(context.Background(), cl, logger.Logger{}, tlsTestNamespace); err != nil {
+	if err := publishTLSCertificateMetrics(context.Background(), cl, logger.NewNop(), tlsTestNamespace); err != nil {
 		t.Fatalf("an unparseable certificate must not fail the pass: %v", err)
 	}
 	if got := testutil.CollectAndCount(tlsCertificateNotAfter); got != 1 {

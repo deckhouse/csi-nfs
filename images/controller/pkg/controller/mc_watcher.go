@@ -36,9 +36,9 @@ import (
 
 	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	"github.com/deckhouse/csi-nfs/images/controller/pkg/config"
-	"github.com/deckhouse/csi-nfs/images/controller/pkg/logger"
 	commonvalidating "github.com/deckhouse/csi-nfs/lib/go/common/pkg/validating"
 	d8commonapi "github.com/deckhouse/sds-common-lib/api/v1alpha1"
+	"github.com/deckhouse/sds-common-lib/logger"
 )
 
 const (
@@ -54,32 +54,34 @@ func RunModuleConfigWatcherController(
 	cl := mgr.GetClient()
 	err := d8commonapi.AddToScheme(mgr.GetScheme())
 	if err != nil {
-		log.Error(err, "[ModuleConfigReconciler] unable to run watcher controller: unable to add scheme")
+		log.Error("unable to run watcher controller: unable to add scheme", logger.Err(err))
 		return nil, err
 	}
 
 	c, err := controller.New(ModuleConfigCtrlName, mgr, controller.Options{
 		Reconciler: reconcile.Func(func(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
-			log.Info(fmt.Sprintf("[ModuleConfigReconciler] starts Reconcile for the ModuleConfig %q", request.Name))
+			log := log.Named("ModuleConfigReconciler")
+
+			log.Info(fmt.Sprintf("starts Reconcile for the ModuleConfig %q", request.Name))
 			mc := &d8commonapi.ModuleConfig{}
 			err := cl.Get(ctx, request.NamespacedName, mc)
 			if err != nil && !k8serr.IsNotFound(err) {
-				log.Error(err, fmt.Sprintf("[ModuleConfigReconciler] unable to get ModuleConfig, name: %s", request.Name))
+				log.Error(fmt.Sprintf("unable to get ModuleConfig, name: %s", request.Name), logger.Err(err))
 				return reconcile.Result{}, err
 			}
 
 			if mc.Name == "" {
-				log.Info(fmt.Sprintf("[ModuleConfigReconciler] seems like the ModuleConfig for the request %s was deleted. Reconcile retrying will stop.", request.Name))
+				log.Info(fmt.Sprintf("seems like the ModuleConfig for the request %s was deleted. Reconcile retrying will stop.", request.Name))
 				return reconcile.Result{}, nil
 			}
 
 			if mc.DeletionTimestamp != nil {
-				log.Debug(fmt.Sprintf("[ModuleConfigReconciler] reconcile operation for ModuleConfig %s: Delete", mc.Name))
+				log.Debug(fmt.Sprintf("reconcile operation for ModuleConfig %s: Delete", mc.Name))
 			} else {
 				nscList := &v1alpha1.NFSStorageClassList{}
 				err = cl.List(ctx, nscList)
 				if err != nil {
-					log.Error(err, "[ModuleConfigReconciler] unable to list NFSStorage Classes")
+					log.Error("unable to list NFSStorage Classes", logger.Err(err))
 					return reconcile.Result{}, err
 				}
 
@@ -88,29 +90,29 @@ func RunModuleConfigWatcherController(
 				scList := &storagev1.StorageClassList{}
 				err = cl.List(ctx, scList)
 				if err != nil {
-					log.Error(err, "[ModuleConfigReconciler] unable to list Storage Classes")
+					log.Error("unable to list Storage Classes", logger.Err(err))
 					return reconcile.Result{}, err
 				}
 
 				shouldRequeue, err := RunModuleConfigEventReconcile(ctx, cl, log, nscList, alertMap, scList)
 				if err != nil {
-					log.Error(err, fmt.Sprintf("[ModuleConfigReconciler] an error occurred while reconciles the ModuleConfig, name: %s", mc.Name))
+					log.Error(fmt.Sprintf("an error occurred while reconciles the ModuleConfig, name: %s", mc.Name), logger.Err(err))
 				}
 
 				if shouldRequeue {
-					log.Warning(fmt.Sprintf("[ModuleConfigReconciler] Reconciler will requeue the request, name: %s", request.Name))
+					log.Warn(fmt.Sprintf("reconciler will requeue the request, name: %s", request.Name))
 					return reconcile.Result{
 						RequeueAfter: cfg.RequeueModuleConfigInterval * time.Second,
 					}, nil
 				}
 			}
 
-			log.Info(fmt.Sprintf("[ModuleConfigReconciler] ends Reconcile for the ModuleConfig %q", request.Name))
+			log.Info(fmt.Sprintf("ends Reconcile for the ModuleConfig %q", request.Name))
 			return reconcile.Result{}, nil
 		}),
 	})
 	if err != nil {
-		log.Error(err, "[RunNFSStorageClassWatcherController] unable to create controller")
+		log.Error("unable to create controller", logger.Err(err))
 		return nil, err
 	}
 
@@ -129,7 +131,7 @@ func RunModuleConfigWatcherController(
 						return
 					}
 
-					log.Info(fmt.Sprintf("[CreateFunc] get event for ModuleConfig %q. Add to the queue", e.Object.GetName()))
+					log.Named("CreateFunc").Info(fmt.Sprintf("get event for ModuleConfig %q. Add to the queue", e.Object.GetName()))
 					request := reconcile.Request{NamespacedName: types.NamespacedName{Namespace: e.Object.GetNamespace(), Name: e.Object.GetName()}}
 					q.Add(request)
 				},
@@ -138,22 +140,24 @@ func RunModuleConfigWatcherController(
 					e event.TypedUpdateEvent[*d8commonapi.ModuleConfig],
 					q workqueue.TypedRateLimitingInterface[reconcile.Request],
 				) {
+					log := log.Named("UpdateFunc")
+
 					// we only process our ModuleConfig
 					if e.ObjectNew.GetName() != cfg.CsiNfsModuleName {
 						return
 					}
 
-					log.Info(fmt.Sprintf("[UpdateFunc] get event for ModuleConfig %q. Check if it should be reconciled", e.ObjectNew.GetName()))
+					log.Info(fmt.Sprintf("get event for ModuleConfig %q. Check if it should be reconciled", e.ObjectNew.GetName()))
 
 					oldMC := e.ObjectOld
 					newMC := e.ObjectNew
 
 					if reflect.DeepEqual(oldMC.Spec, newMC.Spec) && newMC.DeletionTimestamp == nil {
-						log.Info(fmt.Sprintf("[UpdateFunc] an update event for the ModuleConfig %s has no Spec field updates. It will not be reconciled", newMC.Name))
+						log.Info(fmt.Sprintf("an update event for the ModuleConfig %s has no Spec field updates. It will not be reconciled", newMC.Name))
 						return
 					}
 
-					log.Info(fmt.Sprintf("[UpdateFunc] the ModuleConfig %q will be reconciled. Add to the queue", newMC.Name))
+					log.Info(fmt.Sprintf("the ModuleConfig %q will be reconciled. Add to the queue", newMC.Name))
 					request := reconcile.Request{NamespacedName: types.NamespacedName{Namespace: newMC.Namespace, Name: newMC.Name}}
 					q.Add(request)
 				},
@@ -161,7 +165,7 @@ func RunModuleConfigWatcherController(
 		),
 	)
 	if err != nil {
-		log.Error(err, "[RunModuleConfigWatcherController] unable to watch the events")
+		log.Error("unable to watch the events", logger.Err(err))
 		return nil, err
 	}
 
@@ -176,6 +180,8 @@ func RunModuleConfigEventReconcile(
 	alertMap map[string]string,
 	scList *storagev1.StorageClassList,
 ) (shouldRequeue bool, err error) {
+	log = log.Named("RunModuleConfigEventReconcile")
+
 	// working with labels
 	for _, nsc := range nscList.Items {
 		var sc *storagev1.StorageClass
@@ -223,17 +229,19 @@ func RunModuleConfigEventReconcile(
 			err = fmt.Errorf("[RunModuleConfigEventReconcile] unable to update the StorageClass %s: %w", sc.Name, err)
 			return true, err
 		}
-		log.Debug(fmt.Sprintf("[RunModuleConfigEventReconcile] successfully %s the label '%s' to the StorageClass %s", action, doesNotMatchModuleConfigLabel, sc.Name))
+		log.Debug(fmt.Sprintf("successfully %s the label '%s' to the StorageClass %s", action, doesNotMatchModuleConfigLabel, sc.Name))
 	}
 
 	return false, nil
 }
 
 func validateModuleConfig(log logger.Logger, mc *d8commonapi.ModuleConfig, nscList *v1alpha1.NFSStorageClassList) map[string]string {
+	log = log.Named("validateModuleConfig")
+
 	alertMap := make(map[string]string)
 	for _, nsc := range nscList.Items {
 		if err := commonvalidating.ValidateNFSStorageClass(mc, &nsc); err != nil {
-			log.Warning(fmt.Sprintf("[validateModuleConfig] invalid NFSStorageClass (%v)", err))
+			log.Warn(fmt.Sprintf("invalid NFSStorageClass (%v)", err))
 			alertMap[nsc.Name] = "true"
 		}
 	}

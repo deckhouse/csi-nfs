@@ -37,8 +37,8 @@ import (
 	"github.com/deckhouse/csi-nfs/images/controller/pkg/config"
 	"github.com/deckhouse/csi-nfs/images/controller/pkg/controller"
 	"github.com/deckhouse/csi-nfs/images/controller/pkg/kubutils"
-	"github.com/deckhouse/csi-nfs/images/controller/pkg/logger"
 	commonfeature "github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature"
+	"github.com/deckhouse/sds-common-lib/logger"
 )
 
 var (
@@ -56,36 +56,40 @@ func main() {
 	ctx := context.Background()
 	cfgParams := config.NewConfig()
 
-	log, err := logger.NewLogger(cfgParams.Loglevel)
+	baseLog, err := logger.NewLogger(cfgParams.Loglevel)
 	if err != nil {
 		fmt.Printf("unable to create NewLogger, err: %v\n", err)
 		os.Exit(1)
 	}
+	log := baseLog.Named("main")
 
-	log.Info(fmt.Sprintf("[main] Go Version:%s ", goruntime.Version()))
-	log.Info(fmt.Sprintf("[main] OS/Arch:Go OS/Arch:%s/%s ", goruntime.GOOS, goruntime.GOARCH))
-
-	log.Info(fmt.Sprintf("[main] Feature TLSEnabled:%t", commonfeature.TLSEnabled()))
-
-	log.Info("[main] CfgParams has been successfully created")
-	log.Info(fmt.Sprintf("[main] %s = %s", config.LogLevelEnvName, cfgParams.Loglevel))
-	log.Info(fmt.Sprintf("[main] RequeueStorageClassInterval = %d", cfgParams.RequeueStorageClassInterval))
+	log.Info("starting csi-nfs-controller",
+		"goVersion", goruntime.Version(), "os", goruntime.GOOS, "arch", goruntime.GOARCH)
+	log.Info("configuration",
+		"logLevel", string(cfgParams.Loglevel),
+		"tlsEnabled", commonfeature.TLSEnabled(),
+		"requeueStorageClassInterval", cfgParams.RequeueStorageClassInterval.String(),
+		"healthProbeBindAddress", cfgParams.HealthProbeBindAddress,
+		"metricsBindAddress", cfgParams.MetricsBindAddress)
 
 	kConfig, err := kubutils.KubernetesDefaultConfigCreate()
 	if err != nil {
-		log.Error(err, "[main] unable to KubernetesDefaultConfigCreate")
+		// Without a config the manager cannot be built at all; continuing only moved
+		// the failure a few lines down, to a message that does not name the cause.
+		log.Error("unable to KubernetesDefaultConfigCreate", logger.Err(err))
+		os.Exit(1)
 	}
-	log.Info("[main] kubernetes config has been successfully created.")
+	log.Info("kubernetes config has been successfully created.")
 
 	scheme := apiruntime.NewScheme()
 	for _, f := range resourcesSchemeFuncs {
 		err := f(scheme)
 		if err != nil {
-			log.Error(err, "[main] unable to add scheme to func")
+			log.Error("unable to add scheme to func", logger.Err(err))
 			os.Exit(1)
 		}
 	}
-	log.Info("[main] successfully read scheme CR")
+	log.Info("successfully read scheme CR")
 
 	cacheOpt := cache.Options{
 		DefaultNamespaces: map[string]cache.Config{
@@ -108,22 +112,22 @@ func main() {
 
 	mgr, err := manager.New(kConfig, managerOpts)
 	if err != nil {
-		log.Error(err, "[main] unable to manager.New")
+		log.Error("unable to manager.New", logger.Err(err))
 		os.Exit(1)
 	}
-	log.Info("[main] successfully created kubernetes manager")
+	log.Info("successfully created kubernetes manager")
 
-	if _, err = controller.RunNFSStorageClassWatcherController(mgr, *cfgParams, *log); err != nil {
-		log.Error(err, fmt.Sprintf("[main] unable to run %s", controller.NFSStorageClassCtrlName))
-		os.Exit(1)
-	}
-
-	if _, err = controller.RunModuleConfigWatcherController(mgr, *cfgParams, *log); err != nil {
-		log.Error(err, fmt.Sprintf("[main] unable to run %s", controller.ModuleConfigCtrlName))
+	if _, err = controller.RunNFSStorageClassWatcherController(mgr, *cfgParams, baseLog.Named(controller.NFSStorageClassCtrlName)); err != nil {
+		log.Error(fmt.Sprintf("unable to run %s", controller.NFSStorageClassCtrlName), logger.Err(err))
 		os.Exit(1)
 	}
 
-	controller.RunNodeSelectorReconciler(ctx, mgr, *cfgParams, *log)
+	if _, err = controller.RunModuleConfigWatcherController(mgr, *cfgParams, baseLog.Named(controller.ModuleConfigCtrlName)); err != nil {
+		log.Error(fmt.Sprintf("unable to run %s", controller.ModuleConfigCtrlName), logger.Err(err))
+		os.Exit(1)
+	}
+
+	controller.RunNodeSelectorReconciler(ctx, mgr, *cfgParams, baseLog.Named(controller.NodeSelectorReconcilerName))
 
 	// The validity of the RPC-with-TLS certificates, which nothing in this module
 	// rotates: they come from the ModuleConfig and expire on a date the cluster has no
@@ -137,27 +141,27 @@ func main() {
 	// and publish the same series from each of them, and it would run before mgr.Start,
 	// hitting an API server the manager has not finished setting up.
 	if commonfeature.TLSEnabled() {
-		if err = mgr.Add(controller.RunTLSCertificateMetrics(mgr.GetAPIReader(), *cfgParams, *log)); err != nil {
-			log.Error(err, fmt.Sprintf("[main] unable to add %s", controller.TLSCertificateMetricsName))
+		if err = mgr.Add(controller.RunTLSCertificateMetrics(mgr.GetAPIReader(), *cfgParams, baseLog.Named(controller.TLSCertificateMetricsName))); err != nil {
+			log.Error(fmt.Sprintf("unable to add %s", controller.TLSCertificateMetricsName), logger.Err(err))
 			os.Exit(1)
 		}
 	}
 
 	if err = mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
-		log.Error(err, "[main] unable to mgr.AddHealthzCheck")
+		log.Error("unable to mgr.AddHealthzCheck", logger.Err(err))
 		os.Exit(1)
 	}
-	log.Info("[main] successfully AddHealthzCheck")
+	log.Info("successfully AddHealthzCheck")
 
 	if err = mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
-		log.Error(err, "[main] unable to mgr.AddReadyzCheck")
+		log.Error("unable to mgr.AddReadyzCheck", logger.Err(err))
 		os.Exit(1)
 	}
-	log.Info("[main] successfully AddReadyzCheck")
+	log.Info("successfully AddReadyzCheck")
 
 	err = mgr.Start(ctx)
 	if err != nil {
-		log.Error(err, "[main] unable to mgr.Start")
+		log.Error("unable to mgr.Start", logger.Err(err))
 		os.Exit(1)
 	}
 }

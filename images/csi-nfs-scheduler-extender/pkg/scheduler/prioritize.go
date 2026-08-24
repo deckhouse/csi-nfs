@@ -22,65 +22,69 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/deckhouse/csi-nfs/images/csi-nfs-scheduler-extender/pkg/logger"
+	"github.com/deckhouse/sds-common-lib/logger"
 )
 
 func (s *scheduler) prioritize(w http.ResponseWriter, r *http.Request) {
-	s.log.Debug("[prioritize] starts serving. WARNING: this scheduler does not support prioritizing! It will return the same nodes with 0 score")
+	log := s.log.Named("prioritize")
+
+	log.Debug("starts serving. WARNING: this scheduler does not support prioritizing! It will return the same nodes with 0 score")
 
 	var inputData ExtenderArgs
 	reader := http.MaxBytesReader(w, r.Body, 10<<20)
 	err := json.NewDecoder(reader).Decode(&inputData)
 	if err != nil {
-		s.log.Error(err, "[prioritize] unable to decode a request")
+		s.log.Error("unable to decode a request", logger.Err(err))
 		http.Error(w, "Bad Request.", http.StatusBadRequest)
 		return
 	}
-	s.log.Trace(fmt.Sprintf("[prioritize] input data: %+v", inputData))
+	log.Trace(fmt.Sprintf("input data: %+v", inputData))
 
 	if inputData.Pod == nil {
-		s.log.Error(errors.New("no pod in the request"), "[prioritize] unable to get a Pod from the request")
+		s.log.Error("unable to get a Pod from the request", logger.Err(errors.New("no pod in the request")))
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
 
 	nodeNames, err := getNodeNames(inputData)
 	if err != nil {
-		s.log.Error(err, "[prioritize] unable to get node names from the request")
+		s.log.Error("unable to get node names from the request", logger.Err(err))
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
 
 	result := scoreNodes(s.log, &nodeNames)
-	s.log.Debug(fmt.Sprintf("[prioritize] successfully scored the nodes for Pod %s/%s", inputData.Pod.Namespace, inputData.Pod.Name))
+	log.Debug(fmt.Sprintf("successfully scored the nodes for Pod %s/%s", inputData.Pod.Namespace, inputData.Pod.Name))
 
 	w.Header().Set("content-type", "application/json")
 	err = json.NewEncoder(w).Encode(result)
 	if err != nil {
-		s.log.Error(err, fmt.Sprintf("[prioritize] unable to encode a response for a Pod %s/%s", inputData.Pod.Namespace, inputData.Pod.Name))
+		log.Error(fmt.Sprintf("unable to encode a response for a Pod %s/%s", inputData.Pod.Namespace, inputData.Pod.Name), logger.Err(err))
 		http.Error(w, "internal error", http.StatusInternalServerError)
 	}
-	s.log.Debug("[prioritize] ends serving")
+	log.Debug("ends serving")
 }
 
 func scoreNodes(
 	log logger.Logger,
 	nodeNames *[]string,
 ) []HostPriority {
+	log = log.Named("scoreNodes")
+
 	result := make([]HostPriority, 0, len(*nodeNames))
 	if len(*nodeNames) == 0 {
-		log.Warning("[scoreNodes] no nodes to score. Return empty result")
+		log.Warn("no nodes to score. Return empty result")
 		return result
 	}
 
 	for _, nodeName := range *nodeNames {
-		log.Trace(fmt.Sprintf("[scoreNodes] node: %s", nodeName))
+		log.Trace(fmt.Sprintf("node: %s", nodeName))
 		result = append(result, HostPriority{
 			Host:  nodeName,
 			Score: 0,
 		})
 	}
 
-	log.Trace("[scoreNodes] final result: %+v", result)
+	log.Trace("final result: %+v", result)
 	return result
 }

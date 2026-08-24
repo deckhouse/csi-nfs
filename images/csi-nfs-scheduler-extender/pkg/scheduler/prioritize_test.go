@@ -21,7 +21,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/deckhouse/csi-nfs/images/csi-nfs-scheduler-extender/pkg/logger"
+	"github.com/deckhouse/sds-common-lib/logger"
 )
 
 func TestPrioritize(t *testing.T) {
@@ -32,7 +32,7 @@ func TestPrioritize(t *testing.T) {
 			t.Errorf("failed to create logger: %v", err)
 		}
 
-		result := scoreNodes(*log, &nodeNames)
+		result := scoreNodes(log, &nodeNames)
 		assert.Equal(t, 3, len(result))
 		assert.Equal(t, "node1", result[0].Host)
 		assert.Equal(t, "node2", result[1].Host)

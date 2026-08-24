@@ -27,7 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
-	"github.com/deckhouse/csi-nfs/images/csi-nfs-scheduler-extender/pkg/logger"
+	"github.com/deckhouse/sds-common-lib/logger"
 )
 
 const (
@@ -44,7 +44,9 @@ var (
 )
 
 func shouldProcessPod(ctx context.Context, cl client.Client, log logger.Logger, pod *corev1.Pod, targetProvisioner string) (bool, []corev1.Volume, error) {
-	log.Trace(fmt.Sprintf("[ShouldProcessPod] targetProvisioner=%s, pod: %+v", targetProvisioner, pod))
+	log = log.Named("ShouldProcessPod")
+
+	log.Trace(fmt.Sprintf("targetProvisioner=%s, pod: %+v", targetProvisioner, pod))
 	var discoveredProvisioner string
 	shouldProcessPod := false
 	targetProvisionerVolumes := make([]corev1.Volume, 0)
@@ -62,38 +64,38 @@ func shouldProcessPod(ctx context.Context, cl client.Client, log logger.Logger, 
 
 	for _, volume := range pod.Spec.Volumes {
 		if volume.PersistentVolumeClaim == nil {
-			log.Trace(fmt.Sprintf("[ShouldProcessPod] skip volume %s because it doesn't have PVC", volume.Name))
+			log.Trace(fmt.Sprintf("skip volume %s because it doesn't have PVC", volume.Name))
 			continue
 		}
 
-		log.Trace(fmt.Sprintf("[ShouldProcessPod] process volume: %+v that has pvc: %+v", volume, volume.PersistentVolumeClaim))
+		log.Trace(fmt.Sprintf("process volume: %+v that has pvc: %+v", volume, volume.PersistentVolumeClaim))
 		pvcName := volume.PersistentVolumeClaim.ClaimName
 		pvc, found := pvcMap[pvcName]
 		if !found {
 			return false, nil, fmt.Errorf("[ShouldProcessPod] found no pvc %s in namespace %s", pvcName, pod.Namespace)
 		}
 
-		log.Trace(fmt.Sprintf("[ShouldProcessPod] Successfully get PVC %s/%s: %+v", pod.Namespace, pvcName, pvc))
+		log.Trace(fmt.Sprintf("successfully get PVC %s/%s: %+v", pod.Namespace, pvcName, pvc))
 
 		discoveredProvisioner, err = getProvisionerFromPVC(ctx, cl, log, pvc)
 		if err != nil {
 			return false, nil, fmt.Errorf("[ShouldProcessPod] error getting provisioner from PVC %s/%s: %v", pod.Namespace, pvcName, err)
 		}
-		log.Trace(fmt.Sprintf("[ShouldProcessPod] discovered provisioner: %s", discoveredProvisioner))
+		log.Trace(fmt.Sprintf("discovered provisioner: %s", discoveredProvisioner))
 		if discoveredProvisioner == targetProvisioner {
-			log.Trace(fmt.Sprintf("[ShouldProcessPod] provisioner matches targetProvisioner %s. Pod: %s/%s", pod.Namespace, pod.Name, targetProvisioner))
+			log.Trace(fmt.Sprintf("provisioner matches targetProvisioner %s. Pod: %s/%s", pod.Namespace, pod.Name, targetProvisioner))
 			shouldProcessPod = true
 			targetProvisionerVolumes = append(targetProvisionerVolumes, volume)
 		}
-		log.Trace(fmt.Sprintf("[ShouldProcessPod] provisioner %s doesn't match targetProvisioner %s. Skip volume %s.", discoveredProvisioner, targetProvisioner, volume.Name))
+		log.Trace(fmt.Sprintf("provisioner %s doesn't match targetProvisioner %s. Skip volume %s.", discoveredProvisioner, targetProvisioner, volume.Name))
 	}
 
 	if shouldProcessPod {
-		log.Trace(fmt.Sprintf("[ShouldProcessPod] targetProvisioner %s found in pod volumes. Pod: %s/%s. Volumes that match: %+v", targetProvisioner, pod.Namespace, pod.Name, targetProvisionerVolumes))
+		log.Trace(fmt.Sprintf("targetProvisioner %s found in pod volumes. Pod: %s/%s. Volumes that match: %+v", targetProvisioner, pod.Namespace, pod.Name, targetProvisionerVolumes))
 		return true, targetProvisionerVolumes, nil
 	}
 
-	log.Trace(fmt.Sprintf("[ShouldProcessPod] can't find targetProvisioner %s in pod volumes. Skip pod: %s/%s", targetProvisioner, pod.Namespace, pod.Name))
+	log.Trace(fmt.Sprintf("can't find targetProvisioner %s in pod volumes. Skip pod: %s/%s", targetProvisioner, pod.Namespace, pod.Name))
 	return false, nil, nil
 }
 
@@ -114,9 +116,11 @@ func getNodeNames(inputData ExtenderArgs) ([]string, error) {
 }
 
 func GetNFSStorageClassesFromVolumes(ctx context.Context, cl client.Client, log logger.Logger, namespace string, volumes []corev1.Volume) (*v1alpha1.NFSStorageClassList, error) {
+	log = log.Named("GetNFSStorageClassesFromVolumes")
+
 	nfsStorageClasses := &v1alpha1.NFSStorageClassList{}
 	for _, volume := range volumes {
-		log.Trace(fmt.Sprintf("[GetNFSStorageClassesFromVolumes] process volume: %+v", volume))
+		log.Trace(fmt.Sprintf("process volume: %+v", volume))
 		if volume.PersistentVolumeClaim != nil {
 			pvcName := volume.PersistentVolumeClaim.ClaimName
 			pvc := &corev1.PersistentVolumeClaim{}
@@ -124,19 +128,19 @@ func GetNFSStorageClassesFromVolumes(ctx context.Context, cl client.Client, log 
 			if err != nil {
 				return nil, fmt.Errorf("error getting PVC %s: %v", pvcName, err)
 			}
-			log.Trace(fmt.Sprintf("[GetNFSStorageClassesFromVolumes] get pvc: %+v", pvc))
+			log.Trace(fmt.Sprintf("get pvc: %+v", pvc))
 			storageClassName := pvc.Spec.StorageClassName
 			if storageClassName == nil {
 				return nil, fmt.Errorf("PVC %s has no storage class", pvcName)
 			}
 
-			log.Trace(fmt.Sprintf("[GetNFSStorageClassesFromVolumes] get storage class name: %s", *storageClassName))
+			log.Trace(fmt.Sprintf("get storage class name: %s", *storageClassName))
 			nsc := &v1alpha1.NFSStorageClass{}
 			err = cl.Get(ctx, client.ObjectKey{Name: *storageClassName}, nsc)
 			if err != nil {
 				return nil, fmt.Errorf("error getting NFSStorageClass %s: %v", *storageClassName, err)
 			}
-			log.Trace(fmt.Sprintf("[GetNFSStorageClassesFromVolumes] get NFSStorageClass: %+v", nsc))
+			log.Trace(fmt.Sprintf("get NFSStorageClass: %+v", nsc))
 			nfsStorageClasses.Items = append(nfsStorageClasses.Items, *nsc)
 		}
 	}
@@ -162,14 +166,16 @@ func GetKubernetesNodesBySelector(ctx context.Context, cl client.Client, nodeSel
 }
 
 func GetNodeSelectorFromNFSStorageClasses(log logger.Logger, nfsStorageClasses *v1alpha1.NFSStorageClassList) []*metav1.LabelSelector {
+	log = log.Named("GetNodeSelectorFromNFSStorageClasses")
+
 	nodeSelectorList := []*metav1.LabelSelector{}
 	for _, nfsStorageClass := range nfsStorageClasses.Items {
-		log.Debug(fmt.Sprintf("[GetNodeSelectorFromNFSStorageClasses] Process NFSStorageClass %s.", nfsStorageClass.Name))
+		log.Debug(fmt.Sprintf("process NFSStorageClass %s.", nfsStorageClass.Name))
 		if nfsStorageClass.Spec.WorkloadNodes == nil || nfsStorageClass.Spec.WorkloadNodes.NodeSelector == nil {
-			log.Debug(fmt.Sprintf("[GetNodeSelectorFromNFSStorageClasses] NFSStorageClass %s has not NodeSelector. Return default NodeSelector %+v.", nfsStorageClass.Name, DefaultNodeSelector))
+			log.Debug(fmt.Sprintf("NFSStorageClass %s has not NodeSelector. Return default NodeSelector %+v.", nfsStorageClass.Name, DefaultNodeSelector))
 			return []*metav1.LabelSelector{DefaultNodeSelector}
 		}
-		log.Debug(fmt.Sprintf("[GetNodeSelectorFromNFSStorageClasses] Add NodeSelector %+v from NFSStorageClass %s.", nfsStorageClass.Spec.WorkloadNodes.NodeSelector, nfsStorageClass.Name))
+		log.Debug(fmt.Sprintf("add NodeSelector %+v from NFSStorageClass %s.", nfsStorageClass.Spec.WorkloadNodes.NodeSelector, nfsStorageClass.Name))
 		nodeSelectorList = append(nodeSelectorList, nfsStorageClass.Spec.WorkloadNodes.NodeSelector)
 	}
 
@@ -178,18 +184,20 @@ func GetNodeSelectorFromNFSStorageClasses(log logger.Logger, nfsStorageClasses *
 }
 
 func GetCommonNodesByNodeSelectorList(ctx context.Context, cl client.Client, log logger.Logger, nodeSelectorList []*metav1.LabelSelector) ([]string, error) {
+	log = log.Named("GetCommonNodesByNodeSelectorList")
+
 	if len(nodeSelectorList) == 0 {
 		return nil, fmt.Errorf("[GetCommonNodesByNodeSelectorList] Empty nodeSelectorList")
 	}
 
 	commonNodeNames := make([]string, 0)
 	for i, nodeSelector := range nodeSelectorList {
-		log.Debug(fmt.Sprintf("[GetCommonNodesByNodeSelectorList] Process NodeSelector %d: %+v", i, nodeSelector))
+		log.Debug(fmt.Sprintf("process NodeSelector %d: %+v", i, nodeSelector))
 		selectedNodeNames, err := GetKubernetesNodeNamesBySelector(ctx, cl, nodeSelector.MatchLabels)
 		if err != nil {
 			return nil, fmt.Errorf("[GetCommonNodesByNodeSelectorList] Error getting nodes by selector: %v", err)
 		}
-		log.Debug(fmt.Sprintf("[GetCommonNodesByNodeSelectorList] Node names selected by NodeSelector %d: %+v", i, selectedNodeNames))
+		log.Debug(fmt.Sprintf("node names selected by NodeSelector %d: %+v", i, selectedNodeNames))
 
 		if i == 0 {
 			commonNodeNames = selectedNodeNames
@@ -197,7 +205,7 @@ func GetCommonNodesByNodeSelectorList(ctx context.Context, cl client.Client, log
 			commonNodeNames = getCommonNodeNames(commonNodeNames, selectedNodeNames)
 		}
 	}
-	log.Debug(fmt.Sprintf("[GetCommonNodesByNodeSelectorList] Common nodes: %+v", commonNodeNames))
+	log.Debug(fmt.Sprintf("common nodes: %+v", commonNodeNames))
 	return commonNodeNames, nil
 }
 
@@ -217,47 +225,49 @@ func getCommonNodeNames(nodeNames, selectedNodeNames []string) []string {
 }
 
 func getProvisionerFromPVC(ctx context.Context, cl client.Client, log logger.Logger, pvc *corev1.PersistentVolumeClaim) (string, error) {
+	log = log.Named("getProvisionerFromPVC")
+
 	discoveredProvisioner := ""
 
-	log.Trace(fmt.Sprintf("[getProvisionerFromPVC] check provisioner in pvc annotations: %+v", pvc.Annotations))
+	log.Trace(fmt.Sprintf("check provisioner in pvc annotations: %+v", pvc.Annotations))
 	discoveredProvisioner = pvc.Annotations[annotationStorageProvisioner]
 	if discoveredProvisioner != "" {
-		log.Trace(fmt.Sprintf("[getProvisionerFromPVC] discovered provisioner in pvc annotations: %s", discoveredProvisioner))
+		log.Trace(fmt.Sprintf("discovered provisioner in pvc annotations: %s", discoveredProvisioner))
 	} else {
 		discoveredProvisioner = pvc.Annotations[annotationBetaStorageProvisioner]
-		log.Trace(fmt.Sprintf("[getProvisionerFromPVC] discovered provisioner in beta pvc annotations: %s", discoveredProvisioner))
+		log.Trace(fmt.Sprintf("discovered provisioner in beta pvc annotations: %s", discoveredProvisioner))
 	}
 
 	if discoveredProvisioner == "" && pvc.Spec.StorageClassName != nil && *pvc.Spec.StorageClassName != "" {
-		log.Trace(fmt.Sprintf("[getProvisionerFromPVC] can't find provisioner in pvc annotations, check in storageClass with name: %s", *pvc.Spec.StorageClassName))
+		log.Trace(fmt.Sprintf("can't find provisioner in pvc annotations, check in storageClass with name: %s", *pvc.Spec.StorageClassName))
 		storageClass := &storagev1.StorageClass{}
 		err := cl.Get(ctx, client.ObjectKey{Name: *pvc.Spec.StorageClassName}, storageClass)
 		if err != nil {
 			if !k8serrors.IsNotFound(err) {
 				return "", fmt.Errorf("[getProvisionerFromPVC] error getting StorageClass %s: %v", *pvc.Spec.StorageClassName, err)
 			}
-			log.Warning(fmt.Sprintf("[getProvisionerFromPVC] StorageClass %s for PVC %s/%s not found", *pvc.Spec.StorageClassName, pvc.Namespace, pvc.Name))
+			log.Warn(fmt.Sprintf("StorageClass %s for PVC %s/%s not found", *pvc.Spec.StorageClassName, pvc.Namespace, pvc.Name))
 		}
 		discoveredProvisioner = storageClass.Provisioner
-		log.Trace(fmt.Sprintf("[getProvisionerFromPVC] discover provisioner %s in storageClass: %+v", discoveredProvisioner, storageClass))
+		log.Trace(fmt.Sprintf("discover provisioner %s in storageClass: %+v", discoveredProvisioner, storageClass))
 	}
 
 	if discoveredProvisioner == "" && pvc.Spec.VolumeName != "" {
-		log.Trace(fmt.Sprintf("[getProvisionerFromPVC] can't find provisioner in pvc annotations and StorageClass, check in PV with name: %s", pvc.Spec.VolumeName))
+		log.Trace(fmt.Sprintf("can't find provisioner in pvc annotations and StorageClass, check in PV with name: %s", pvc.Spec.VolumeName))
 		pv := &corev1.PersistentVolume{}
 		err := cl.Get(ctx, client.ObjectKey{Name: pvc.Spec.VolumeName}, pv)
 		if err != nil {
 			if !k8serrors.IsNotFound(err) {
 				return "", fmt.Errorf("[getProvisionerFromPVC] error getting PV %s for PVC %s/%s: %v", pvc.Spec.VolumeName, pvc.Namespace, pvc.Name, err)
 			}
-			log.Warning(fmt.Sprintf("[getProvisionerFromPVC] PV %s for PVC %s/%s not found", pvc.Spec.VolumeName, pvc.Namespace, pvc.Name))
+			log.Warn(fmt.Sprintf("PV %s for PVC %s/%s not found", pvc.Spec.VolumeName, pvc.Namespace, pvc.Name))
 		}
 
 		if pv.Spec.CSI != nil {
 			discoveredProvisioner = pv.Spec.CSI.Driver
 		}
 
-		log.Trace(fmt.Sprintf("[getProvisionerFromPVC] discover provisioner %s in PV: %+v", discoveredProvisioner, pv))
+		log.Trace(fmt.Sprintf("discover provisioner %s in PV: %+v", discoveredProvisioner, pv))
 	}
 
 	return discoveredProvisioner, nil

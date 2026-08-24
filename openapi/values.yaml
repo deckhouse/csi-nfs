@@ -48,6 +48,26 @@ properties:
           ca:
             type: string
             x-examples: ["YjY0ZW5jX3N0cmluZwo="]
+      controllerMetricsProxyPort:
+        type: integer
+        default: 8080
+        description: |
+          The port the kube-rbac-proxy publishes the controller metrics on. Reaching
+          it requires "get" on deployments/prometheus-metrics for the controller; the
+          controller itself keeps its metrics on 127.0.0.1.
+      schedulerExtenderMetricsPort:
+        type: integer
+        default: 8080
+        description: |
+          The port the scheduler extender serves its metrics on, bound on 127.0.0.1:
+          the only thing that reaches it is the kube-rbac-proxy of the same pod.
+      schedulerExtenderMetricsProxyPort:
+        type: integer
+        default: 8080
+        description: |
+          The port the kube-rbac-proxy publishes the extender metrics on. The proxy
+          listens on the pod IP and the extender on 127.0.0.1, so the two can hold the
+          same port number: they are different sockets.
       controllerMetricsPort:
         type: integer
         description: |

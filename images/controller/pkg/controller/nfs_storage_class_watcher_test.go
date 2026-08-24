@@ -30,7 +30,7 @@ import (
 
 	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	"github.com/deckhouse/csi-nfs/images/controller/pkg/controller"
-	"github.com/deckhouse/csi-nfs/images/controller/pkg/logger"
+	"github.com/deckhouse/sds-common-lib/logger"
 )
 
 const (
@@ -42,7 +42,7 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 	var (
 		ctx = context.Background()
 		cl  = NewFakeClient()
-		log = logger.Logger{}
+		log = logger.NewNop()
 
 		server                     = "192.168.1.100"
 		share                      = "/data"

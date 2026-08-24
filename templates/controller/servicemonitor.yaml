@@ -1,27 +1,23 @@
 {{- /* The scrape of the controller metrics.
 
-Gated on the Prometheus operator CRDs the same way the alerting rules are: applying a
-ServiceMonitor to a cluster that has no such kind fails the whole release, and this module
-is expected to install on clusters with monitoring turned off.
+Gated on the presence of the kind itself, the way every other monitor of the fleet is:
+applying a ServiceMonitor to a cluster that has no such kind fails the whole release, and
+this module is expected to install on clusters with monitoring turned off. The helper
+answers from global.discovery.apiVersions as well as from helm's capabilities, so it also
+covers the converge in which the Prometheus operator CRDs have only just been applied.
 
 What is on that port is the validity of the RPC-with-TLS certificates - the one part of
 this module nothing rotates - and the manager's own metrics. The alerts built on it live in
 monitoring/prometheus-rules/tls.yaml.
 
-No bearerTokenSecret, no tlsConfig and no kube-rbac-proxy, deliberately. The endpoint asks
-for nothing, so a token buys no access - and with scheme: http Prometheus would still put
-`Authorization: Bearer <token>` on the wire in the clear on every scrape. That token
-belongs to Prometheus's own service account and can read a great deal; handing copies of it
-to anything that can see pod traffic, in exchange for nothing, is a worse trade than the
-consistency with the sibling modules is worth. tlsConfig is not applied at all under
-scheme: http, so carrying one would only mislead the reader into thinking the hop is
-protected.
-
-What the endpoint publishes about the certificates is their subject, their serial and their
-validity dates - metadata that every server presented with those certificates already
-receives, and no key material. It is a ClusterIP reachable only from inside the cluster,
-and any pod that reads it learns nothing it could act on. */ -}}
-{{- if (.Values.global.enabledModules | has "operator-prometheus-crd") }}
+The port is the kube-rbac-proxy's, not the controller's: the controller binds its metrics
+on 127.0.0.1 and the proxy in the same pod is the only thing that reaches them. That makes
+both of the fields below load-bearing rather than decorative - without bearerTokenSecret
+the proxy answers 401, and without tlsConfig Prometheus rejects the proxy's own
+certificate. A scrape that fails for either reason is indistinguishable from "the feature
+is off": the rules in monitoring/prometheus-rules/tls.yaml carry no absent() arm, by
+design, so nothing would fire to say the certificates stopped being watched. */ -}}
+{{- if (include "helm_lib_api_version_exists" (list . "monitoring.coreos.com/v1/ServiceMonitor")) }}
 ---
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
@@ -31,9 +27,14 @@ metadata:
   {{- include "helm_lib_module_labels" (list . (dict "prometheus" "main")) | nindent 2 }}
 spec:
   endpoints:
-    - port: metrics
-      scheme: http
+    - port: https-metrics
+      scheme: https
       path: /metrics
+      bearerTokenSecret:
+        name: "prometheus-token"
+        key: "token"
+      tlsConfig:
+        insecureSkipVerify: true
       {{- /* Dropping pod is what makes these series about the module rather than about
       one of its replicas. The certificate gauges are published by the leader only, so
       keeping the pod label would make every leader change look like one certificate

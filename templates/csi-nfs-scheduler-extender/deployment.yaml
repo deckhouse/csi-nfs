@@ -12,7 +12,7 @@ memory: 25Mi
 {{- if or (or (hasPrefix "dev" .Values.global.deckhouseVersion) (hasSuffix "dev" .Values.global.deckhouseVersion)) (semverCompare ">=1.64" .Values.global.deckhouseVersion) }}
 
 {{- $kubeVersion := semver .Values.global.discovery.kubernetesVersion -}}
-{{- if (.Capabilities.APIVersions.Has "autoscaling.k8s.io/v1/VerticalPodAutoscaler") }}
+{{- if (include "helm_lib_api_version_exists" (list . "autoscaling.k8s.io/v1/VerticalPodAutoscaler")) }}
 ---
 apiVersion: autoscaling.k8s.io/v1
 kind: VerticalPodAutoscaler
@@ -41,6 +41,7 @@ spec:
       maxAllowed:
         memory: 40Mi
         cpu: 20m
+    {{- include "helm_lib_vpa_kube_rbac_proxy_resources" . | nindent 4 }}
 {{- end }}
 ---
 apiVersion: policy/v1
@@ -92,6 +93,12 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
+          # controller-runtime binds :8080 whenever this is empty, so the manager of
+          # this extender has always served metrics -- on every interface of the pod,
+          # with no port declared and nothing scraping it. Loopback plus the proxy
+          # below is what the agents of this fleet have always done.
+          - name: METRICS_BIND_ADDRESS
+            value: "127.0.0.1:{{ .Values.csiNfs.internal.schedulerExtenderMetricsPort }}"
           volumeMounts:
           - name: scheduler-extender-config
             mountPath: /etc/csi-nfs-scheduler-extender
@@ -102,12 +109,62 @@ spec:
           resources:
             requests:
               {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 14 }}
-              {{- if not (.Capabilities.APIVersions.Has "autoscaling.k8s.io/v1/VerticalPodAutoscaler") }}
+              {{- if not (include "helm_lib_api_version_exists" (list . "autoscaling.k8s.io/v1/VerticalPodAutoscaler")) }}
               {{- include "csi_nfs_scheduler_extender_resources" . | nindent 14 }}
               {{- end }}
           ports:
           - containerPort: 8099
             protocol: TCP
+        - name: kube-rbac-proxy
+          {{- include "helm_lib_module_container_security_context_pss_restricted_flexible" dict | nindent 10 }}
+          image: {{ include "helm_lib_module_common_image" (list . "kubeRbacProxy") }}
+          imagePullPolicy: IfNotPresent
+          args:
+            - "--secure-listen-address=$(KUBE_RBAC_PROXY_LISTEN_ADDRESS):{{ .Values.csiNfs.internal.schedulerExtenderMetricsProxyPort }}"
+            - "--v=2"
+            - "--logtostderr=true"
+            - "--stale-cache-interval=1h30m"
+            - "--livez-path=/livez"
+          env:
+            - name: KUBE_RBAC_PROXY_LISTEN_ADDRESS
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: KUBE_RBAC_PROXY_CONFIG
+              value: |
+                excludePaths:
+                - /livez
+                upstreams:
+                - upstream: http://127.0.0.1:{{ .Values.csiNfs.internal.schedulerExtenderMetricsPort }}/metrics
+                  path: /metrics
+                  authorization:
+                    resourceAttributes:
+                      namespace: d8-{{ .Chart.Name }}
+                      apiGroup: apps
+                      apiVersion: v1
+                      resource: deployments
+                      subresource: prometheus-metrics
+                      name: csi-nfs-scheduler-extender
+          ports:
+            - name: https-metrics
+              containerPort: {{ .Values.csiNfs.internal.schedulerExtenderMetricsProxyPort }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /livez
+              port: {{ .Values.csiNfs.internal.schedulerExtenderMetricsProxyPort }}
+              scheme: HTTPS
+          {{- /* No readinessProbe on purpose: readiness of the pod gates the endpoints of
+                 the Service the kube-scheduler calls, and a sidecar that only serves metrics
+                 must not be able to stop scheduling. A proxy that wedges is restarted by the
+                 liveness probe, and one that is not up yet is kept out of the scrape targets
+                 by the readiness filter in the PodMonitor. */}}
+          resources:
+            requests:
+              {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 14 }}
+              {{- if not (include "helm_lib_api_version_exists" (list . "autoscaling.k8s.io/v1/VerticalPodAutoscaler")) }}
+              {{- include "helm_lib_container_kube_rbac_proxy_resources" . | nindent 14 }}
+              {{- end }}
       volumes:
       - name: scheduler-extender-config
         configMap:

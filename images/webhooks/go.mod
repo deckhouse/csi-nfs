@@ -4,8 +4,7 @@ go 1.26.6
 require (
 	github.com/deckhouse/csi-nfs/api v0.0.0-20250213115525-4785a9da80db
 	github.com/deckhouse/csi-nfs/lib/go/common v0.0.0-20250213115525-4785a9da80db
-	github.com/deckhouse/sds-common-lib v0.10.0
-	github.com/sirupsen/logrus v1.9.3
+	github.com/deckhouse/sds-common-lib v0.15.0
 	github.com/slok/kubewebhook/v2 v2.7.0
 	k8s.io/api v0.32.3
 	k8s.io/apiextensions-apiserver v0.32.3
@@ -21,7 +20,9 @@ replace github.com/deckhouse/csi-nfs/api => ../../api
 replace github.com/deckhouse/csi-nfs/lib/go/common => ../../lib/go/common
 
 require (
+	github.com/DataDog/gostackparse v0.7.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
+	github.com/deckhouse/deckhouse/pkg/log v0.2.1 // indirect
 	github.com/emicklei/go-restful/v3 v3.12.1 // indirect
 	github.com/evanphx/json-patch v5.9.0+incompatible // indirect
 	github.com/evanphx/json-patch/v5 v5.9.11 // indirect

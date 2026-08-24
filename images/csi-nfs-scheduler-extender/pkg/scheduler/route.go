@@ -23,7 +23,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/deckhouse/csi-nfs/images/csi-nfs-scheduler-extender/pkg/logger"
+	"github.com/deckhouse/sds-common-lib/logger"
 )
 
 type scheduler struct {
@@ -34,19 +34,21 @@ type scheduler struct {
 }
 
 func (s *scheduler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	log := s.log.Named("ServeHTTP")
+
 	switch r.URL.Path {
 	case "/scheduler/filter":
-		s.log.Debug("[ServeHTTP] filter route starts handling the request")
+		log.Debug("filter route starts handling the request")
 		s.Filter(w, r)
-		s.log.Debug("[ServeHTTP] filter route ends handling the request")
+		log.Debug("filter route ends handling the request")
 	case "/scheduler/prioritize":
-		s.log.Debug("[ServeHTTP] prioritize route starts handling the request")
+		log.Debug("prioritize route starts handling the request")
 		s.prioritize(w, r)
-		s.log.Debug("[ServeHTTP] prioritize route ends handling the request")
+		log.Debug("prioritize route ends handling the request")
 	case "/status":
-		s.log.Debug("[ServeHTTP] status route starts handling the request")
+		log.Debug("status route starts handling the request")
 		status(w, r)
-		s.log.Debug("[ServeHTTP] status route ends handling the request")
+		log.Debug("status route ends handling the request")
 	default:
 		http.Error(w, "not found", http.StatusNotFound)
 	}

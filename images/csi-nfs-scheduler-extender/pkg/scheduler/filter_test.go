@@ -33,8 +33,8 @@ import (
 
 	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	"github.com/deckhouse/csi-nfs/images/csi-nfs-scheduler-extender/pkg/consts"
-	"github.com/deckhouse/csi-nfs/images/csi-nfs-scheduler-extender/pkg/logger"
 	"github.com/deckhouse/csi-nfs/images/csi-nfs-scheduler-extender/pkg/scheduler"
+	"github.com/deckhouse/sds-common-lib/logger"
 )
 
 var _ = Describe("Filter tests", func() {
@@ -53,7 +53,7 @@ var _ = Describe("Filter tests", func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		log = logger.Logger{}
+		log = logger.NewNop()
 
 		controllerNamespace = "test-controller-ns"
 		testNamespace = "test-namespace"

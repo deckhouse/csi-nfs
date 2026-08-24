@@ -31,7 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/csi-nfs/images/controller/pkg/controller"
-	"github.com/deckhouse/csi-nfs/images/controller/pkg/logger"
+	"github.com/deckhouse/sds-common-lib/logger"
 )
 
 var _ = Describe(controller.NodeSelectorReconcilerName, func() {
@@ -51,7 +51,7 @@ var _ = Describe(controller.NodeSelectorReconcilerName, func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		log = logger.Logger{}
+		log = logger.NewNop()
 
 		controllerNamespace = "test-controller-ns"
 		testNamespace = "test-namespace"

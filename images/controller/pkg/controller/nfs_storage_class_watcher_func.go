@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"reflect"
 	"slices"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -34,9 +35,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
-	"github.com/deckhouse/csi-nfs/images/controller/pkg/logger"
 	commonfeature "github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature"
 	"github.com/deckhouse/sds-common-lib/conditions"
+	"github.com/deckhouse/sds-common-lib/logger"
 )
 
 func reconcileStorageClassCreateFunc(
@@ -46,8 +47,10 @@ func reconcileStorageClassCreateFunc(
 	newSC *storagev1.StorageClass,
 	nsc *v1alpha1.NFSStorageClass,
 ) (bool, error) {
-	log.Debug(fmt.Sprintf("[reconcileStorageClassCreateFunc] starts for StorageClass %q", newSC.Name))
-	log.Trace(fmt.Sprintf("[reconcileStorageClassCreateFunc] storage class: %+v", newSC))
+	log = log.Named("reconcileStorageClassCreateFunc")
+
+	log.Debug(fmt.Sprintf("starts for StorageClass %q", newSC.Name))
+	log.Trace(fmt.Sprintf("storage class: %+v", newSC))
 
 	err := cl.Create(ctx, newSC)
 	if err != nil {
@@ -60,7 +63,7 @@ func reconcileStorageClassCreateFunc(
 		return true, err
 	}
 
-	log.Info(fmt.Sprintf("[reconcileStorageClassCreateFunc] successfully create storage class, name: %s", newSC.Name))
+	log.Info(fmt.Sprintf("successfully create storage class, name: %s", newSC.Name))
 
 	return false, nil
 }
@@ -73,7 +76,9 @@ func reconcileStorageClassRecreateFunc(
 	newSC *storagev1.StorageClass,
 	nsc *v1alpha1.NFSStorageClass,
 ) (bool, error) {
-	log.Info(fmt.Sprintf("[reconcileStorageClassRecreateFunc] starts for NFSStorageClass %q", nsc.Name))
+	log = log.Named("reconcileStorageClassRecreateFunc")
+
+	log.Info(fmt.Sprintf("starts for NFSStorageClass %q", nsc.Name))
 
 	err := recreateStorageClass(ctx, cl, oldSC, newSC)
 	if err != nil {
@@ -86,7 +91,7 @@ func reconcileStorageClassRecreateFunc(
 		return true, err
 	}
 
-	log.Info(fmt.Sprintf("[reconcileStorageClassRecreateFunc] a Storage Class %s was successfully recreated", newSC.Name))
+	log.Info(fmt.Sprintf("a Storage Class %s was successfully recreated", newSC.Name))
 
 	return false, nil
 }
@@ -99,7 +104,9 @@ func reconcileStorageClassUpdateFunc(
 	newSC *storagev1.StorageClass,
 	nsc *v1alpha1.NFSStorageClass,
 ) (bool, error) {
-	log.Info(fmt.Sprintf("[reconcileStorageClassUpdateFunc] starts for NFSStorageClass %q", nsc.Name))
+	log = log.Named("reconcileStorageClassUpdateFunc")
+
+	log.Info(fmt.Sprintf("starts for NFSStorageClass %q", nsc.Name))
 
 	newSC.ResourceVersion = oldSC.ResourceVersion
 	err := cl.Update(ctx, newSC)
@@ -113,7 +120,7 @@ func reconcileStorageClassUpdateFunc(
 		return true, err
 	}
 
-	log.Info(fmt.Sprintf("[reconcileStorageClassUpdateFunc] successfully updated a Storage Class, name: %s", newSC.Name))
+	log.Info(fmt.Sprintf("successfully updated a Storage Class, name: %s", newSC.Name))
 
 	return false, nil
 }
@@ -125,19 +132,21 @@ func reconcileStorageClassDeleteFunc(
 	oldSC *storagev1.StorageClass,
 	nsc *v1alpha1.NFSStorageClass,
 ) (bool, error) {
-	log.Info(fmt.Sprintf("[reconcileStorageClassDeleteFunc] starts for NFSStorageClass %q", nsc.Name))
+	log = log.Named("reconcileStorageClassDeleteFunc")
+
+	log.Info(fmt.Sprintf("starts for NFSStorageClass %q", nsc.Name))
 
 	if oldSC == nil {
-		log.Info(fmt.Sprintf("[reconcileStorageClassDeleteFunc] no storage class found for the NFSStorageClass, name: %s", nsc.Name))
-		log.Debug("[reconcileStorageClassDeleteFunc] ends the reconciliation")
+		log.Info(fmt.Sprintf("no storage class found for the NFSStorageClass, name: %s", nsc.Name))
+		log.Debug("ends the reconciliation")
 		return false, nil
 	}
 
-	log.Info(fmt.Sprintf("[reconcileStorageClassDeleteFunc] successfully found a storage class %s for the NFSStorageClass %s", oldSC.Name, nsc.Name))
-	log.Trace(fmt.Sprintf("[reconcileStorageClassDeleteFunc] storage class: %+v", oldSC))
+	log.Info(fmt.Sprintf("successfully found a storage class %s for the NFSStorageClass %s", oldSC.Name, nsc.Name))
+	log.Trace(fmt.Sprintf("storage class: %+v", oldSC))
 
 	if !slices.Contains(allowedProvisioners, oldSC.Provisioner) {
-		log.Info(fmt.Sprintf("[reconcileStorageClassDeleteFunc] the storage class %s provisioner %s does not belong to allowed provisioners: %v. Skip deletion", oldSC.Name, oldSC.Provisioner, allowedProvisioners))
+		log.Info(fmt.Sprintf("the storage class %s provisioner %s does not belong to allowed provisioners: %v. Skip deletion", oldSC.Name, oldSC.Provisioner, allowedProvisioners))
 		return false, nil
 	}
 
@@ -151,18 +160,20 @@ func reconcileStorageClassDeleteFunc(
 		}
 		return true, err
 	}
-	log.Info(fmt.Sprintf("[reconcileStorageClassDeleteFunc] successfully deleted a storage class, name: %s", oldSC.Name))
+	log.Info(fmt.Sprintf("successfully deleted a storage class, name: %s", oldSC.Name))
 
-	log.Debug("[reconcileStorageClassDeleteFunc] ends the reconciliation")
+	log.Debug("ends the reconciliation")
 	return false, nil
 }
 
 func reconcileSecretCreateFunc(ctx context.Context, cl client.Client, log logger.Logger, nsc *v1alpha1.NFSStorageClass, controllerNamespace string) (bool, error) {
-	log.Debug(fmt.Sprintf("[reconcileSecretCreateFunc] starts for NFSStorageClass %q", nsc.Name))
+	log = log.Named("reconcileSecretCreateFunc")
+
+	log.Debug(fmt.Sprintf("starts for NFSStorageClass %q", nsc.Name))
 
 	newSecret := configureSecret(nsc, controllerNamespace)
-	log.Debug(fmt.Sprintf("[reconcileSecretCreateFunc] successfully configurated secret for the NFSStorageClass, name: %s", nsc.Name))
-	log.Trace(fmt.Sprintf("[reconcileSecretCreateFunc] secret: %+v", newSecret))
+	log.Debug(fmt.Sprintf("successfully configurated secret for the NFSStorageClass, name: %s", nsc.Name))
+	log.Trace("configured secret", "name", newSecret.Name, "keys", secretKeys(newSecret.Data))
 
 	err := cl.Create(ctx, newSecret)
 	if err != nil {
@@ -179,7 +190,9 @@ func reconcileSecretCreateFunc(ctx context.Context, cl client.Client, log logger
 }
 
 func reconcileSecretUpdateFunc(ctx context.Context, cl client.Client, log logger.Logger, secretList *corev1.SecretList, nsc *v1alpha1.NFSStorageClass, controllerNamespace string) (bool, error) {
-	log.Debug(fmt.Sprintf("[reconcileSecretUpdateFunc] starts for secret %q", SecretForMountOptionsPrefix+nsc.Name))
+	log = log.Named("reconcileSecretUpdateFunc")
+
+	log.Debug(fmt.Sprintf("starts for secret %q", SecretForMountOptionsPrefix+nsc.Name))
 
 	var oldSecret *corev1.Secret
 	for _, s := range secretList.Items {
@@ -199,12 +212,14 @@ func reconcileSecretUpdateFunc(ctx context.Context, cl client.Client, log logger
 		return true, err
 	}
 
-	log.Debug(fmt.Sprintf("[reconcileSecretUpdateFunc] successfully found a secret %q for the NFSStorageClass, name: %q", oldSecret.Name, nsc.Name))
+	log.Debug(fmt.Sprintf("successfully found a secret %q for the NFSStorageClass, name: %q", oldSecret.Name, nsc.Name))
 
 	newSecret := configureSecret(nsc, controllerNamespace)
 
-	log.Trace(fmt.Sprintf("[reconcileSecretUpdateFunc] old secret: %+v", oldSecret))
-	log.Trace(fmt.Sprintf("[reconcileSecretUpdateFunc] new secret: %+v", newSecret))
+	// Keys, not values: %+v on a Secret prints Data, which is what the share is
+	// mounted with.
+	log.Trace("comparing secrets", "name", newSecret.Name,
+		"oldKeys", secretKeys(oldSecret.Data), "newKeys", secretKeys(newSecret.Data))
 
 	err := cl.Update(ctx, newSecret)
 	if err != nil {
@@ -217,13 +232,15 @@ func reconcileSecretUpdateFunc(ctx context.Context, cl client.Client, log logger
 		return true, err
 	}
 
-	log.Info(fmt.Sprintf("[reconcileSecretUpdateFunc] ends the reconciliation for Secret %q", newSecret.Name))
+	log.Info(fmt.Sprintf("ends the reconciliation for Secret %q", newSecret.Name))
 
 	return false, nil
 }
 
 func reconcileSecretDeleteFunc(ctx context.Context, cl client.Client, log logger.Logger, secretList *corev1.SecretList, nsc *v1alpha1.NFSStorageClass) (bool, error) {
-	log.Debug(fmt.Sprintf("[reconcileSecretDeleteFunc] tries to find a secret for the NFSStorageClass %q with name %q", nsc.Name, SecretForMountOptionsPrefix+nsc.Name))
+	log = log.Named("reconcileSecretDeleteFunc")
+
+	log.Debug(fmt.Sprintf("tries to find a secret for the NFSStorageClass %q with name %q", nsc.Name, SecretForMountOptionsPrefix+nsc.Name))
 	var secret *corev1.Secret
 	for _, s := range secretList.Items {
 		if s.Name == SecretForMountOptionsPrefix+nsc.Name {
@@ -232,12 +249,12 @@ func reconcileSecretDeleteFunc(ctx context.Context, cl client.Client, log logger
 		}
 	}
 	if secret == nil {
-		log.Info(fmt.Sprintf("[reconcileSecretDeleteFunc] no secret found for the NFSStorageClass, name: %s", nsc.Name))
+		log.Info(fmt.Sprintf("no secret found for the NFSStorageClass, name: %s", nsc.Name))
 	}
 
 	if secret != nil {
-		log.Info(fmt.Sprintf("[reconcileSecretDeleteFunc] successfully found a secret for the NFSStorageClass %s", nsc.Name))
-		log.Debug(fmt.Sprintf("[reconcileSecretDeleteFunc] starts removing a finalizer %s from the Secret, name: %s", NFSStorageClassControllerFinalizerName, secret.Name))
+		log.Info(fmt.Sprintf("successfully found a secret for the NFSStorageClass %s", nsc.Name))
+		log.Debug(fmt.Sprintf("starts removing a finalizer %s from the Secret, name: %s", NFSStorageClassControllerFinalizerName, secret.Name))
 		_, err := removeFinalizerIfExists(ctx, cl, secret, NFSStorageClassControllerFinalizerName)
 		if err != nil {
 			err = fmt.Errorf("[reconcileSecretDeleteFunc] unable to remove a finalizer %s from the Secret %s: %w", NFSStorageClassControllerFinalizerName, secret.Name, err)
@@ -261,9 +278,9 @@ func reconcileSecretDeleteFunc(ctx context.Context, cl client.Client, log logger
 		}
 	}
 
-	log.Info(fmt.Sprintf("[reconcileSecretDeleteFunc] ends the reconciliation for Secret %q", SecretForMountOptionsPrefix+nsc.Name))
+	log.Info(fmt.Sprintf("ends the reconciliation for Secret %q", SecretForMountOptionsPrefix+nsc.Name))
 
-	log.Debug(fmt.Sprintf("[reconcileSecretDeleteFunc] starts removing a finalizer %s from the NFSStorageClass, name: %s", NFSStorageClassControllerFinalizerName, nsc.Name))
+	log.Debug(fmt.Sprintf("starts removing a finalizer %s from the NFSStorageClass, name: %s", NFSStorageClassControllerFinalizerName, nsc.Name))
 	removed, err := removeFinalizerIfExists(ctx, cl, nsc, NFSStorageClassControllerFinalizerName)
 	if err != nil {
 		err = fmt.Errorf("[reconcileSecretDeleteFunc] unable to remove a finalizer %s from the NFSStorageClass %s: %w", NFSStorageClassControllerFinalizerName, nsc.Name, err)
@@ -274,18 +291,20 @@ func reconcileSecretDeleteFunc(ctx context.Context, cl client.Client, log logger
 		}
 		return true, err
 	}
-	log.Debug(fmt.Sprintf("[reconcileSecretDeleteFunc] the NFSStorageClass %s finalizer %s was removed: %t", nsc.Name, NFSStorageClassControllerFinalizerName, removed))
+	log.Debug(fmt.Sprintf("the NFSStorageClass %s finalizer %s was removed: %t", nsc.Name, NFSStorageClassControllerFinalizerName, removed))
 
 	return false, nil
 }
 
 func IdentifyReconcileFuncForStorageClass(log logger.Logger, scList *storagev1.StorageClassList, nsc *v1alpha1.NFSStorageClass, controllerNamespace string, ignoredLabelPrefixes []string) (reconcileType string, oldSC, newSC *storagev1.StorageClass) {
+	log = log.Named("IdentifyReconcileFuncForStorageClass")
+
 	oldSC = findStorageClass(scList, nsc.Name)
 	if oldSC == nil {
-		log.Debug(fmt.Sprintf("[IdentifyReconcileFuncForStorageClass] no storage class found for the NFSStorageClass %s", nsc.Name))
+		log.Debug(fmt.Sprintf("no storage class found for the NFSStorageClass %s", nsc.Name))
 	} else {
-		log.Debug(fmt.Sprintf("[IdentifyReconcileFuncForStorageClass] finds old storage class for the NFSStorageClass %s", nsc.Name))
-		log.Trace(fmt.Sprintf("[IdentifyReconcileFuncForStorageClass] old storage class: %+v", oldSC))
+		log.Debug(fmt.Sprintf("finds old storage class for the NFSStorageClass %s", nsc.Name))
+		log.Trace(fmt.Sprintf("old storage class: %+v", oldSC))
 	}
 
 	if shouldReconcileByDeleteFunc(nsc) {
@@ -293,8 +312,8 @@ func IdentifyReconcileFuncForStorageClass(log logger.Logger, scList *storagev1.S
 	}
 
 	newSC = ConfigureStorageClass(oldSC, nsc, controllerNamespace, ignoredLabelPrefixes)
-	log.Debug(fmt.Sprintf("[IdentifyReconcileFuncForStorageClass] successfully configurated new storage class for the NFSStorageClass %s", nsc.Name))
-	log.Trace(fmt.Sprintf("[IdentifyReconcileFuncForStorageClass] new storage class: %+v", newSC))
+	log.Debug(fmt.Sprintf("successfully configurated new storage class for the NFSStorageClass %s", nsc.Name))
+	log.Trace(fmt.Sprintf("new storage class: %+v", newSC))
 
 	if shouldReconcileStorageClassByCreateFunc(oldSC, nsc) {
 		return CreateReconcile, nil, newSC
@@ -322,6 +341,8 @@ func shouldReconcileStorageClassByCreateFunc(oldSC *storagev1.StorageClass, nsc 
 }
 
 func shouldReconcileStorageClassByRecreateOrUpdateFunc(log logger.Logger, oldSC, newSC *storagev1.StorageClass, nsc *v1alpha1.NFSStorageClass) string {
+	log = log.Named("shouldReconcileStorageClassByUpdateFunc")
+
 	if nsc.DeletionTimestamp != nil {
 		return ""
 	}
@@ -333,10 +354,10 @@ func shouldReconcileStorageClassByRecreateOrUpdateFunc(log logger.Logger, oldSC,
 	needRecreate, diff := CompareStorageClasses(oldSC, newSC)
 	if diff != "" {
 		if needRecreate {
-			log.Debug(fmt.Sprintf("[shouldReconcileStorageClassByUpdateFunc] a storage class %s should be recreated. Diff: %s", oldSC.Name, diff))
+			log.Debug(fmt.Sprintf("a storage class %s should be recreated. Diff: %s", oldSC.Name, diff))
 			return RecreateReconcile
 		}
-		log.Debug(fmt.Sprintf("[shouldReconcileStorageClassByUpdateFunc] a storage class %s should be updated. Diff: %s", oldSC.Name, diff))
+		log.Debug(fmt.Sprintf("a storage class %s should be updated. Diff: %s", oldSC.Name, diff))
 		return UpdateReconcile
 	}
 
@@ -696,6 +717,8 @@ func shouldReconcileSecretByCreateFunc(secretList *corev1.SecretList, nsc *v1alp
 }
 
 func shouldReconcileSecretByUpdateFunc(log logger.Logger, secretList *corev1.SecretList, nsc *v1alpha1.NFSStorageClass, controllerNamespace string) (bool, error) {
+	log = log.Named("shouldReconcileSecretByUpdateFunc")
+
 	if nsc.DeletionTimestamp != nil {
 		return false, nil
 	}
@@ -708,7 +731,7 @@ func shouldReconcileSecretByUpdateFunc(log logger.Logger, secretList *corev1.Sec
 		if oldSecret.Name == SecretForMountOptionsPrefix+nsc.Name {
 			newSecret := configureSecret(nsc, controllerNamespace)
 			if !reflect.DeepEqual(oldSecret.StringData, newSecret.StringData) {
-				log.Debug(fmt.Sprintf("[shouldReconcileSecretByUpdateFunc] a secret %s should be updated", oldSecret.Name))
+				log.Debug(fmt.Sprintf("a secret %s should be updated", oldSecret.Name))
 				if !labels.Set(oldSecret.Labels).AsSelector().Matches(secretSelector) {
 					err := fmt.Errorf("a secret %q does not have a label %s=%s", oldSecret.Name, NFSStorageClassManagedLabelKey, NFSStorageClassManagedLabelValue)
 					return false, err
@@ -717,7 +740,7 @@ func shouldReconcileSecretByUpdateFunc(log logger.Logger, secretList *corev1.Sec
 			}
 
 			if !labels.Set(oldSecret.Labels).AsSelector().Matches(secretSelector) {
-				log.Debug(fmt.Sprintf("[shouldReconcileSecretByUpdateFunc] a secret %s should be updated. The label %s=%s is missing", oldSecret.Name, NFSStorageClassManagedLabelKey, NFSStorageClassManagedLabelValue))
+				log.Debug(fmt.Sprintf("a secret %s should be updated. The label %s=%s is missing", oldSecret.Name, NFSStorageClassManagedLabelKey, NFSStorageClassManagedLabelValue))
 				return true, nil
 			}
 
@@ -725,8 +748,8 @@ func shouldReconcileSecretByUpdateFunc(log logger.Logger, secretList *corev1.Sec
 		}
 	}
 
-	log.Debug(fmt.Sprintf("[shouldReconcileSecretByUpdateFunc] a secret %s not found. It should be created", SecretForMountOptionsPrefix+nsc.Name))
-	log.Trace(fmt.Sprintf("[shouldReconcileSecretByUpdateFunc] secret list: %+v", secretList))
+	log.Debug(fmt.Sprintf("a secret %s not found. It should be created", SecretForMountOptionsPrefix+nsc.Name))
+	log.Trace(fmt.Sprintf("secret list: %+v", secretList))
 	return true, nil
 }
 
@@ -759,13 +782,15 @@ func configureSecret(nsc *v1alpha1.NFSStorageClass, controllerNamespace string) 
 
 // VolumeSnaphotClass
 func IdentifyReconcileFuncForVSClass(log logger.Logger, vsClassList *snapshotv1.VolumeSnapshotClassList, nsc *v1alpha1.NFSStorageClass, controllerNamespace string) (reconcileType string, oldVSClass, newVSClass *snapshotv1.VolumeSnapshotClass) {
+	log = log.Named("IdentifyReconcileFuncForVSClass")
+
 	oldVSClass = findVSClass(vsClassList, nsc.Name)
 
 	if oldVSClass == nil {
-		log.Debug(fmt.Sprintf("[IdentifyReconcileFuncForVSClass] no volume snapshot class found for the NFSStorageClass %s", nsc.Name))
+		log.Debug(fmt.Sprintf("no volume snapshot class found for the NFSStorageClass %s", nsc.Name))
 	} else {
-		log.Debug(fmt.Sprintf("[IdentifyReconcileFuncForVSClass] finds old volume snapshot class for the NFSStorageClass %s", nsc.Name))
-		log.Trace(fmt.Sprintf("[IdentifyReconcileFuncForVSClass] old volume snapshot class: %+v", oldVSClass))
+		log.Debug(fmt.Sprintf("finds old volume snapshot class for the NFSStorageClass %s", nsc.Name))
+		log.Trace(fmt.Sprintf("old volume snapshot class: %+v", oldVSClass))
 	}
 
 	if shouldReconcileByDeleteFunc(nsc) {
@@ -773,8 +798,8 @@ func IdentifyReconcileFuncForVSClass(log logger.Logger, vsClassList *snapshotv1.
 	}
 
 	newVSClass = ConfigureVSClass(oldVSClass, nsc, controllerNamespace)
-	log.Debug(fmt.Sprintf("[IdentifyReconcileFuncForVSClass] successfully configurated new volume snapshot class for the NFSStorageClass %s", nsc.Name))
-	log.Trace(fmt.Sprintf("[IdentifyReconcileFuncForVSClass] new volume snapshot class: %+v", newVSClass))
+	log.Debug(fmt.Sprintf("successfully configurated new volume snapshot class for the NFSStorageClass %s", nsc.Name))
+	log.Trace(fmt.Sprintf("new volume snapshot class: %+v", newVSClass))
 
 	if shouldReconcileVSClassByCreateFunc(oldVSClass, nsc) {
 		return CreateReconcile, nil, newVSClass
@@ -810,7 +835,7 @@ func shouldReconcileVSClassByUpdateFunc(log logger.Logger, oldVSClass, newVSClas
 
 	diff := CompareVSClasses(oldVSClass, newVSClass)
 	if diff != "" {
-		log.Debug(fmt.Sprintf("[shouldReconcileVSClassByUpdateFunc] a volume snapshot class %s should be updated. Diff: %s", oldVSClass.Name, diff))
+		log.Named("shouldReconcileVSClassByUpdateFunc").Debug(fmt.Sprintf("a volume snapshot class %s should be updated. Diff: %s", oldVSClass.Name, diff))
 		return true
 	}
 
@@ -892,8 +917,10 @@ func reconcileVolumeSnapshotClassCreateFunc(
 	newVSClass *snapshotv1.VolumeSnapshotClass,
 	nsc *v1alpha1.NFSStorageClass,
 ) (bool, error) {
-	log.Debug(fmt.Sprintf("[reconcileVolumeSnapshotClassCreateFunc] starts for VolumeSnapshotClass %q", newVSClass.Name))
-	log.Trace(fmt.Sprintf("[reconcileVolumeSnapshotClassCreateFunc] volume snapshot class: %+v", newVSClass))
+	log = log.Named("reconcileVolumeSnapshotClassCreateFunc")
+
+	log.Debug(fmt.Sprintf("starts for VolumeSnapshotClass %q", newVSClass.Name))
+	log.Trace(fmt.Sprintf("volume snapshot class: %+v", newVSClass))
 
 	err := cl.Create(ctx, newVSClass)
 	if err != nil {
@@ -906,7 +933,7 @@ func reconcileVolumeSnapshotClassCreateFunc(
 		return true, err
 	}
 
-	log.Info(fmt.Sprintf("[reconcileVolumeSnapshotClassCreateFunc] successfully create volume snapshot class, name: %s", newVSClass.Name))
+	log.Info(fmt.Sprintf("successfully create volume snapshot class, name: %s", newVSClass.Name))
 
 	return false, nil
 }
@@ -919,7 +946,9 @@ func reconcileVolumeSnapshotClassUpdateFunc(
 	newVSClass *snapshotv1.VolumeSnapshotClass,
 	nsc *v1alpha1.NFSStorageClass,
 ) (bool, error) {
-	log.Debug(fmt.Sprintf("[reconcileVolumeSnapshotClassUpdateFunc] starts for VolumeSnapshotClass %q", newVSClass.Name))
+	log = log.Named("reconcileVolumeSnapshotClassUpdateFunc")
+
+	log.Debug(fmt.Sprintf("starts for VolumeSnapshotClass %q", newVSClass.Name))
 
 	newVSClass.ResourceVersion = oldVSClass.ResourceVersion
 	err := cl.Update(ctx, newVSClass)
@@ -933,7 +962,7 @@ func reconcileVolumeSnapshotClassUpdateFunc(
 		return true, err
 	}
 
-	log.Info(fmt.Sprintf("[reconcileVolumeSnapshotClassUpdateFunc] successfully updated a VolumeSnapshotClass, name: %s", newVSClass.Name))
+	log.Info(fmt.Sprintf("successfully updated a VolumeSnapshotClass, name: %s", newVSClass.Name))
 
 	return false, nil
 }
@@ -945,19 +974,21 @@ func reconcileVolumeSnapshotClassDeleteFunc(
 	oldVSClass *snapshotv1.VolumeSnapshotClass,
 	nsc *v1alpha1.NFSStorageClass,
 ) (bool, error) {
-	log.Debug(fmt.Sprintf("[reconcileVolumeSnapshotClassDeleteFunc] starts for VolumeSnapshotClass %q", nsc.Name))
+	log = log.Named("reconcileVolumeSnapshotClassDeleteFunc")
+
+	log.Debug(fmt.Sprintf("starts for VolumeSnapshotClass %q", nsc.Name))
 
 	if oldVSClass == nil {
-		log.Info(fmt.Sprintf("[reconcileVolumeSnapshotClassDeleteFunc] no volume snapshot class found for the NFSStorageClass, name: %s", nsc.Name))
-		log.Debug("[reconcileVolumeSnapshotClassDeleteFunc] ends the reconciliation")
+		log.Info(fmt.Sprintf("no volume snapshot class found for the NFSStorageClass, name: %s", nsc.Name))
+		log.Debug("ends the reconciliation")
 		return false, nil
 	}
 
-	log.Info(fmt.Sprintf("[reconcileVolumeSnapshotClassDeleteFunc] successfully found a volume snapshot class %s for the NFSStorageClass %s", oldVSClass.Name, nsc.Name))
-	log.Trace(fmt.Sprintf("[reconcileVolumeSnapshotClassDeleteFunc] volume snapshot class: %+v", oldVSClass))
+	log.Info(fmt.Sprintf("successfully found a volume snapshot class %s for the NFSStorageClass %s", oldVSClass.Name, nsc.Name))
+	log.Trace(fmt.Sprintf("volume snapshot class: %+v", oldVSClass))
 
 	if !slices.Contains(allowedProvisioners, oldVSClass.Driver) {
-		log.Info(fmt.Sprintf("[reconcileVolumeSnapshotClassDeleteFunc] the volume snapshot class %s driver %s does not belong to allowed provisioners: %v. Skip deletion", oldVSClass.Name, oldVSClass.Driver, allowedProvisioners))
+		log.Info(fmt.Sprintf("the volume snapshot class %s driver %s does not belong to allowed provisioners: %v. Skip deletion", oldVSClass.Name, oldVSClass.Driver, allowedProvisioners))
 		return false, nil
 	}
 
@@ -972,9 +1003,9 @@ func reconcileVolumeSnapshotClassDeleteFunc(
 		return true, err
 	}
 
-	log.Info(fmt.Sprintf("[reconcileVolumeSnapshotClassDeleteFunc] successfully deleted a volume snapshot class, name: %s", oldVSClass.Name))
+	log.Info(fmt.Sprintf("successfully deleted a volume snapshot class, name: %s", oldVSClass.Name))
 
-	log.Debug("[reconcileVolumeSnapshotClassDeleteFunc] ends the reconciliation")
+	log.Debug("ends the reconciliation")
 	return false, nil
 }
 
@@ -994,4 +1025,16 @@ func deleteVolumeSnapshotClass(ctx context.Context, cl client.Client, vsClass *s
 	}
 
 	return nil
+}
+
+// secretKeys returns the sorted key names of a Secret's data, so a Trace line can
+// say what a Secret carries without printing what it carries.
+func secretKeys(data map[string][]byte) []string {
+	keys := make([]string, 0, len(data))
+	for k := range data {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	return keys
 }

@@ -39,9 +39,9 @@ import (
 
 	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	"github.com/deckhouse/csi-nfs/images/controller/pkg/config"
-	"github.com/deckhouse/csi-nfs/images/controller/pkg/logger"
 	commonvalidating "github.com/deckhouse/csi-nfs/lib/go/common/pkg/validating"
 	d8commonapi "github.com/deckhouse/sds-common-lib/api/v1alpha1"
+	"github.com/deckhouse/sds-common-lib/logger"
 )
 
 const (
@@ -99,22 +99,24 @@ func RunNFSStorageClassWatcherController(
 	cl := mgr.GetClient()
 	err := d8commonapi.AddToScheme(mgr.GetScheme())
 	if err != nil {
-		log.Error(err, "[ModuleConfigReconciler] unable to run watcher controller: unable to add scheme")
+		log.Error("unable to run watcher controller: unable to add scheme", logger.Err(err))
 		return nil, err
 	}
 
 	c, err := controller.New(NFSStorageClassCtrlName, mgr, controller.Options{
 		Reconciler: reconcile.Func(func(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
-			log.Info(fmt.Sprintf("[NFSStorageClassReconciler] starts Reconcile for the NFSStorageClass %q", request.Name))
+			log := log.Named("NFSStorageClassReconciler")
+
+			log.Info(fmt.Sprintf("starts Reconcile for the NFSStorageClass %q", request.Name))
 			nsc := &v1alpha1.NFSStorageClass{}
 			err := cl.Get(ctx, request.NamespacedName, nsc)
 			if err != nil && !k8serr.IsNotFound(err) {
-				log.Error(err, fmt.Sprintf("[NFSStorageClassReconciler] unable to get NFSStorageClass, name: %s", request.Name))
+				log.Error(fmt.Sprintf("unable to get NFSStorageClass, name: %s", request.Name), logger.Err(err))
 				return reconcile.Result{}, err
 			}
 
 			if nsc.Name == "" {
-				log.Info(fmt.Sprintf("[NFSStorageClassReconciler] seems like the NFSStorageClass for the request %s was deleted. Reconcile retrying will stop.", request.Name))
+				log.Info(fmt.Sprintf("seems like the NFSStorageClass for the request %s was deleted. Reconcile retrying will stop.", request.Name))
 				return reconcile.Result{}, nil
 			}
 
@@ -122,12 +124,12 @@ func RunNFSStorageClassWatcherController(
 				nfsModuleConfig := &d8commonapi.ModuleConfig{}
 				err := cl.Get(ctx, types.NamespacedName{Name: cfg.CsiNfsModuleName, Namespace: ""}, nfsModuleConfig)
 				if err != nil {
-					log.Error(err, fmt.Sprintf("[NFSStorageClassReconciler] unable to get ModuleConfig, name: %s", cfg.CsiNfsModuleName))
+					log.Error(fmt.Sprintf("unable to get ModuleConfig, name: %s", cfg.CsiNfsModuleName), logger.Err(err))
 					return reconcile.Result{}, err
 				}
 
 				if err := commonvalidating.ValidateNFSStorageClass(nfsModuleConfig, nsc); err != nil {
-					log.Error(err, "[NFSStorageClassReconciler] invalid NFSStorageClass")
+					log.Error("invalid NFSStorageClass", logger.Err(err))
 					upError := updateNFSStorageClassPhase(ctx, cl, nsc, FailedStatusPhase, err.Error())
 					if upError != nil {
 						upError = fmt.Errorf("[NFSStorageClassReconciler] invalid NFSStorageClass %s: %w", nsc.Name, upError)
@@ -140,54 +142,56 @@ func RunNFSStorageClassWatcherController(
 			scList := &v1.StorageClassList{}
 			err = cl.List(ctx, scList)
 			if err != nil {
-				log.Error(err, "[NFSStorageClassReconciler] unable to list Storage Classes")
+				log.Error("unable to list Storage Classes", logger.Err(err))
 				return reconcile.Result{}, err
 			}
 
 			shouldRequeue, err := RunEventReconcile(ctx, cl, log, scList, nsc, cfg.ControllerNamespace, cfg.StorageClassLabelIgnoredPrefixes)
 			if err != nil {
-				log.Error(err, fmt.Sprintf("[NFSStorageClassReconciler] an error occurred while reconciles the NFSStorageClass, name: %s", nsc.Name))
+				log.Error(fmt.Sprintf("an error occurred while reconciles the NFSStorageClass, name: %s", nsc.Name), logger.Err(err))
 			}
 
 			if shouldRequeue {
-				log.Warning(fmt.Sprintf("[NFSStorageClassReconciler] Reconciler will requeue the request, name: %s", request.Name))
+				log.Warn(fmt.Sprintf("reconciler will requeue the request, name: %s", request.Name))
 				return reconcile.Result{
 					RequeueAfter: cfg.RequeueStorageClassInterval * time.Second,
 				}, nil
 			}
 
-			log.Info(fmt.Sprintf("[NFSStorageClassReconciler] ends Reconcile for the NFSStorageClass %q", request.Name))
+			log.Info(fmt.Sprintf("ends Reconcile for the NFSStorageClass %q", request.Name))
 			return reconcile.Result{}, nil
 		}),
 	})
 	if err != nil {
-		log.Error(err, "[RunNFSStorageClassWatcherController] unable to create controller")
+		log.Error("unable to create controller", logger.Err(err))
 		return nil, err
 	}
 
 	err = c.Watch(source.Kind(mgr.GetCache(), &v1alpha1.NFSStorageClass{}, handler.TypedFuncs[*v1alpha1.NFSStorageClass, reconcile.Request]{
 		CreateFunc: func(_ context.Context, e event.TypedCreateEvent[*v1alpha1.NFSStorageClass], q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-			log.Info(fmt.Sprintf("[CreateFunc] get event for NFSStorageClass %q. Add to the queue", e.Object.GetName()))
+			log.Named("CreateFunc").Info(fmt.Sprintf("get event for NFSStorageClass %q. Add to the queue", e.Object.GetName()))
 			request := reconcile.Request{NamespacedName: types.NamespacedName{Namespace: e.Object.GetNamespace(), Name: e.Object.GetName()}}
 			q.Add(request)
 		},
 		UpdateFunc: func(_ context.Context, e event.TypedUpdateEvent[*v1alpha1.NFSStorageClass], q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-			log.Info(fmt.Sprintf("[UpdateFunc] get event for NFSStorageClass %q. Check if it should be reconciled", e.ObjectNew.GetName()))
+			log := log.Named("UpdateFunc")
+
+			log.Info(fmt.Sprintf("get event for NFSStorageClass %q. Check if it should be reconciled", e.ObjectNew.GetName()))
 
 			if reflect.DeepEqual(e.ObjectOld.Spec, e.ObjectNew.Spec) &&
 				reflect.DeepEqual(e.ObjectOld.Labels, e.ObjectNew.Labels) &&
 				e.ObjectNew.DeletionTimestamp == nil {
-				log.Info(fmt.Sprintf("[UpdateFunc] an update event for the NFSStorageClass %s has no Spec or Labels updates. It will not be reconciled", e.ObjectNew.Name))
+				log.Info(fmt.Sprintf("an update event for the NFSStorageClass %s has no Spec or Labels updates. It will not be reconciled", e.ObjectNew.Name))
 				return
 			}
 
-			log.Info(fmt.Sprintf("[UpdateFunc] the NFSStorageClass %q will be reconciled. Add to the queue", e.ObjectNew.Name))
+			log.Info(fmt.Sprintf("the NFSStorageClass %q will be reconciled. Add to the queue", e.ObjectNew.Name))
 			request := reconcile.Request{NamespacedName: types.NamespacedName{Namespace: e.ObjectNew.Namespace, Name: e.ObjectNew.Name}}
 			q.Add(request)
 		},
 	}))
 	if err != nil {
-		log.Error(err, "[RunNFSStorageClassWatcherController] unable to watch the events")
+		log.Error("unable to watch the events", logger.Err(err))
 		return nil, err
 	}
 
@@ -195,34 +199,36 @@ func RunNFSStorageClassWatcherController(
 }
 
 func RunEventReconcile(ctx context.Context, cl client.Client, log logger.Logger, scList *v1.StorageClassList, nsc *v1alpha1.NFSStorageClass, controllerNamespace string, ignoredLabelPrefixes []string) (shouldRequeue bool, err error) {
+	log = log.Named("runEventReconcile")
+
 	added, err := addFinalizerIfNotExists(ctx, cl, nsc, NFSStorageClassControllerFinalizerName)
 	if err != nil {
 		err = fmt.Errorf("[reconcileStorageClassCreateFunc] unable to add a finalizer %s to the NFSStorageClass %s: %w", NFSStorageClassControllerFinalizerName, nsc.Name, err)
 		return true, err
 	}
-	log.Debug(fmt.Sprintf("[reconcileStorageClassCreateFunc] finalizer %s was added to the NFSStorageClass %s: %t", NFSStorageClassControllerFinalizerName, nsc.Name, added))
+	log.Named("reconcileStorageClassCreateFunc").Debug(fmt.Sprintf("finalizer %s was added to the NFSStorageClass %s: %t", NFSStorageClassControllerFinalizerName, nsc.Name, added))
 
 	reconcileTypeForStorageClass, oldSC, newSC := IdentifyReconcileFuncForStorageClass(log, scList, nsc, controllerNamespace, ignoredLabelPrefixes)
 
 	shouldRequeue = false
-	log.Debug(fmt.Sprintf("[runEventReconcile] reconcile operation for StorageClass %q: %q", nsc.Name, reconcileTypeForStorageClass))
+	log.Debug(fmt.Sprintf("reconcile operation for StorageClass %q: %q", nsc.Name, reconcileTypeForStorageClass))
 	switch reconcileTypeForStorageClass {
 	case CreateReconcile:
-		log.Debug(fmt.Sprintf("[runEventReconcile] CreateReconcile starts reconciliataion of StorageClass, name: %s", nsc.Name))
+		log.Debug(fmt.Sprintf("CreateReconcile starts reconciliataion of StorageClass, name: %s", nsc.Name))
 		shouldRequeue, err = reconcileStorageClassCreateFunc(ctx, cl, log, newSC, nsc)
 	case RecreateReconcile:
-		log.Debug(fmt.Sprintf("[runEventReconcile] RecreateReconcile starts reconciliataion of StorageClass, name: %s", nsc.Name))
+		log.Debug(fmt.Sprintf("RecreateReconcile starts reconciliataion of StorageClass, name: %s", nsc.Name))
 		shouldRequeue, err = reconcileStorageClassRecreateFunc(ctx, cl, log, oldSC, newSC, nsc)
 	case UpdateReconcile:
-		log.Debug(fmt.Sprintf("[runEventReconcile] UpdateReconcile starts reconciliataion of StorageClass, name: %s", nsc.Name))
+		log.Debug(fmt.Sprintf("UpdateReconcile starts reconciliataion of StorageClass, name: %s", nsc.Name))
 		shouldRequeue, err = reconcileStorageClassUpdateFunc(ctx, cl, log, oldSC, newSC, nsc)
 	case DeleteReconcile:
-		log.Debug(fmt.Sprintf("[runEventReconcile] DeleteReconcile starts reconciliataion of StorageClass, name: %s", nsc.Name))
+		log.Debug(fmt.Sprintf("DeleteReconcile starts reconciliataion of StorageClass, name: %s", nsc.Name))
 		shouldRequeue, err = reconcileStorageClassDeleteFunc(ctx, cl, log, oldSC, nsc)
 	default:
-		log.Debug(fmt.Sprintf("[runEventReconcile] StorageClass for NFSStorageClass %s should not be reconciled", nsc.Name))
+		log.Debug(fmt.Sprintf("StorageClass for NFSStorageClass %s should not be reconciled", nsc.Name))
 	}
-	log.Debug(fmt.Sprintf("[runEventReconcile] ends reconciliataion of StorageClass, name: %s, shouldRequeue: %t, err: %v", nsc.Name, shouldRequeue, err))
+	log.Debug(fmt.Sprintf("ends reconciliataion of StorageClass, name: %s, shouldRequeue: %t, err: %v", nsc.Name, shouldRequeue, err))
 
 	if err != nil || shouldRequeue {
 		return shouldRequeue, err
@@ -243,33 +249,33 @@ func RunEventReconcile(ctx context.Context, cl client.Client, log logger.Logger,
 	reconcileTypeForSecret, err := IdentifyReconcileFuncForSecret(log, secretList, nsc, controllerNamespace)
 
 	if err != nil {
-		log.Error(err, fmt.Sprintf("[runEventReconcile] error occurred while identifying the reconcile function for the Secret %q", SecretForMountOptionsPrefix+nsc.Name))
+		log.Error(fmt.Sprintf("error occurred while identifying the reconcile function for the Secret %q", SecretForMountOptionsPrefix+nsc.Name), logger.Err(err))
 		return true, err
 	}
 
-	log.Debug(fmt.Sprintf("[runEventReconcile] reconcile operation for Secret %q: %q", SecretForMountOptionsPrefix+nsc.Name, reconcileTypeForSecret))
+	log.Debug(fmt.Sprintf("reconcile operation for Secret %q: %q", SecretForMountOptionsPrefix+nsc.Name, reconcileTypeForSecret))
 	switch reconcileTypeForSecret {
 	case CreateReconcile:
-		log.Debug(fmt.Sprintf("[runEventReconcile] CreateReconcile starts reconciliataion of Secret, name: %s", SecretForMountOptionsPrefix+nsc.Name))
+		log.Debug(fmt.Sprintf("CreateReconcile starts reconciliataion of Secret, name: %s", SecretForMountOptionsPrefix+nsc.Name))
 		shouldRequeue, err = reconcileSecretCreateFunc(ctx, cl, log, nsc, controllerNamespace)
 	case UpdateReconcile:
-		log.Debug(fmt.Sprintf("[runEventReconcile] UpdateReconcile starts reconciliataion of Secret, name: %s", SecretForMountOptionsPrefix+nsc.Name))
+		log.Debug(fmt.Sprintf("UpdateReconcile starts reconciliataion of Secret, name: %s", SecretForMountOptionsPrefix+nsc.Name))
 		shouldRequeue, err = reconcileSecretUpdateFunc(ctx, cl, log, secretList, nsc, controllerNamespace)
 	case DeleteReconcile:
-		log.Debug(fmt.Sprintf("[runEventReconcile] DeleteReconcile starts reconciliataion of Secret, name: %s", SecretForMountOptionsPrefix+nsc.Name))
+		log.Debug(fmt.Sprintf("DeleteReconcile starts reconciliataion of Secret, name: %s", SecretForMountOptionsPrefix+nsc.Name))
 		shouldRequeue, err = reconcileSecretDeleteFunc(ctx, cl, log, secretList, nsc)
 	default:
-		log.Debug(fmt.Sprintf("[runEventReconcile] Secret %q should not be reconciled", SecretForMountOptionsPrefix+nsc.Name))
+		log.Debug(fmt.Sprintf("secret %q should not be reconciled", SecretForMountOptionsPrefix+nsc.Name))
 	}
 
-	log.Debug(fmt.Sprintf("[runEventReconcile] ends reconciliataion of Secret, name: %s, shouldRequeue: %t, err: %v", SecretForMountOptionsPrefix+nsc.Name, shouldRequeue, err))
+	log.Debug(fmt.Sprintf("ends reconciliataion of Secret, name: %s, shouldRequeue: %t, err: %v", SecretForMountOptionsPrefix+nsc.Name, shouldRequeue, err))
 
 	if err != nil || shouldRequeue {
 		return shouldRequeue, err
 	}
 
 	if !VolumeSnapshotClassCRDExists(cl.RESTMapper(), log) {
-		log.Debug(fmt.Sprintf("[runEventReconcile] the VolumeSnapshotClass CRD is not registered in the cluster, skipping the VolumeSnapshotClass for the NFSStorageClass %q", nsc.Name))
+		log.Debug(fmt.Sprintf("the VolumeSnapshotClass CRD is not registered in the cluster, skipping the VolumeSnapshotClass for the NFSStorageClass %q", nsc.Name))
 	} else {
 		vsClassList := &snapshotv1.VolumeSnapshotClassList{}
 		err = cl.List(ctx, vsClassList)
@@ -285,7 +291,7 @@ func RunEventReconcile(ctx context.Context, cl client.Client, log logger.Logger,
 
 		reconcileTypeForVSClass, oldVSClass, newVSClass := IdentifyReconcileFuncForVSClass(log, vsClassList, nsc, controllerNamespace)
 
-		log.Debug(fmt.Sprintf("[runEventReconcile] reconcile operation for VolumeSnapshotClass %q: %q", nsc.Name, reconcileTypeForVSClass))
+		log.Debug(fmt.Sprintf("reconcile operation for VolumeSnapshotClass %q: %q", nsc.Name, reconcileTypeForVSClass))
 		switch reconcileTypeForVSClass {
 		case CreateReconcile:
 			shouldRequeue, err = reconcileVolumeSnapshotClassCreateFunc(ctx, cl, log, newVSClass, nsc)
@@ -294,10 +300,10 @@ func RunEventReconcile(ctx context.Context, cl client.Client, log logger.Logger,
 		case DeleteReconcile:
 			shouldRequeue, err = reconcileVolumeSnapshotClassDeleteFunc(ctx, cl, log, oldVSClass, nsc)
 		default:
-			log.Debug(fmt.Sprintf("[runEventReconcile] VolumeSnapshotClass %q should not be reconciled", nsc.Name))
+			log.Debug(fmt.Sprintf("VolumeSnapshotClass %q should not be reconciled", nsc.Name))
 		}
 
-		log.Debug(fmt.Sprintf("[runEventReconcile] ends reconciliataion of VolumeSnapshotClass, name: %s, shouldRequeue: %t, err: %v", nsc.Name, shouldRequeue, err))
+		log.Debug(fmt.Sprintf("ends reconciliataion of VolumeSnapshotClass, name: %s, shouldRequeue: %t, err: %v", nsc.Name, shouldRequeue, err))
 
 		if err != nil || shouldRequeue {
 			return shouldRequeue, err
@@ -310,10 +316,10 @@ func RunEventReconcile(ctx context.Context, cl client.Client, log logger.Logger,
 			err = fmt.Errorf("[runEventReconcile] unable to update the NFSStorageClass %s: %w", nsc.Name, err)
 			return true, err
 		}
-		log.Debug(fmt.Sprintf("[runEventReconcile] successfully updated the NFSStorageClass %s status", nsc.Name))
+		log.Debug(fmt.Sprintf("successfully updated the NFSStorageClass %s status", nsc.Name))
 	}
 
-	log.Debug(fmt.Sprintf("[runEventReconcile] Finish all reconciliations for NFSStorageClass %q.", nsc.Name))
+	log.Debug(fmt.Sprintf("finish all reconciliations for NFSStorageClass %q.", nsc.Name))
 
 	return false, nil
 }

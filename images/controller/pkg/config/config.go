@@ -22,23 +22,24 @@ import (
 	"strings"
 	"time"
 
-	"github.com/deckhouse/csi-nfs/images/controller/pkg/logger"
+	"github.com/deckhouse/sds-common-lib/logger"
 )
 
 const (
-	LogLevelEnvName                      = "LOG_LEVEL"
 	ControllerNamespaceEnv               = "CONTROLLER_NAMESPACE"
 	HardcodedControllerNS                = "d8-csi-nfs"
 	ControllerName                       = "d8-controller"
 	DefaultHealthProbeBindAddressEnvName = "HEALTH_PROBE_BIND_ADDRESS"
 	DefaultHealthProbeBindAddress        = ":8081"
 	MetricsBindAddressEnvName            = "METRICS_BIND_ADDRESS"
-	DefaultMetricsBindAddress            = ":4223"
-	DefaultRequeueStorageClassInterval   = 10
-	DefaultRequeueModuleConfigInterval   = 10
-	CsiNfsModuleName                     = "csi-nfs"
-	DefaultRequeueNodeSelectorInterval   = 10
-	ConfigSecretName                     = "d8-csi-nfs-controller-config"
+	// Loopback, not ":4223": the kube-rbac-proxy of the same pod is what publishes
+	// this endpoint, and a wildcard bind would answer unauthenticated on the pod IP.
+	DefaultMetricsBindAddress          = "127.0.0.1:4223"
+	DefaultRequeueStorageClassInterval = 10
+	DefaultRequeueModuleConfigInterval = 10
+	CsiNfsModuleName                   = "csi-nfs"
+	DefaultRequeueNodeSelectorInterval = 10
+	ConfigSecretName                   = "d8-csi-nfs-controller-config"
 	// StorageClassLabelIgnoredPrefixesEnvName carries a comma-separated list of label-key
 	// prefixes whose matching labels MUST NOT be propagated from an NFSStorageClass to
 	// the managed Kubernetes StorageClass.
@@ -68,12 +69,7 @@ type Options struct {
 func NewConfig() *Options {
 	var opts Options
 
-	loglevel := os.Getenv(LogLevelEnvName)
-	if loglevel == "" {
-		opts.Loglevel = logger.DebugLevel
-	} else {
-		opts.Loglevel = logger.Verbosity(loglevel)
-	}
+	opts.Loglevel = logger.VerbosityFromEnv(logger.InfoLevel)
 
 	opts.HealthProbeBindAddress = os.Getenv(DefaultHealthProbeBindAddressEnvName)
 	if opts.HealthProbeBindAddress == "" {
