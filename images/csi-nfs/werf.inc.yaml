@@ -33,7 +33,7 @@ shell:
 
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-golang-artifact
-from: {{ index $.Images (eq .SVACE_ENABLED "false" | ternary "builder/golang" "builder/alpine-svace") }}
+from: {{ index $.Images "builder/golang" }}
 final: false
 
 import:
@@ -51,12 +51,8 @@ secrets:
 
 shell:
   setup:
-    {{- if eq .SVACE_ENABLED "false" }}
+    {{- include "svace toolchain for golang builds" . | nindent 4 }}
     - pm install git
-    {{- else }}
-    {{- include "alpine packages proxy" . | nindent 4 }}
-    - apk add --no-cache git
-    {{- end }}
     - cd /src/csi-driver-nfs/cmd/nfsplugin
     - GOPROXY=$(cat /run/secrets/GOPROXY) go mod download
     - export GOOS=linux GOARCH=amd64 CGO_ENABLED=0
