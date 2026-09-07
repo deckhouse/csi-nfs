@@ -1,0 +1,25 @@
+date: "2026-09-07"
+
+summary: "The metrics of the controller and of the scheduler extender are now published through a kube-rbac-proxy and scraped by Prometheus, and every component logs in the shared structured format."
+
+highlights:
+  - "The controller and the scheduler extender no longer serve their metrics unauthenticated: each binds on `127.0.0.1` and a `kube-rbac-proxy` in the same pod publishes them over TLS, behind an authorization check."
+  - "The metrics of the scheduler extender — reconcile counts, workqueue depth, Go runtime — reach Prometheus for the first time, through a new `PodMonitor`."
+
+new_features:
+  - "A `PodMonitor` named `csi-nfs-scheduler-extender` makes the metrics of the scheduler extender available in Prometheus. It is created only where the `PodMonitor` kind exists, so a cluster without monitoring is unaffected."
+
+improvements:
+  - "The controller, the scheduler extender and the webhooks moved onto the shared logger of the storage modules: messages carry structured `key=value` fields and the name of the component that wrote them, instead of the `[main]`-style prefixes. Anything that parses these logs by their old shape has to be adjusted."
+  - "The `kube-rbac-proxy` of the scheduler extender has no readiness probe on purpose: a sidecar that only serves metrics must never be able to stop the kube-scheduler from calling the extender."
+
+fixes:
+  - "The `ServiceMonitor` of the controller is now created whenever the `ServiceMonitor` kind is present, not only when the `operator-prometheus-crd` module is listed as enabled. Its metrics — including the validity of the RPC-with-TLS certificates, which nothing in this module rotates — used to stay unscraped in a converge that had only just applied the Prometheus operator CRDs."
+  - "The `VerticalPodAutoscaler` of the scheduler extender is gated the same way, so it is no longer skipped in a converge that installs the VPA CRDs alongside the module."
+
+security:
+  - "The metrics endpoints of the controller and of the scheduler extender are no longer reachable on the pod IP without credentials. Scraping them now requires `get` on `deployments/prometheus-metrics` for `d8-csi-nfs-controller` and `csi-nfs-scheduler-extender` respectively."
+
+upgrade_notes:
+  - "Nothing has to be done by hand: the `ServiceMonitor` shipped by the module is updated with it, and the new `PodMonitor` appears on its own."
+  - "The metrics port of the controller `Service` is renamed from `metrics` to `https-metrics` and now speaks HTTPS. Any scrape configuration of your own that pointed at the plain-HTTP port has to be pointed at the proxy and given the Prometheus token."

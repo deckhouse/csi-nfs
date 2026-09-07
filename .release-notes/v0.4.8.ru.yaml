@@ -1,0 +1,25 @@
+date: "2026-09-07"
+
+summary: "Метрики контроллера и scheduler extender теперь публикуются через kube-rbac-proxy и собираются Prometheus, а все компоненты пишут логи в общем структурированном формате."
+
+highlights:
+  - "Контроллер и scheduler extender больше не отдают метрики без аутентификации: каждый слушает на `127.0.0.1`, а публикует их `kube-rbac-proxy` в том же поде — по TLS и с проверкой прав."
+  - "Метрики scheduler extender — счётчики reconciliation, длина очереди, показатели Go runtime — впервые попадают в Prometheus, через новый `PodMonitor`."
+
+new_features:
+  - "`PodMonitor` с именем `csi-nfs-scheduler-extender` отдаёт метрики scheduler extender в Prometheus. Он создаётся только там, где есть тип `PodMonitor`, поэтому на кластер без мониторинга это не влияет."
+
+improvements:
+  - "Контроллер, scheduler extender и webhooks переведены на общий логгер storage-модулей: сообщения несут структурированные поля `key=value` и имя написавшего их компонента вместо префиксов вида `[main]`. Всё, что разбирает эти логи по старой форме, придётся поправить."
+  - "У `kube-rbac-proxy` scheduler extender сознательно нет readiness-пробы: sidecar (вспомогательный контейнер), который отдаёт только метрики, не должен уметь остановить обращения kube-scheduler к extender."
+
+fixes:
+  - "`ServiceMonitor` контроллера теперь создаётся при наличии типа `ServiceMonitor`, а не только когда модуль `operator-prometheus-crd` числится включённым. Раньше его метрики — в том числе срок действия сертификатов RPC-with-TLS, которые в этом модуле ничто не перевыпускает — оставались несобранными в том converge (сходимость конфигурации), где CRD Prometheus-оператора только что применились."
+  - "`VerticalPodAutoscaler` для scheduler extender закрыт такой же проверкой, поэтому он больше не пропускается в converge, где CRD VPA ставятся вместе с модулем."
+
+security:
+  - "Эндпоинты метрик контроллера и scheduler extender больше недоступны по IP пода без учётных данных. Для их сбора нужно право `get` на `deployments/prometheus-metrics` для `d8-csi-nfs-controller` и `csi-nfs-scheduler-extender` соответственно."
+
+upgrade_notes:
+  - "Руками делать ничего не нужно: `ServiceMonitor` поставляется вместе с модулем и обновляется вместе с ним, новый `PodMonitor` появляется сам."
+  - "Порт метрик в `Service` контроллера переименован из `metrics` в `https-metrics` и теперь работает по HTTPS. Если у вас была своя конфигурация сбора, направленная на прежний порт по HTTP, её нужно перенацелить на прокси и снабдить токеном Prometheus."
