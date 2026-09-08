@@ -10,7 +10,17 @@ actually reads.
 (The note lives up here rather than beside the rule because a template comment inside the
 argument list of a dict call is a parse error - "unexpected { in operand" - and the whole
 release then fails to render.) */ -}}
+{{- /*
+  controllerMetricsProxyPort is not used as a port here. It is how
+  helm_lib_module_controller_rbac learns that the pod carries a kube-rbac-proxy in
+  front of the metrics, and therefore needs the ClusterRoleBinding to d8:rbac-proxy
+  that lets the sidecar create the TokenReview and SubjectAccessReview every scrape
+  is authorised with. Keep it in step with the value given to
+  helm_lib_module_controller_manifests: without it the proxy fails closed on every
+  scrape and the only symptom is up == 0 and a permanent TargetDown.
+*/ -}}
 {{- $rbacConfig := dict
+  "controllerMetricsProxyPort" (int .Values.csiNfs.internal.controllerMetricsProxyPort)
   "roleRules" (list
     (dict "apiGroups" (list "") "resources" (list "secrets") "verbs" (list "get" "list" "watch" "create" "update" "delete"))
     (dict "apiGroups" (list "") "resources" (list "pods") "verbs" (list "get" "list" "watch" "update" "delete"))
