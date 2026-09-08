@@ -1,6 +1,6 @@
 module github.com/deckhouse/csi-nfs/api
 
-go 1.27.0
+go 1.27.1
 require k8s.io/apimachinery v0.32.0
 
 require (
