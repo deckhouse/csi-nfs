@@ -1,0 +1,49 @@
+#!/bin/bash
+# Copyright 2026 Flant JSC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+set -Eeo pipefail
+
+PREFIX="/var/lib/deckhouse/sds/csi-nfs"
+RPCBIND_UNIT="d8-csi-nfs-rpcbind.service"
+STATD_UNIT="d8-csi-nfs-rpc-statd.service"
+
+# statd first: it is registered with the portmapper and unregistering is the
+# polite half of stopping.
+for unit in "${STATD_UNIT}" "${RPCBIND_UNIT}"; do
+  systemctl disable --now "${unit}" || true
+  rm -f "/etc/systemd/system/${unit}"
+done
+systemctl daemon-reload || true
+
+# Only the files this install put on the host, never the host's own: the link
+# rpc.statd execs sm-notify through. A directory it created is worth taking back
+# too, but only while it is empty; rmdir tells the two apart on its own.
+HOST_FILES="${PREFIX}/host-files.list"
+if [[ -f "${HOST_FILES}" ]]; then
+  dirs=""
+  while read -r placed; do
+    [[ -n "${placed}" ]] || continue
+    rm -f "${placed}"
+    dirs="${dirs} $(dirname "${placed}")"
+  done < "${HOST_FILES}"
+  for dir in ${dirs}; do
+    rmdir "${dir}" 2>/dev/null || true
+  done
+fi
+
+# /var/lib/nfs is deliberately left in place. Its sm/sm.bak lists are the record
+# of which peers hold locks on this node, and a distribution package installed
+# later expects to find them where they are.
+rm -rf "${PREFIX}"

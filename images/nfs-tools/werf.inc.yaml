@@ -1,0 +1,139 @@
+{{- /*
+nfs-tools is a *package image*: it is never run as a container. bashible pulls
+it on the node (bb-package-module-install), unpacks it and executes /install,
+the same way sds-replicated-volume delivers drbd, semver and its service
+scripts.
+
+It exists for nodes whose distribution repositories cannot provide the NFSv3
+userspace — the NodeGroupConfiguration installs nfs-common/nfs-utils and
+rpcbind when it can, and falls back to this image when it cannot.
+
+What the host actually owes this module is two DAEMONS, not client tools: the
+csi-nfs container carries its own nfs-utils and does the mount itself, but an
+NFSv3 mount needs the host's portmapper on /run/rpcbind.sock (the csi-node Pod
+waits for exactly that socket, see images/wait-rpcbind) and the host's rpc.statd
+for NLM locking. NFSv4 needs neither — it is kernel-only — which is why the
+whole NodeGroupConfiguration is rendered only under .Values.csiNfs.v3support.
+
+So the payload is rpcbind plus nfs-utils, and /install's job is to get two
+services running rather than to put binaries on a PATH: nothing on the host is
+called by name by the driver.
+*/ -}}
+---
+image: {{ .ModuleNamePrefix }}{{ $.ImageName }}-binaries-artifact
+from: {{ index $.Images "builder/golang" }}
+final: false
+
+git:
+  - add: {{ .ModuleDir }}/tools/dev_images/additional_tools/binary_replace.sh
+    to: /binary_replace.sh
+    stageDependencies:
+      install:
+        - '**/*'
+  - add: {{ .ModuleDir }}/images/{{ $.ImageName }}/scripts
+    to: /package
+    includePaths:
+      - install
+      - uninstall
+    stageDependencies:
+      install:
+        - '**/*'
+
+shell:
+  install:
+    # rpcbind brings the portmapper, nfs-utils brings rpc.statd and sm-notify;
+    # the rest is what binary_replace.sh needs to resolve their library closure.
+    # libtirpc is explicit: rpcbind and statd do userspace SUN RPC through it,
+    # and the closure walk only finds what the linker records.
+    - pm install rpcbind nfs-utils libtirpc ldd gnu-glibc coreutils findutils grep gawk
+    - chmod +x /binary_replace.sh
+    # Paths are resolved rather than spelled out: the catalog's packages are free
+    # to put these in /sbin or /usr/sbin, and a wrong guess would stage nothing
+    # and fail only on a node, months later.
+    - |
+      set -e
+      binaries=""
+      for tool in rpcbind rpc.statd sm-notify; do
+        path=""
+        for dir in /usr/sbin /sbin /usr/bin /bin; do
+          if [ -x "$dir/$tool" ]; then path="$dir/$tool"; break; fi
+        done
+        if [ -z "$path" ]; then echo "the catalog's packages provide no $tool"; exit 1; fi
+        binaries="$binaries $path"
+      done
+      echo "staging:$binaries"
+      /binary_replace.sh -i "$binaries" -o /relocate
+    # Everything the node needs is assembled here, in one directory, because the
+    # registry-packages proxy hands bashible ONLY THE LAST LAYER of the image
+    # (go_lib/registry-packages-proxy/registry: layers[len(layers)-1]). An image
+    # whose payload and scripts arrive in different layers reaches the node as
+    # the scripts alone.
+    - mkdir -p /package/nfs-tools
+    - cp -a /relocate/. /package/nfs-tools/
+    # Where rpcbind opens its local socket is compiled into it, and the whole
+    # contract with the csi-node Pod is that path: images/wait-rpcbind blocks
+    # until /run/rpcbind.sock answers. A build whose rpcbind uses
+    # /var/run/rpcbind.sock instead would start cleanly and leave every NFSv3
+    # mount waiting forever, so the path is read out of the binary and /install
+    # is told what to expect rather than assuming.
+    - |
+      set -e
+      rpcbind=""
+      for dir in /usr/sbin /sbin /usr/bin /bin; do
+        if [ -x "$dir/rpcbind" ]; then rpcbind="$dir/rpcbind"; break; fi
+      done
+      sockpath="$(grep -a -o -E '/(var/)?run/rpcbind\.sock' "$rpcbind" | head -n 1 || true)"
+      if [ -z "$sockpath" ]; then echo "cannot tell where rpcbind opens its socket"; exit 1; fi
+      echo "rpcbind opens its socket at $sockpath"
+      printf '%s\n' "$sockpath" > /package/nfs-tools/rpcbind-socket
+    # rpc.statd execs sm-notify by an ABSOLUTE path compiled into it, not by
+    # name, so a payload that carries sm-notify only under its own prefix leaves
+    # statd saying "failed to run /usr/sbin/sm-notify" — which is what the e2e
+    # run of 2026-09-08 found on redos-0. The path is read out of the binary and
+    # /install links it, for the same reason the socket path is read rather than
+    # assumed.
+    - |
+      set -e
+      statd=""
+      for dir in /usr/sbin /sbin /usr/bin /bin; do
+        if [ -x "$dir/rpc.statd" ]; then statd="$dir/rpc.statd"; break; fi
+      done
+      notify="$(grep -a -o -E '/[A-Za-z0-9_/]*/sm-notify' "$statd" | head -n 1 || true)"
+      if [ -z "$notify" ]; then echo "cannot tell where rpc.statd looks for sm-notify"; exit 1; fi
+      echo "rpc.statd execs sm-notify at $notify"
+      printf '%s\n' "$notify" > /package/nfs-tools/sm-notify-path
+    # libtirpc's transport table. The pm libtirpc package does not ship
+    # /etc/netconfig, and without it every userspace SUN RPC call fails with
+    # RPC_UNKNOWNPROTO -- which is exactly what rpcbind and rpc.statd do. The
+    # csi-nfs image writes the same table into itself for the same reason.
+    - |
+      set -e
+      mkdir -p /package/nfs-tools/etc
+      cat > /package/nfs-tools/etc/netconfig <<'EOF'
+      udp        tpi_clts      v     inet     udp     -       -
+      tcp        tpi_cots_ord  v     inet     tcp     -       -
+      udp6       tpi_clts      v     inet6    udp     -       -
+      tcp6       tpi_cots_ord  v     inet6    tcp     -       -
+      rawip      tpi_raw       -     inet      -       -       -
+      local      tpi_cots_ord  -     loopback  -       -       -
+      unix       tpi_cots_ord  -     loopback  -       -       -
+      EOF
+    - chmod +x /package/install /package/uninstall
+
+---
+image: {{ .ModuleNamePrefix }}{{ $.ImageName }}
+from: {{ index $.Images "builder/distroless" }}
+
+# One import, and nothing after it: the last layer has to carry the whole
+# package, scripts and payload together.
+import:
+  - image: {{ .ModuleNamePrefix }}{{ $.ImageName }}-binaries-artifact
+    add: /package
+    to: /
+    before: setup
+
+imageSpec:
+  config:
+    labels:
+      distro: all
+      version: all

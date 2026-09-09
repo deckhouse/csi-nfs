@@ -1,0 +1,196 @@
+#!/bin/bash
+# Copyright 2026 Flant JSC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Brings up the NFSv3 userspace from the module's own package image on a node
+# whose distribution repositories could not provide rpcbind and nfs-utils.
+#
+# What this module needs from the host is two daemons, not client tools: the
+# csi-nfs container mounts the export itself with its own nfs-utils, but an
+# NFSv3 mount goes through the host's portmapper — the csi-node Pod blocks on
+# /run/rpcbind.sock before it starts — and locking goes through the host's
+# rpc.statd. A host that already runs rpcbind keeps everything of its own; this
+# script does nothing there.
+#
+# It also verifies its own outcome rather than reporting success for having
+# written unit files: the whole contract is a socket that answers, so the script
+# waits for it and, if it never comes, prints what the daemons said and fails.
+
+set -Eeo pipefail
+
+PREFIX="/var/lib/deckhouse/sds/csi-nfs"
+RPCBIND_UNIT="d8-csi-nfs-rpcbind.service"
+STATD_UNIT="d8-csi-nfs-rpc-statd.service"
+
+# Only the distribution's own locations count as "the host has rpcbind". Nothing
+# of ours ever lands there, so this stays a question about the host alone.
+host_rpcbind() {
+  local candidate
+  for candidate in /usr/sbin/rpcbind /sbin/rpcbind /usr/bin/rpcbind /bin/rpcbind; do
+    if [[ -x "${candidate}" ]]; then
+      echo "${candidate}"
+      return 0
+    fi
+  done
+  return 1
+}
+
+if found="$(host_rpcbind)"; then
+  echo "${found} is already present on this host; leaving the host's NFS userspace alone"
+  exit 0
+fi
+
+echo "no rpcbind on this host, installing the module's own NFSv3 userspace under ${PREFIX}"
+
+rm -rf "${PREFIX}"
+mkdir -p "${PREFIX}"
+cp -a nfs-tools/. "${PREFIX}/"
+
+# The payload is built against the catalog's glibc, not the host's, so every
+# binary is started through its own loader with its own library path. Nothing of
+# ours is ever merged into the host's /lib64.
+LOADER="$(ls "${PREFIX}"/lib64/ld-linux-*.so.* 2>/dev/null | head -n 1 || true)"
+if [[ -z "${LOADER}" ]]; then
+  echo "the package carries no dynamic loader, refusing to install a payload that cannot run" >&2
+  exit 1
+fi
+
+mkdir -p "${PREFIX}/bin"
+
+# Where inside the payload a tool ended up is the package's business, not ours:
+# binary_replace.sh preserves whatever absolute path the catalog used.
+#
+# TIRPC_NETCONFIG points libtirpc at the transport table the package carries.
+# Without a netconfig every userspace SUN RPC call fails with RPC_UNKNOWNPROTO,
+# and rpcbind and rpc.statd are nothing but userspace RPC.
+wrap() {
+  local name=$1 target=""
+  for dir in usr/sbin sbin usr/bin bin; do
+    if [[ -x "${PREFIX}/${dir}/${name}" ]]; then
+      target="${PREFIX}/${dir}/${name}"
+      break
+    fi
+  done
+  if [[ -z "${target}" ]]; then
+    echo "the package carries no ${name}, refusing to install a stack that cannot run" >&2
+    exit 1
+  fi
+
+  cat > "${PREFIX}/bin/${name}" <<WRAPPER
+#!/bin/sh
+export TIRPC_NETCONFIG="${PREFIX}/etc/netconfig"
+exec "${LOADER}" --library-path "${PREFIX}/lib64:${PREFIX}/usr/lib64:${PREFIX}/usr/lib" "${target}" "\$@"
+WRAPPER
+  chmod +x "${PREFIX}/bin/${name}"
+}
+
+for tool in rpcbind rpc.statd sm-notify; do
+  wrap "${tool}"
+done
+
+# rpc.statd keeps the monitor lists a reboot has to be announced from; the
+# distribution's package ships these directories and ours has to create them.
+#
+# /var/lib/nfs/state is NOT created here. It holds statd's NSM state counter, and
+# statd initialises it itself; an empty file is not a counter, and the run of
+# 2026-09-08 caught it saying "Failed to read /var/lib/nfs/state: Address already
+# in use" before falling back to "Initializing NSM state".
+mkdir -p /var/lib/nfs/sm /var/lib/nfs/sm.bak
+
+# Everything this script puts outside the payload is listed here, and /uninstall
+# takes back exactly those files and nothing else.
+HOST_FILES="${PREFIX}/host-files.list"
+: > "${HOST_FILES}"
+
+# rpc.statd execs sm-notify by the absolute path compiled into it, so the payload
+# copy under our prefix is invisible to it. The package read that path out of the
+# binary at build time; on a node with no nfs-utils it is free, and a host that
+# has its own is one this script never reaches.
+SM_NOTIFY_PATH="$(cat "${PREFIX}/sm-notify-path" 2>/dev/null || true)"
+if [[ -z "${SM_NOTIFY_PATH}" ]]; then
+  echo "the package does not say where rpc.statd looks for sm-notify" >&2
+  exit 1
+fi
+if [[ -e "${SM_NOTIFY_PATH}" ]]; then
+  echo "leaving the host's ${SM_NOTIFY_PATH} alone"
+else
+  mkdir -p "$(dirname "${SM_NOTIFY_PATH}")"
+  ln -sfn "${PREFIX}/bin/sm-notify" "${SM_NOTIFY_PATH}"
+  echo "${SM_NOTIFY_PATH}" >> "${HOST_FILES}"
+  echo "${SM_NOTIFY_PATH} -> ${PREFIX}/bin/sm-notify"
+fi
+
+# The socket path is the contract with the csi-node Pod, and the package read it
+# out of the binary at build time rather than guessing.
+SOCKET="$(cat "${PREFIX}/rpcbind-socket" 2>/dev/null || true)"
+if [[ -z "${SOCKET}" ]]; then
+  echo "the package does not say where rpcbind opens its socket" >&2
+  exit 1
+fi
+echo "rpcbind will open ${SOCKET}"
+
+# extra_unit lands verbatim in the [Unit] section, which is how statd gets its
+# ordering against the portmapper.
+unit() {
+  local unit_name=$1 description=$2 exec_start=$3 extra_unit=${4:-}
+  cat > "/etc/systemd/system/${unit_name}" <<UNITFILE
+[Unit]
+Description=${description}
+Documentation=https://deckhouse.io/products/kubernetes-platform/modules/csi-nfs/
+After=network-online.target
+Wants=network-online.target
+${extra_unit}
+
+[Service]
+Type=simple
+ExecStart=${exec_start}
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+UNITFILE
+}
+
+# rpcbind stays in the foreground (-f) so systemd owns the process rather than
+# following a fork, and -w keeps the registrations a restart would otherwise
+# drop on the floor.
+unit "${RPCBIND_UNIT}" "RPC portmapper shipped by the csi-nfs module" "${PREFIX}/bin/rpcbind -f -w"
+# rpc.statd in the foreground for the same reason. No --no-notify: a node that
+# has just come back is exactly the node whose peers need the reboot
+# announcement, and sm-notify travels in the payload for it. statd registers
+# with the portmapper, so the ordering against it is stated rather than left to
+# systemd's default.
+unit "${STATD_UNIT}" "NSM status monitor shipped by the csi-nfs module" "${PREFIX}/bin/rpc.statd -F" \
+  "After=${RPCBIND_UNIT}
+Requires=${RPCBIND_UNIT}"
+
+systemctl daemon-reload
+systemctl enable --now "${RPCBIND_UNIT}" "${STATD_UNIT}"
+
+# The contract is a socket that answers, not a unit that was written. Waiting
+# here turns "the module silently never mounts an NFSv3 volume" into a failure
+# with the daemon's own words next to it.
+for _ in $(seq 1 30); do
+  if [[ -S "${SOCKET}" ]]; then
+    echo "${SOCKET} is up"
+    exit 0
+  fi
+  sleep 1
+done
+
+echo "${SOCKET} never appeared; the module's NFSv3 mounts cannot work on this node" >&2
+systemctl status --no-pager "${RPCBIND_UNIT}" "${STATD_UNIT}" 2>&1 | tail -30 >&2
+journalctl -u "${RPCBIND_UNIT}" -u "${STATD_UNIT}" --no-pager -n 40 2>&1 | tail -40 >&2
+exit 1

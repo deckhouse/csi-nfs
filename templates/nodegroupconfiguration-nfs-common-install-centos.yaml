@@ -24,6 +24,7 @@ spec:
     # See the License for the specific language governing permissions and
     # limitations under the License.
 
+    MODULE_REPOSITORY="{{ .Values.csiNfs.registry.base }}"
     kubeconfig="/etc/kubernetes/kubelet.conf"
     is_csi_nfs_node=$(bb-kubectl --kubeconfig $kubeconfig  get node "$(hostname)" -o json | jq -c '.metadata.labels | contains({"storage.deckhouse.io/csi-nfs-node":""})')
     bb-log-info "is_csi_nfs_node: "$is_csi_nfs_node
@@ -37,8 +38,19 @@ spec:
       bb-dnf-install "nfs-utils" "rpcbind"
     )
 
+    # A node whose repositories cannot provide this used to be left as it was,
+    # and the failure showed up nowhere: an NFSv4 volume still mounted, while
+    # every NFSv3 mount waited forever because the csi-node Pod blocks on the
+    # host's /run/rpcbind.sock before it even starts. Fall back to the module's
+    # own package image, which carries rpcbind and rpc.statd and brings up units
+    # for both.
+    #
+    # What follows is the distribution's own statd unit, which a fallback node
+    # does not have — the package started its own — so the script is done here
+    # either way.
     if ! install_packages; then
-      bb-log-error "Failed to install required packages (nfs-utils rpcbind). Skipping further configuration on this node."
+      bb-log-warning "Failed to install required packages from the distribution repositories; falling back to the module's own package."
+      bb-package-module-install "nfsTools:{{ include "helm_lib_module_image_digest" (list . "nfsTools" "csiNfs") }}" "$MODULE_REPOSITORY" "csi-nfs"
       exit 0
     fi
 
