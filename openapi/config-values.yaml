@@ -9,7 +9,7 @@ properties:
       - DEBUG
       - TRACE
     description: Module log level.
-    default: DEBUG
+    default: INFO
   v3support:
     type: boolean
     default: false
