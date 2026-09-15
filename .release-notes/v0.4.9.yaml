@@ -1,0 +1,21 @@
+date: "2026-09-14"
+
+summary: "Prometheus can scrape the controller metrics again, and a node whose repositories have no NFSv3 userspace now gets it from the module instead of leaving every NFSv3 volume waiting forever."
+
+highlights:
+  - "Where a node's package manager cannot install `rpcbind` and `nfs-common`/`nfs-utils`, the module installs the two daemons from its own `nfs-tools` image. Without them the CSI node Pod never starts on that node and every NFSv3 mount waits forever."
+  - "The `kube-rbac-proxy` in front of the controller metrics is authorized to check scrapes again: since the metrics moved behind it, every scrape was refused and the controller target stayed down in Prometheus."
+
+new_features:
+  - "On a node whose repositories cannot provide `rpcbind` and `nfs-common`/`nfs-utils`, the `NodeGroupConfiguration` falls back to the module's own `nfs-tools` package image: the payload is unpacked under `/var/lib/deckhouse/sds/csi-nfs` and the daemons come up as `d8-csi-nfs-rpcbind.service` and `d8-csi-nfs-rpc-statd.service`. The distribution's packages stay the preferred path and a node that already has `rpcbind` of its own is left untouched. This concerns NFSv3 only, so it applies to clusters with `v3support: true`; NFSv4 needs neither daemon. The install step now also fails the bashible step when the portmapper socket does not answer, instead of reporting success and leaving the node with mounts that hang."
+
+fixes:
+  - "Prometheus could not scrape the module controller: the `kube-rbac-proxy` in front of its metrics was not allowed to create the `TokenReview` and `SubjectAccessReview` that every scrape is authorized with, so all scrapes were refused and the target stayed down. Clusters running v0.4.8, where the metrics moved behind the proxy, are the ones affected."
+  - "`rpc.statd` from the module's own package can reach `sm-notify` and no longer starts on an empty state file, so a node that has rebooted announces the reboot to the peers holding NFSv3 locks on it."
+
+improvements:
+  - "The default `logLevel` is now `INFO` instead of `DEBUG`, which is what a cluster that never set it explicitly will get."
+
+upgrade_notes:
+  - "Nothing has to be done by hand. The controller target in Prometheus recovers on its own once the updated controller is rolled out, and the NFSv3 fallback only touches nodes where the distribution packages cannot be installed."
+  - "A cluster that relied on the previous default verbosity should set `logLevel: DEBUG` in the module configuration explicitly, because the default is now `INFO`."
