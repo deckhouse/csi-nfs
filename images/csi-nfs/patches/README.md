@@ -57,3 +57,23 @@ incremental on top of 007.
 Transitive bumps from `go mod tidy`: `google.golang.org/protobuf` v1.36.11,
 `go.opentelemetry.io/otel` (+ metric, sdk, trace) v1.43.0,
 `golang.org/x/oauth2` v0.36.0 and `google.golang.org/genproto/googleapis/{api,rpc}`.
+
+## 009-fix-cve-grpc-x-crypto.patch
+
+Raise `google.golang.org/grpc` v1.82.1 -> **v1.83.2** for **CVE-2026-84304**
+and **CVE-2026-84303** (fixed in 1.83.1) and **CVE-2026-84445** (fixed in
+1.83.2), the three findings Trivy reported against the `csi-nfs` binary, and
+`golang.org/x/crypto` v0.53.0 -> **v0.57.0** for CVE-2026-56854 (the
+x/crypto/ssh source-address authentication bypass), CVE-2026-56855 and
+CVE-2026-78662, so the transitive pin does not age into the same advisories
+here as it did in the go-hooks binary. go.mod/go.sum only, incremental on top
+of 008.
+
+Transitive bumps from `go mod tidy`: `go.opentelemetry.io/otel` (+ metric,
+sdk, trace) v1.44.0, `otelhttp` v0.61.0, `golang.org/x/{net,sys,text,sync,
+term,mod,tools}` and `google.golang.org/genproto/googleapis/{api,rpc}`.
+
+The `go` directive moves 1.25.7 -> 1.27.1: `go get` raises it to the
+toolchain in use when a requirement needs a newer language version (x/crypto
+v0.57.0 needs 1.26), and 1.27.1 is the Go the builder/golang image ships
+after the base-images v3.0.2 sync.
