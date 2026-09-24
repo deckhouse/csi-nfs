@@ -1,0 +1,10 @@
+date: "2026-09-24"
+
+summary: "Security update: the CSI driver and the module's hooks are rebuilt against patched `grpc` and `x/crypto`."
+
+highlights:
+  - "`google.golang.org/grpc` is raised from v1.82.1 to v1.83.2 in the CSI driver (`csi-nfs`), closing CVE-2026-84303, CVE-2026-84304 and CVE-2026-84445."
+
+security:
+  - "`google.golang.org/grpc` is raised from v1.82.1 to v1.83.2 in the CSI driver (`csi-nfs`), closing CVE-2026-84303, CVE-2026-84304 and CVE-2026-84445."
+  - "`golang.org/x/crypto` is raised from v0.53.0 to v0.57.0 in the CSI driver (`csi-nfs`) and the module's hooks (`go-hooks`), closing CVE-2026-56854 (authentication bypass by source address in `x/crypto/ssh`), CVE-2026-56855 and CVE-2026-78662."
