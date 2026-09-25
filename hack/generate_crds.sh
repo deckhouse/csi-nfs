@@ -99,7 +99,11 @@ echo "Rendering the CRDs"
     paths="${api_paths}"
 
 echo "Enriching the CRDs"
-"${tools_dir}/crd-enricher" paths="${api_paths//;/,}" crds="${render_dir}"
+# strict turns every enricher warning into a failure. A warning means a marker
+# was not applied as written -- a mistyped key, an unset: whose target is gone,
+# a value that parsed as a map -- and without strict the manifest is written
+# anyway, so the drift gate would pass on a render that lost the marker.
+"${tools_dir}/crd-enricher" paths="${api_paths//;/,}" crds="${render_dir}" strict
 
 # A kind that disappears from the Go types leaves its manifest behind here; that
 # is deliberate, since crds/ is not ours alone to prune -- the doc-ru-*.yaml

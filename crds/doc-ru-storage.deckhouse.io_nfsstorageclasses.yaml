@@ -141,8 +141,6 @@ spec:
                   description: |
                     Последние наблюдения состояния ресурса. Тип условия: `Ready`.
                   items:
-                    description: |
-                      Условие содержит подробности одного аспекта текущего состояния этого ресурса API.
                     properties:
                       type:
                         description: |

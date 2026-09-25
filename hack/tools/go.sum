@@ -2,8 +2,11 @@ github.com/cpuguy83/go-md2man/v2 v2.0.6/go.mod h1:oOW0eioCTA6cOiMLiUPZOpcVxMig6N
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
+github.com/deckhouse/deckhouse v1.77.1/go.mod h1:1XqBx8MMOWMp9cVlczYdy072ZaJSX5kBWVokHZ8CZhE=
 github.com/deckhouse/deckhouse/pkg/crd-enricher v0.0.2 h1:10YUzokRc+wjA/tzR8MJKt998/AhfnomP6ookwRM2dA=
 github.com/deckhouse/deckhouse/pkg/crd-enricher v0.0.2/go.mod h1:lSMhAm8WqUrz+0B/vewKSkH/OZiRMitmnrad1feAt4I=
+github.com/deckhouse/deckhouse/pkg/crd-enricher v0.0.3-0.20260825165152-c9d98f54c23d h1:TTMMMt2vuviiCiaaZ7kmLT+KoeQGJebxKKLjtRDnEPM=
+github.com/deckhouse/deckhouse/pkg/crd-enricher v0.0.3-0.20260825165152-c9d98f54c23d/go.mod h1:lSMhAm8WqUrz+0B/vewKSkH/OZiRMitmnrad1feAt4I=
 github.com/fatih/color v1.18.0 h1:S8gINlzdQ840/4pfAwic/ZE0djQEH3wM94VfqLTZcOM=
 github.com/fatih/color v1.18.0/go.mod h1:4FelSpRwEGDpQ12mAdzqdOukCy4u8WUtOY6lkT/6HfU=
 github.com/fxamacker/cbor/v2 v2.7.0 h1:iM5WgngdRBanHcxugY4JySA0nk1wZorNOpTgCMedv5E=

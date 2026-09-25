@@ -269,8 +269,6 @@ spec:
                 description: 'The latest observations of the resource state. Condition
                   type: `Ready`.'
                 items:
-                  description: Condition contains details for one aspect of the current
-                    state of this API Resource.
                   properties:
                     lastTransitionTime:
                       description: |-

@@ -21,13 +21,14 @@
 module csi-nfs-codegen-tools
 
 go 1.27.1
+
 tool (
 	github.com/deckhouse/deckhouse/pkg/crd-enricher/cmd/crd-enricher
 	sigs.k8s.io/controller-tools/cmd/controller-gen
 )
 
 require (
-	github.com/deckhouse/deckhouse/pkg/crd-enricher v0.0.2 // indirect
+	github.com/deckhouse/deckhouse/pkg/crd-enricher v0.0.3-0.20260825165152-c9d98f54c23d // indirect
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
