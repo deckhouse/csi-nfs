@@ -54,5 +54,25 @@ subjects:
     name: csi-nfs-scheduler-extender
     namespace: d8-{{ .Chart.Name }}
 
+{{- /*
+  The kube-rbac-proxy sidecar in deployment.yaml authorises every scrape with a
+  TokenReview and a SubjectAccessReview. Without this binding it fails closed:
+  Prometheus gets 401 and the only symptom is up == 0 and a permanent TargetDown.
+*/}}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: d8:{{ .Chart.Name }}:csi-nfs-scheduler-extender:rbac-proxy
+  {{- include "helm_lib_module_labels" (list . (dict "app" "csi-nfs-scheduler-extender")) | nindent 2 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: d8:rbac-proxy
+subjects:
+  - kind: ServiceAccount
+    name: csi-nfs-scheduler-extender
+    namespace: d8-{{ .Chart.Name }}
+
 {{- end }}
 {{- end }}
