@@ -132,15 +132,15 @@ To deploy an NFS server with RPC-with-TLS support, the distribution must meet th
 - The kernel must be built with the `CONFIG_TLS` and `CONFIG_NET_HANDSHAKE` options enabled;
 - The nfs-utils package (or nfs-common in Debian-based distributions) must be version >= 2.6.3.
 
-## What happens if a node's repositories cannot provide rpcbind and nfs-utils?
+## Where do rpcbind and rpc.statd on a node come from?
 
-The module installs the two daemons it needs itself, from an image of its own.
+From the module itself: it installs the two daemons it needs from an image of its own, and never asks the node's package manager for them.
 
 What the module wants from a node is narrower than it looks. The `csi-nfs` container mounts the export with its own `nfs-utils`, so no client tools are needed on the host. But an NFSv3 mount registers with the host's portmapper, and locking goes through the host's `rpc.statd`. Those two daemons the host owes, and until they answer the CSI node Pod on that node does not start at all: its init container blocks on `/run/rpcbind.sock`.
 
-On every node it serves — those carrying `storage.deckhouse.io/csi-nfs-node` — the `NodeGroupConfiguration` first asks the node's package manager for `rpcbind` and `nfs-common`/`nfs-utils`. That stays the preferred path: the portmapper is a host-wide service, everything else on the node that speaks RPC expects the distribution's one, and while it is there the module does not interfere.
+On every node it serves — those carrying `storage.deckhouse.io/csi-nfs-node` — bashible pulls the module's package image `nfs-tools` from the module's registry, unpacks it and runs its install script. A node in a closed environment with no route to the distribution's repositories is therefore set up the same way as any other.
 
-When the install fails — a closed environment with no route to the repositories, or a distribution that does not ship the packages — the module falls back to its own package image, `nfs-tools`. bashible pulls it from the module's registry, unpacks it on the node and runs its install script. The payload lands under `/var/lib/deckhouse/sds/csi-nfs`, every binary is started through its own dynamic loader with its own library path, and two units come up:
+The script decides for each daemon separately, because they come from different packages — `rpcbind` from rpcbind, `rpc.statd` from `nfs-common`/`nfs-utils`. A daemon the host already has stays the host's: the portmapper is a host-wide service, everything else on the node that speaks RPC expects the distribution's one, and while it is there the module does not interfere. A daemon the host lacks lands under `/var/lib/deckhouse/sds/csi-nfs`, every binary is started through its own dynamic loader with its own library path, and a unit of the module's comes up for it:
 
 ```shell
 systemctl is-active d8-csi-nfs-rpcbind.service d8-csi-nfs-rpc-statd.service
@@ -152,13 +152,13 @@ Three things worth knowing about, because none of them is visible until a mount 
 
 The socket path is not assumed. Where `rpcbind` opens its local socket is compiled into the binary, and the image reads that path out at build time and tells the install script what to expect; a build that used `/var/run/rpcbind.sock` instead would start cleanly and leave the CSI node Pod waiting on the path it watches.
 
-`rpcbind` and `rpc.statd` are nothing but userspace SUN RPC, and libtirpc needs a transport table to make a single call. The package carries its own `netconfig` and the wrappers point the daemons at it; without it every call fails with `RPC_UNKNOWNPROTO`.
+`rpcbind` and `rpc.statd` are nothing but userspace SUN RPC, and libtirpc needs a transport table to make a single call. libtirpc reads that table only from `/etc/netconfig`, so on a node that has none — a fresh Ubuntu 24.04 has no libtirpc of its own — the install script puts the package's copy there and records it for the uninstall; without it both daemons exit at start, and every call fails with `RPC_UNKNOWNPROTO`.
 
 And `rpc.statd` execs `sm-notify` by the absolute path compiled into it, which is not the copy under our prefix. The install script links that path onto the payload's copy, and records the link so that the uninstall takes back exactly it. Without the link a node that has just rebooted cannot announce the reboot to the peers holding locks on it.
 
-The two paths never mix. A host that already has `rpcbind` of its own keeps everything of its own, and the install script does nothing there.
+The two daemons talk to each other over the portmapper protocol, which does not depend on the version, so a node may well run the host's `rpcbind` next to the module's `rpc.statd`.
 
-To tell which path a node took, look at what is running on it:
+To tell which daemon a node took from where, look at what is running on it:
 
 ```shell
 # the distribution's daemons
@@ -170,8 +170,8 @@ rpcinfo -p localhost
 
 Two limits are worth stating plainly.
 
-The fallback delivers the two daemons the module needs, not a general-purpose NFS client. Anything else on the node that mounts NFS by itself — kubelet's in-tree `nfs` volume plugin, or a `mount -t nfs` by hand — still needs the distribution's `mount.nfs` and does not get one from here. The module's own volumes are unaffected: those are mounted from inside the container.
+The module delivers the two daemons it needs, not a general-purpose NFS client. Anything else on the node that mounts NFS by itself — kubelet's in-tree `nfs` volume plugin, or a `mount -t nfs` by hand — still needs the distribution's `mount.nfs` and does not get one from here. The module's own volumes are unaffected: those are mounted from inside the container.
 
-And none of this concerns NFSv4. Version 4 carries locking in the protocol itself and needs no portmapper, so a node serving only NFSv4 shares needs neither the distribution's packages nor the fallback.
+And none of this concerns NFSv4. Version 4 carries locking in the protocol itself and needs no portmapper, so a node serving only NFSv4 shares needs none of these daemons.
 
 Uninstalling stops the units and takes back the files the install placed on the host, and deliberately leaves `/var/lib/nfs` in place: its `sm`/`sm.bak` lists are the record of which peers hold locks on this node, and a distribution package installed later expects to find them where they are.

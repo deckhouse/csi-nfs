@@ -13,15 +13,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Brings up the NFSv3 userspace from the module's own package image on a node
-# whose distribution repositories could not provide rpcbind and nfs-utils.
+# Brings up the NFSv3 userspace from the module's own package image. The
+# NodeGroupConfiguration never asks the node's repositories for rpcbind or
+# nfs-utils, so this is the only way a node gets the daemons it lacks.
 #
 # What this module needs from the host is two daemons, not client tools: the
 # csi-nfs container mounts the export itself with its own nfs-utils, but an
 # NFSv3 mount goes through the host's portmapper — the csi-node Pod blocks on
 # /run/rpcbind.sock before it starts — and locking goes through the host's
-# rpc.statd. A host that already runs rpcbind keeps everything of its own; this
-# script does nothing there.
+# rpc.statd. The two come from different packages (rpcbind and nfs-utils), and
+# each is decided on its own: a daemon the host already has stays the host's,
+# and one it lacks comes from here. They speak the portmapper protocol to each
+# other, which does not depend on the version, so one of each is fine.
 #
 # It also verifies its own outcome rather than reporting success for having
 # written unit files: the whole contract is a socket that answers, so the script
@@ -33,25 +36,68 @@ PREFIX="/var/lib/deckhouse/sds/csi-nfs"
 RPCBIND_UNIT="d8-csi-nfs-rpcbind.service"
 STATD_UNIT="d8-csi-nfs-rpc-statd.service"
 
-# Only the distribution's own locations count as "the host has rpcbind". Nothing
-# of ours ever lands there, so this stays a question about the host alone.
-host_rpcbind() {
+# Only the distribution's own locations count as "the host has it". Nothing of
+# ours lands there except the sm-notify link below, and that one only on a host
+# with no nfs-utils, so rpc.statd is what decides nfs-utils.
+host_has() {
   local candidate
-  for candidate in /usr/sbin/rpcbind /sbin/rpcbind /usr/bin/rpcbind /bin/rpcbind; do
-    if [[ -x "${candidate}" ]]; then
-      echo "${candidate}"
-      return 0
-    fi
+  for candidate in "/usr/sbin/$1" "/sbin/$1" "/usr/bin/$1" "/bin/$1"; do
+    [[ -x "${candidate}" ]] && return 0
   done
   return 1
 }
 
-if found="$(host_rpcbind)"; then
-  echo "${found} is already present on this host; leaving the host's NFS userspace alone"
+# A daemon that is the host's now may have been ours under an earlier version of
+# this package; its unit would keep a second one running beside the host's.
+drop_our_unit() {
+  if [[ -f "/etc/systemd/system/$1" ]]; then
+    systemctl disable --now "$1" || true
+    rm -f "/etc/systemd/system/$1"
+  fi
+}
+
+# The link an earlier version put where rpc.statd execs sm-notify, which the
+# host's nfs-utils may since have replaced with its own file.
+drop_our_host_files() {
+  local list="${PREFIX}/host-files.list" placed
+  [[ -f "${list}" ]] || return 0
+  while read -r placed; do
+    [[ -n "${placed}" && -L "${placed}" ]] && rm -f "${placed}"
+  done < "${list}"
+  return 0
+}
+
+install_rpcbind=true
+install_statd=true
+if host_has rpcbind; then
+  echo "the host has rpcbind of its own; leaving the portmapper to it"
+  install_rpcbind=false
+fi
+if host_has rpc.statd; then
+  echo "the host has nfs-utils of its own; leaving rpc.statd to it"
+  install_statd=false
+fi
+# statd first: it is registered with the portmapper.
+if [[ "${install_statd}" == false ]]; then
+  drop_our_unit "${STATD_UNIT}"
+  drop_our_host_files
+fi
+if [[ "${install_rpcbind}" == false ]]; then
+  drop_our_unit "${RPCBIND_UNIT}"
+fi
+if [[ "${install_rpcbind}" == false && "${install_statd}" == false ]]; then
+  systemctl daemon-reload
+  rm -rf "${PREFIX}"
   exit 0
 fi
 
-echo "no rpcbind on this host, installing the module's own NFSv3 userspace under ${PREFIX}"
+echo "installing the module's own NFSv3 userspace under ${PREFIX} (rpcbind: ${install_rpcbind}, rpc.statd: ${install_statd})"
+
+# On an upgrade rpp-get runs only the new version's /install, never the old
+# one's /uninstall, so the files an earlier install put on the host are known
+# only from the list it left under ${PREFIX}. Read it before ${PREFIX} goes, or
+# those files would pass for the host's own and never be taken back.
+OURS_BEFORE="$(cat "${PREFIX}/host-files.list" 2>/dev/null || true)"
 
 rm -rf "${PREFIX}"
 mkdir -p "${PREFIX}"
@@ -70,10 +116,6 @@ mkdir -p "${PREFIX}/bin"
 
 # Where inside the payload a tool ended up is the package's business, not ours:
 # binary_replace.sh preserves whatever absolute path the catalog used.
-#
-# TIRPC_NETCONFIG points libtirpc at the transport table the package carries.
-# Without a netconfig every userspace SUN RPC call fails with RPC_UNKNOWNPROTO,
-# and rpcbind and rpc.statd are nothing but userspace RPC.
 wrap() {
   local name=$1 target=""
   for dir in usr/sbin sbin usr/bin bin; do
@@ -89,56 +131,79 @@ wrap() {
 
   cat > "${PREFIX}/bin/${name}" <<WRAPPER
 #!/bin/sh
-export TIRPC_NETCONFIG="${PREFIX}/etc/netconfig"
 exec "${LOADER}" --library-path "${PREFIX}/lib64:${PREFIX}/usr/lib64:${PREFIX}/usr/lib" "${target}" "\$@"
 WRAPPER
   chmod +x "${PREFIX}/bin/${name}"
 }
 
-for tool in rpcbind rpc.statd sm-notify; do
-  wrap "${tool}"
-done
-
-# rpc.statd keeps the monitor lists a reboot has to be announced from; the
-# distribution's package ships these directories and ours has to create them.
-#
-# /var/lib/nfs/state is NOT created here. It holds statd's NSM state counter, and
-# statd initialises it itself; an empty file is not a counter, and the run of
-# 2026-09-08 caught it saying "Failed to read /var/lib/nfs/state: Address already
-# in use" before falling back to "Initializing NSM state".
-mkdir -p /var/lib/nfs/sm /var/lib/nfs/sm.bak
+if [[ "${install_rpcbind}" == true ]]; then
+  wrap rpcbind
+fi
+if [[ "${install_statd}" == true ]]; then
+  wrap rpc.statd
+  wrap sm-notify
+fi
 
 # Everything this script puts outside the payload is listed here, and /uninstall
 # takes back exactly those files and nothing else.
 HOST_FILES="${PREFIX}/host-files.list"
 : > "${HOST_FILES}"
 
-# rpc.statd execs sm-notify by the absolute path compiled into it, so the payload
-# copy under our prefix is invisible to it. The package read that path out of the
-# binary at build time; on a node with no nfs-utils it is free, and a host that
-# has its own is one this script never reaches.
-SM_NOTIFY_PATH="$(cat "${PREFIX}/sm-notify-path" 2>/dev/null || true)"
-if [[ -z "${SM_NOTIFY_PATH}" ]]; then
-  echo "the package does not say where rpc.statd looks for sm-notify" >&2
-  exit 1
+# rpcbind and rpc.statd are nothing but userspace SUN RPC, and libtirpc reads its
+# transport table from /etc/netconfig, a path compiled into it: nothing points it
+# elsewhere, so the copy the package carries is invisible to it. A host with a
+# libtirpc of its own has the file; a host without one has none — a fresh Ubuntu
+# 24.04 does not — and there rpcbind stops at "could not read /etc/netconfig" and
+# rpc.statd at "Netconfig database not found", which is how the e2e run of
+# 2026-09-28 found both daemons restarting on ubuntu-0.
+if [[ ! -e /etc/netconfig ]] || grep -qxF /etc/netconfig <<< "${OURS_BEFORE}"; then
+  cp -f "${PREFIX}/etc/netconfig" /etc/netconfig
+  echo /etc/netconfig >> "${HOST_FILES}"
+  echo "placed the package's /etc/netconfig"
 fi
-if [[ -e "${SM_NOTIFY_PATH}" ]]; then
-  echo "leaving the host's ${SM_NOTIFY_PATH} alone"
-else
-  mkdir -p "$(dirname "${SM_NOTIFY_PATH}")"
-  ln -sfn "${PREFIX}/bin/sm-notify" "${SM_NOTIFY_PATH}"
-  echo "${SM_NOTIFY_PATH}" >> "${HOST_FILES}"
-  echo "${SM_NOTIFY_PATH} -> ${PREFIX}/bin/sm-notify"
+
+if [[ "${install_statd}" == true ]]; then
+  # rpc.statd keeps the monitor lists a reboot has to be announced from; the
+  # distribution's package ships these directories and ours has to create them.
+  #
+  # /var/lib/nfs/state is NOT created here. It holds statd's NSM state counter, and
+  # statd initialises it itself; an empty file is not a counter, and the run of
+  # 2026-09-08 caught it saying "Failed to read /var/lib/nfs/state: Address already
+  # in use" before falling back to "Initializing NSM state".
+  mkdir -p /var/lib/nfs/sm /var/lib/nfs/sm.bak
+
+  # rpc.statd execs sm-notify by the absolute path compiled into it, so the payload
+  # copy under our prefix is invisible to it. The package read that path out of the
+  # binary at build time; on a node with no nfs-utils it is free, and a host that
+  # has its own never gets here.
+  SM_NOTIFY_PATH="$(cat "${PREFIX}/sm-notify-path" 2>/dev/null || true)"
+  if [[ -z "${SM_NOTIFY_PATH}" ]]; then
+    echo "the package does not say where rpc.statd looks for sm-notify" >&2
+    exit 1
+  fi
+  # A link to our own wrapper is the one an earlier install of this package
+  # put there, not the host's, and it has to stay on the list.
+  if [[ -e "${SM_NOTIFY_PATH}" && "$(readlink "${SM_NOTIFY_PATH}" || true)" != "${PREFIX}/bin/sm-notify" ]]; then
+    echo "leaving the host's ${SM_NOTIFY_PATH} alone"
+  else
+    mkdir -p "$(dirname "${SM_NOTIFY_PATH}")"
+    ln -sfn "${PREFIX}/bin/sm-notify" "${SM_NOTIFY_PATH}"
+    echo "${SM_NOTIFY_PATH}" >> "${HOST_FILES}"
+    echo "${SM_NOTIFY_PATH} -> ${PREFIX}/bin/sm-notify"
+  fi
 fi
 
 # The socket path is the contract with the csi-node Pod, and the package read it
-# out of the binary at build time rather than guessing.
-SOCKET="$(cat "${PREFIX}/rpcbind-socket" 2>/dev/null || true)"
-if [[ -z "${SOCKET}" ]]; then
-  echo "the package does not say where rpcbind opens its socket" >&2
-  exit 1
+# out of the binary at build time rather than guessing. A host rpcbind is the
+# distribution's business, and the NodeGroupConfiguration starts it.
+if [[ "${install_rpcbind}" == true ]]; then
+  SOCKET="$(cat "${PREFIX}/rpcbind-socket" 2>/dev/null || true)"
+  if [[ -z "${SOCKET}" ]]; then
+    echo "the package does not say where rpcbind opens its socket" >&2
+    exit 1
+  fi
+  echo "rpcbind will open ${SOCKET}"
 fi
-echo "rpcbind will open ${SOCKET}"
 
 # extra_unit lands verbatim in the [Unit] section, which is how statd gets its
 # ordering against the portmapper.
@@ -166,18 +231,35 @@ UNITFILE
 # rpcbind stays in the foreground (-f) so systemd owns the process rather than
 # following a fork, and -w keeps the registrations a restart would otherwise
 # drop on the floor.
-unit "${RPCBIND_UNIT}" "RPC portmapper shipped by the csi-nfs module" "${PREFIX}/bin/rpcbind -f -w"
+units=()
+if [[ "${install_rpcbind}" == true ]]; then
+  unit "${RPCBIND_UNIT}" "RPC portmapper shipped by the csi-nfs module" "${PREFIX}/bin/rpcbind -f -w"
+  units+=("${RPCBIND_UNIT}")
+fi
 # rpc.statd in the foreground for the same reason. No --no-notify: a node that
 # has just come back is exactly the node whose peers need the reboot
 # announcement, and sm-notify travels in the payload for it. statd registers
 # with the portmapper, so the ordering against it is stated rather than left to
-# systemd's default.
-unit "${STATD_UNIT}" "NSM status monitor shipped by the csi-nfs module" "${PREFIX}/bin/rpc.statd -F" \
-  "After=${RPCBIND_UNIT}
+# systemd's default — against ours, or against the distribution's units, one of
+# which may be socket-activated.
+if [[ "${install_statd}" == true ]]; then
+  if [[ "${install_rpcbind}" == true ]]; then
+    portmapper="After=${RPCBIND_UNIT}
 Requires=${RPCBIND_UNIT}"
+  else
+    portmapper="After=rpcbind.socket rpcbind.service
+Wants=rpcbind.socket rpcbind.service"
+  fi
+  unit "${STATD_UNIT}" "NSM status monitor shipped by the csi-nfs module" "${PREFIX}/bin/rpc.statd -F" "${portmapper}"
+  units+=("${STATD_UNIT}")
+fi
 
 systemctl daemon-reload
-systemctl enable --now "${RPCBIND_UNIT}" "${STATD_UNIT}"
+systemctl enable --now "${units[@]}"
+
+if [[ "${install_rpcbind}" == false ]]; then
+  exit 0
+fi
 
 # The contract is a socket that answers, not a unit that was written. Waiting
 # here turns "the module silently never mounts an NFSv3 volume" into a failure

@@ -4,9 +4,10 @@ it on the node (bb-package-module-install), unpacks it and executes /install,
 the same way sds-replicated-volume delivers drbd, semver and its service
 scripts.
 
-It exists for nodes whose distribution repositories cannot provide the NFSv3
-userspace — the NodeGroupConfiguration installs nfs-common/nfs-utils and
-rpcbind when it can, and falls back to this image when it cannot.
+It is the only source of the NFSv3 userspace on a node: the
+NodeGroupConfiguration never asks the distribution's repositories for
+nfs-common/nfs-utils or rpcbind, and /install lands only the daemons the host
+does not already have of its own.
 
 What the host actually owes this module is two DAEMONS, not client tools: the
 csi-nfs container carries its own nfs-utils and does the mount itself, but an
@@ -106,6 +107,8 @@ shell:
     # /etc/netconfig, and without it every userspace SUN RPC call fails with
     # RPC_UNKNOWNPROTO -- which is exactly what rpcbind and rpc.statd do. The
     # csi-nfs image writes the same table into itself for the same reason.
+    # libtirpc only ever reads /etc/netconfig, so /install puts this copy there
+    # on a host that has none.
     - |
       set -e
       mkdir -p /package/nfs-tools/etc

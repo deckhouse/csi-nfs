@@ -34,26 +34,50 @@ spec:
       exit 0
     fi
 
-    install_packages() (
-      bb-apt-install "nfs-common" "rpcbind"
-    )
+    # The distribution's own locations only; the package's copies live under
+    # /var/lib/deckhouse/sds/csi-nfs.
+    host_has() {
+      local candidate
+      for candidate in "/usr/sbin/$1" "/sbin/$1" "/usr/bin/$1" "/bin/$1"; do
+        [[ -x "${candidate}" ]] && return 0
+      done
+      return 1
+    }
 
-    # A node whose repositories cannot provide this used to be left as it was,
-    # and the failure showed up nowhere: an NFSv4 volume still mounted, while
-    # every NFSv3 mount waited forever because the csi-node Pod blocks on the
-    # host's /run/rpcbind.sock before it even starts. Fall back to the module's
-    # own package image, which carries rpcbind and rpc.statd and brings up units
-    # for both.
-    #
-    # What follows is the distribution's own statd unit, which a fallback node
-    # does not have — the package started its own — so the script is done here
-    # either way.
-    if ! install_packages; then
-      bb-log-warning "Failed to install required packages from the distribution repositories; falling back to the module's own package."
-      bb-package-module-install "nfsTools:{{ include "helm_lib_module_image_digest" (list . "nfsTools" "csiNfs") }}" "$MODULE_REPOSITORY" "csi-nfs"
-      exit 0
-    fi
+    # rpp-get runs a package's /install only for a digest it has not installed
+    # yet, so what the package took over on this node is decided once per module
+    # version. A node whose own tools changed since — one removed, or the
+    # distribution's package installed next to ours — would keep that decision:
+    # a tool nobody provides, or two daemons side by side. Forgetting the
+    # installed digest makes /install decide again.
+    reinstall_if_stale() {
+      local package=$1 prefix=$2 tool host ours
+      shift 2
+      for tool in "$@"; do
+        host=false
+        ours=false
+        host_has "${tool}" && host=true
+        [[ -x "${prefix}/bin/${tool}" ]] && ours=true
+        if [[ "${host}" == "${ours}" ]]; then
+          bb-log-info "${tool} on this node no longer matches the installed ${package} package; installing it again."
+          rm -f "/var/cache/registrypackages/${package}/digest"
+          return 0
+        fi
+      done
+    }
 
+    # rpcbind and rpc.statd come from the module's own package image and never
+    # from the node's repositories: a node that cannot reach them used to spend
+    # every bashible run waiting out the package manager before it got to the
+    # image. The package's /install keeps each daemon the host already has and
+    # brings the missing ones up under units of its own.
+    reinstall_if_stale nfsTools /var/lib/deckhouse/sds/csi-nfs rpcbind rpc.statd
+    bb-package-module-install "nfsTools:{{ include "helm_lib_module_image_digest" (list . "nfsTools" "csiNfs") }}" "$MODULE_REPOSITORY" "csi-nfs"
+
+    # What follows drives the distribution's units, so it is done only for the
+    # daemons the host has of its own; the package started units for the rest.
     # This is dirty hack for statd, because it can't be enabled via systemd in newer distributive (Bashible performs a full cycle at every node reboot, so statd will be started)
-    systemctl start rpc-statd.service
+    if host_has rpc.statd; then
+      systemctl start rpc-statd.service
+    fi
 {{- end }}
