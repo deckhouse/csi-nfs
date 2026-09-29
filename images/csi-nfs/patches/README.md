@@ -1,79 +1,73 @@
 # Patches
 
+Patches are applied in order to csi-driver-nfs v4.13.4. The files under
+`csi-driver-nfs/` are copied over the patched tree afterwards.
+
 ## 001-add-volume-cleanup-and-feature-pkg.patch
 
-Add volume cleanup feature
+Add volume cleanup feature. DeleteVolume and DeleteSnapshot wipe the data with
+the method from the `volumeCleanup` secret key (`Discard`,
+`RandomFillSinglePass`, `RandomFillThreePass`) before the subdirectory is
+removed; the cleanup itself is EE-only and gated by
+`github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature`, which is
+required through `replace => ../csi-nfs/lib/go/common` (werf places `lib/go`
+at `/src/csi-nfs`). go.mod/go.sum are `go mod tidy` output: the `go`
+directive moves to 1.27.1, the one `lib/go/common` declares, and the
+requirements `lib/go/common` shares with the driver are raised to its versions.
 
 ## 002-add-mountPermissions-to-snapshot.patch
 
 Add mountPermissions to snapshot. Fix mountPermissions.
 
-## 003-updated-golang-version.patch
+- `mountPermissions` is accepted in the VolumeSnapshotClass parameters and
+  applied to the snapshot directory in CreateSnapshot.
+- CreateVolume fails when chmod of the volume directory fails (upstream only
+  logs a warning).
+- NodePublishVolume creates the target with 0777 and does not chmod it: the
+  target is the root of the NFS export.
 
-Update golang version
+The `syscall.Chmod` part of the former patch is dropped: upstream switched
+`chmodIfPermissionMismatch` to raw Unix modes and `syscall.Chmod` in v4.13.3
+(kubernetes-csi/csi-driver-nfs fb08e26f, 4a5ec144).
 
-## 004-add-socket-permissions.patch
+## 003-add-socket-permissions.patch
 
-Add sockerPermissions to csi-controller
+Add the `--socket-permissions` flag to set the mode of the CSI Unix socket
+(used by csi-controller).
 
-## 005-fix-cve.patch
-
-Fix CVE (combined). Cumulative dependency bumps and re-vendoring:
-
-- go.opentelemetry.io/otel and otel/metric,sdk,trace v1.41.0 (CVE-2026-29181)
-- golang.org/x/net v0.55.0 (CVE-2026-25681, CVE-2026-27136, CVE-2026-39821,
-  CVE-2026-25680, CVE-2026-42502, CVE-2026-42506, CVE-2026-33814)
-- golang.org/x/sys v0.45.0 (CVE-2026-39824)
-
-## 006-idempotent-createvolume-createsnapshot.patch
+## 004-idempotent-createvolume-createsnapshot.patch
 
 Make the data-copy step of CreateVolume/CreateSnapshot idempotent. A retried
 CreateVolume from a snapshot used to truncate and rewrite disk.img of an
 already provisioned (and possibly attached) volume, corrupting reads of a
 booting VM. Content is now populated into a `.populating` staging path and
 atomically renamed into place; retries skip the copy when the final path
-exists. Same for the snapshot archive in CreateSnapshot. Also fix TarPack
-dropping Close() errors (named return), which could hide NFS write-back
-failures (e.g. ENOSPC) behind a truncated-but-ready archive.
+exists. Same for the snapshot archive in CreateSnapshot, for both the
+compressed (`.tar.gz`) and the uncompressed (`.tar`) archive upstream added
+with `--enable-snapshot-compression` in v4.13.0. Also fix TarPack dropping
+Close() errors (named return), which could hide NFS write-back failures
+(e.g. ENOSPC) behind a truncated-but-ready archive. The upstream test
+`TestCopyVolumeFromUncompressedSnapshot` no longer pre-creates the destination
+directory: the staging rename requires it to be absent, as it is when
+CreateVolume calls the copy.
 
-## 007-fix-cve-golang-x.patch
+## 005-fix-cve.patch
 
-Fix fixable golang.org/x CVEs, incremental on top of 005. go.mod/go.sum only
-(the image builds non-vendored via `go mod download`):
+Fix CVE. go.mod/go.sum only (the image builds non-vendored via
+`go mod download`), incremental on top of 001:
 
-- golang.org/x/net v0.56.0 (CVE-2026-46600)
-- golang.org/x/text v0.39.0 (CVE-2026-56852)
+- google.golang.org/grpc v1.83.2 (GHSA-hrxh-6v49-42gf, CVE-2026-84303,
+  CVE-2026-84304, CVE-2026-84445)
+- go.opentelemetry.io/otel/sdk v1.45.0 (CVE-2026-24051, CVE-2026-39883,
+  CVE-2026-81870)
+- go.opentelemetry.io/otel/exporters/otlp/otlptrace and otlptracegrpc v1.45.0
+  (CVE-2026-81870)
+- golang.org/x/crypto v0.56.0 (CVE-2026-56854, CVE-2026-56855, CVE-2026-78662)
+- golang.org/x/mod v0.40.0 (CVE-2026-56864, CVE-2026-56865)
+- github.com/gorilla/websocket v1.5.3 (GHSA-w67g-5rqw-f597)
 
-Pulls the transitive golang.org/x/crypto v0.53.0, x/sys v0.46.0,
-x/sync v0.21.0, x/term v0.44.0 bumps.
-
-## 008-fix-cve-grpc-hrxh.patch
-
-Raise `google.golang.org/grpc` v1.79.3 -> **v1.82.1** for
-**GHSA-hrxh-6v49-42gf** (HIGH, gRPC-Go: xDS RBAC and HTTP/2
-vulnerabilities), the version patch 005 had pinned. go.mod/go.sum only,
-incremental on top of 007.
-
-Transitive bumps from `go mod tidy`: `google.golang.org/protobuf` v1.36.11,
-`go.opentelemetry.io/otel` (+ metric, sdk, trace) v1.43.0,
-`golang.org/x/oauth2` v0.36.0 and `google.golang.org/genproto/googleapis/{api,rpc}`.
-
-## 009-fix-cve-grpc-x-crypto.patch
-
-Raise `google.golang.org/grpc` v1.82.1 -> **v1.83.2** for **CVE-2026-84304**
-and **CVE-2026-84303** (fixed in 1.83.1) and **CVE-2026-84445** (fixed in
-1.83.2), the three findings Trivy reported against the `csi-nfs` binary, and
-`golang.org/x/crypto` v0.53.0 -> **v0.57.0** for CVE-2026-56854 (the
-x/crypto/ssh source-address authentication bypass), CVE-2026-56855 and
-CVE-2026-78662, so the transitive pin does not age into the same advisories
-here as it did in the go-hooks binary. go.mod/go.sum only, incremental on top
-of 008.
-
-Transitive bumps from `go mod tidy`: `go.opentelemetry.io/otel` (+ metric,
-sdk, trace) v1.44.0, `otelhttp` v0.61.0, `golang.org/x/{net,sys,text,sync,
-term,mod,tools}` and `google.golang.org/genproto/googleapis/{api,rpc}`.
-
-The `go` directive moves 1.25.7 -> 1.27.1: `go get` raises it to the
-toolchain in use when a requirement needs a newer language version (x/crypto
-v0.57.0 needs 1.26), and 1.27.1 is the Go the builder/golang image ships
-after the base-images v3.0.2 sync.
+The remaining findings are covered by `known_vulnerabilities.vex`: the fixed
+releases of github.com/opencontainers/runc (v1.3.6+) and
+github.com/google/cel-go (v0.29.0+) do not build with the k8s.io v0.32
+libraries, and golang.org/x/crypto has no release without openpgp. None of the
+three is compiled into the csi-nfs binary.

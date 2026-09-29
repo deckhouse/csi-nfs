@@ -1,52 +1,24 @@
-From fed8491342797bd18eab7887420f818d03e811b3 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Dmitry Rakitin <dmitry.rakitin@flant.com>
-Date: Tue, 14 Jul 2026 22:32:22 +0200
-Subject: [PATCH] Make CreateVolume/CreateSnapshot data copy idempotent
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Date: Sat, 26 Sep 2026 08:15:48 +0300
+Subject: [PATCH 4/5] Make CreateVolume/CreateSnapshot data copy idempotent
 
-CSI requires CreateVolume and CreateSnapshot to be idempotent, but the
-data-copy step is re-run on every call: a retried CreateVolume-from-snapshot
-truncates (os.Create) and rewrites the volume content even when the volume
-was already provisioned and published to a workload. With late binding the
-PVC is bound and mounted right after the first successful call, so a retry
-lands while the workload is reading: observed as VMs failing to boot from
-freshly cloned disks (SYSLINUX "EDD Load error", SeaBIOS "no bootable
-device") although the final file content converges.
-
-The copy functions now populate a staging path (.populating suffix) and
-atomically rename it into place while they still hold the internal mount of
-the destination volume; the existence of the final path always means the
-content is complete, so retries skip the copy. If the final path appears
-concurrently, the staging copy is discarded and the existing content wins.
-The same is done for the snapshot archive in CreateSnapshot, which could
-previously truncate an archive while a volume restore was reading it. Stale
-staging leftovers are removed on retry and on DeleteVolume.
-
-Also give TarPack a named error return: its deferred Close error joins were
-assigned to a local variable and dropped, hiding delayed NFS write-back
-failures (e.g. ENOSPC) behind a success response with a truncated archive.
-
-A symlink-based test mounter emulates real mount visibility (content
-disappears from the target path on unmount), pinning the requirement that
-the destination volume is only accessed while its internal mount is held —
-plain FakeMounter cannot catch that class of bugs.
+Populate the volume content and the snapshot archive under a .populating staging path and rename it into place once complete; retries skip the copy when the final path exists. TarPack gets a named error return so deferred Close errors are not dropped. Ported onto v4.13.4, including the uncompressed snapshot archives added upstream (--enable-snapshot-compression).
 
 Signed-off-by: Dmitry Rakitin <dmitry.rakitin@flant.com>
 ---
- pkg/nfs/controllerserver.go                  | 165 +++++++--
+ pkg/nfs/controllerserver.go                  | 177 +++++++--
  pkg/nfs/controllerserver_idempotency_test.go | 367 +++++++++++++++++++
- pkg/nfs/controllerserver_test.go             |  10 +-
+ pkg/nfs/controllerserver_test.go             |  19 +-
  pkg/nfs/tar.go                               |   8 +-
- 4 files changed, 516 insertions(+), 34 deletions(-)
+ 4 files changed, 526 insertions(+), 45 deletions(-)
  create mode 100644 pkg/nfs/controllerserver_idempotency_test.go
 
 diff --git a/pkg/nfs/controllerserver.go b/pkg/nfs/controllerserver.go
-index bae0524..739332a 100644
+index e16c91b6..b851840f 100644
 --- a/pkg/nfs/controllerserver.go
 +++ b/pkg/nfs/controllerserver.go
-@@ -113,6 +113,14 @@ const (
+@@ -115,6 +115,14 @@ const (
  	totalIDSnapElements // Always last
  )
  
@@ -61,7 +33,7 @@ index bae0524..739332a 100644
  // CreateVolume create a volume
  func (cs *ControllerServer) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
  	name := req.GetName()
-@@ -179,20 +187,37 @@ func (cs *ControllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
+@@ -181,20 +189,37 @@ func (cs *ControllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
  
  	// Create subdirectory under base-dir
  	internalVolumePath := getInternalVolumePath(cs.Driver.workingMountDir, nfsVol)
@@ -71,7 +43,7 @@ index bae0524..739332a 100644
  
 -	if mountPermissions > 0 {
 -		// Reset directory permissions because of umask problems
--		if err := chmodIfPermissionMismatch(internalVolumePath, os.FileMode(mountPermissions)); err != nil {
+-		if err := chmodIfPermissionMismatch(internalVolumePath, uint32(mountPermissions)); err != nil {
 -			return nil, status.Error(codes.Internal, err.Error())
 +	if req.GetVolumeContentSource() != nil {
 +		// A retried CreateVolume (e.g. the CO failed to record a previous
@@ -104,13 +76,13 @@ index bae0524..739332a 100644
 -			return nil, err
 +		if mountPermissions > 0 {
 +			// Reset directory permissions because of umask problems
-+			if err := chmodIfPermissionMismatch(internalVolumePath, os.FileMode(mountPermissions)); err != nil {
++			if err := chmodIfPermissionMismatch(internalVolumePath, uint32(mountPermissions)); err != nil {
 +				return nil, status.Error(codes.Internal, err.Error())
 +			}
  		}
  	}
  
-@@ -252,6 +277,11 @@ func (cs *ControllerServer) DeleteVolume(ctx context.Context, req *csi.DeleteVol
+@@ -254,6 +279,11 @@ func (cs *ControllerServer) DeleteVolume(ctx context.Context, req *csi.DeleteVol
  
  		internalVolumePath := getInternalVolumePath(cs.Driver.workingMountDir, nfsVol)
  
@@ -122,15 +94,15 @@ index bae0524..739332a 100644
  		if strings.EqualFold(nfsVol.onDelete, archive) {
  			archivedInternalVolumePath := filepath.Join(getInternalMountPath(cs.Driver.workingMountDir, nfsVol), "archived-"+nfsVol.subDir)
  			if strings.Contains(nfsVol.subDir, "/") {
-@@ -417,17 +447,36 @@ func (cs *ControllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateS
+@@ -418,23 +448,42 @@ func (cs *ControllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateS
  	srcPath := getInternalVolumePath(cs.Driver.workingMountDir, srcVol)
- 	dstPath := filepath.Join(snapInternalVolPath, snapshot.archiveName())
+ 	dstPath := filepath.Join(snapInternalVolPath, snapshot.archiveName(cs.Driver.enableSnapshotCompression))
  
 -	klog.V(2).Infof("tar %v -> %v", srcPath, dstPath)
 -	if cs.Driver.useTarCommandInSnapshot {
--		if out, err := exec.Command("tar", "-C", srcPath, "-czvf", dstPath, ".").CombinedOutput(); err != nil {
--			return nil, status.Errorf(codes.Internal, "failed to create archive for snapshot: %v: %v", err, string(out))
--		}
+-		var tarArgs []string
+-		if cs.Driver.enableSnapshotCompression {
+-			tarArgs = []string{"-C", srcPath, "-czvf", dstPath, "."}
 +	if _, err := os.Stat(dstPath); err == nil {
 +		// A retried CreateSnapshot (e.g. the CO failed to record a previous
 +		// success) may arrive when the archive is already complete and possibly
@@ -140,9 +112,7 @@ index bae0524..739332a 100644
 +		klog.V(2).Infof("CreateSnapshot: archive %s already exists, skipping copy", dstPath)
 +	} else if !os.IsNotExist(err) {
 +		return nil, status.Errorf(codes.Internal, "failed to check snapshot archive %s: %v", dstPath, err)
- 	} else {
--		if err := TarPack(srcPath, dstPath, true); err != nil {
--			return nil, status.Errorf(codes.Internal, "failed to create archive for snapshot: %v", err)
++	} else {
 +		stagingPath := dstPath + populatingSuffix
 +		// remove leftovers of a previously interrupted copy
 +		if err := os.RemoveAll(stagingPath); err != nil {
@@ -150,14 +120,27 @@ index bae0524..739332a 100644
 +		}
 +		klog.V(2).Infof("tar %v -> %v", srcPath, dstPath)
 +		if cs.Driver.useTarCommandInSnapshot {
-+			if out, err := exec.Command("tar", "-C", srcPath, "-czvf", stagingPath, ".").CombinedOutput(); err != nil {
++			var tarArgs []string
++			if cs.Driver.enableSnapshotCompression {
++				tarArgs = []string{"-C", srcPath, "-czvf", stagingPath, "."}
++			} else {
++				tarArgs = []string{"-C", srcPath, "-cvf", stagingPath, "."}
++			}
++			if out, err := exec.Command("tar", tarArgs...).CombinedOutput(); err != nil {
 +				return nil, status.Errorf(codes.Internal, "failed to create archive for snapshot: %v: %v", err, string(out))
 +			}
-+		} else {
-+			if err := TarPack(srcPath, stagingPath, true); err != nil {
+ 		} else {
+-			tarArgs = []string{"-C", srcPath, "-cvf", dstPath, "."}
++			if err := TarPack(srcPath, stagingPath, cs.Driver.enableSnapshotCompression); err != nil {
 +				return nil, status.Errorf(codes.Internal, "failed to create archive for snapshot: %v", err)
 +			}
-+		}
+ 		}
+-		if out, err := exec.Command("tar", tarArgs...).CombinedOutput(); err != nil {
+-			return nil, status.Errorf(codes.Internal, "failed to create archive for snapshot: %v: %v", err, string(out))
+-		}
+-	} else {
+-		if err := TarPack(srcPath, dstPath, cs.Driver.enableSnapshotCompression); err != nil {
+-			return nil, status.Errorf(codes.Internal, "failed to create archive for snapshot: %v", err)
 +		if err := os.Rename(stagingPath, dstPath); err != nil {
 +			return nil, status.Errorf(codes.Internal, "failed to finalize snapshot archive %s: %v", dstPath, err)
  		}
@@ -167,7 +150,7 @@ index bae0524..739332a 100644
  
  	var snapshotSize int64
  	fi, err := os.Stat(dstPath)
-@@ -558,7 +607,7 @@ func (cs *ControllerServer) internalUnmount(ctx context.Context, vol *nfsVolume)
+@@ -570,7 +619,7 @@ func (cs *ControllerServer) internalUnmount(ctx context.Context, vol *nfsVolume)
  	return err
  }
  
@@ -176,7 +159,7 @@ index bae0524..739332a 100644
  	snap, err := getNfsSnapFromID(req.VolumeContentSource.GetSnapshot().GetSnapshotId())
  	if err != nil {
  		return status.Error(codes.NotFound, err.Error())
-@@ -587,32 +636,38 @@ func (cs *ControllerServer) copyFromSnapshot(ctx context.Context, req *csi.Creat
+@@ -599,7 +648,12 @@ func (cs *ControllerServer) copyFromSnapshot(ctx context.Context, req *csi.Creat
  		}
  	}()
  
@@ -187,18 +170,31 @@ index bae0524..739332a 100644
 +	if err != nil {
 +		return err
 +	}
- 	snapPath := filepath.Join(getInternalVolumePath(cs.Driver.workingMountDir, snapVol), snap.archiveName())
+ 	snapInternalVolPath := getInternalVolumePath(cs.Driver.workingMountDir, snapVol)
+ 	// Try compressed archive first for backward compatibility, then uncompressed
+ 	enableCompression := true
+@@ -609,36 +663,37 @@ func (cs *ControllerServer) copyFromSnapshot(ctx context.Context, req *csi.Creat
+ 		snapPath = filepath.Join(snapInternalVolPath, snap.archiveName(false))
+ 		enableCompression = false
+ 	}
 -	dstPath := getInternalVolumePath(cs.Driver.workingMountDir, dstVol)
  	klog.V(2).Infof("copy volume from snapshot %v -> %v", snapPath, dstPath)
  
  	if cs.Driver.useTarCommandInSnapshot {
--		if out, err := exec.Command("tar", "-xzvf", snapPath, "-C", dstPath).CombinedOutput(); err != nil {
-+		if out, err := exec.Command("tar", "-xzvf", snapPath, "-C", stagingPath).CombinedOutput(); err != nil {
+ 		var tarArgs []string
+ 		if enableCompression {
+-			tarArgs = []string{"-xzvf", snapPath, "-C", dstPath}
++			tarArgs = []string{"-xzvf", snapPath, "-C", stagingPath}
+ 		} else {
+-			tarArgs = []string{"-xvf", snapPath, "-C", dstPath}
++			tarArgs = []string{"-xvf", snapPath, "-C", stagingPath}
+ 		}
+ 		if out, err := exec.Command("tar", tarArgs...).CombinedOutput(); err != nil {
  			return status.Errorf(codes.Internal, "failed to copy volume for snapshot: %v: %v", err, string(out))
  		}
  	} else {
--		if err := TarUnpack(snapPath, dstPath, true); err != nil {
-+		if err := TarUnpack(snapPath, stagingPath, true); err != nil {
+-		if err := TarUnpack(snapPath, dstPath, enableCompression); err != nil {
++		if err := TarUnpack(snapPath, stagingPath, enableCompression); err != nil {
  			return status.Errorf(codes.Internal, "failed to copy volume for snapshot: %v", err)
  		}
  	}
@@ -221,7 +217,7 @@ index bae0524..739332a 100644
  	klog.V(2).Infof("copy volume from volume %v -> %v", srcPath, dstPath)
  
  	var volCap *csi.VolumeCapability
-@@ -636,27 +691,73 @@ func (cs *ControllerServer) copyFromVolume(ctx context.Context, req *csi.CreateV
+@@ -662,27 +717,73 @@ func (cs *ControllerServer) copyFromVolume(ctx context.Context, req *csi.CreateV
  		}
  	}()
  
@@ -271,7 +267,7 @@ index bae0524..739332a 100644
 +	}
 +	if mountPermissions > 0 {
 +		// Reset directory permissions because of umask problems
-+		if err := chmodIfPermissionMismatch(stagingPath, os.FileMode(mountPermissions)); err != nil {
++		if err := chmodIfPermissionMismatch(stagingPath, uint32(mountPermissions)); err != nil {
 +			return "", status.Error(codes.Internal, err.Error())
 +		}
 +	}
@@ -299,20 +295,20 @@ index bae0524..739332a 100644
  // newNFSSnapshot Convert VolumeSnapshot parameters to a nfsSnapshot
  func newNFSSnapshot(name string, params map[string]string, vol *nfsVolume) (*nfsSnapshot, error) {
  	server := vol.server
-@@ -887,6 +988,10 @@ func validateSnapshot(snapInternalVolPath string, snap *nfsSnapshot) error {
- 		if err != nil {
- 			return err
- 		}
-+		if d.Name() == snap.archiveName()+populatingSuffix {
+@@ -934,6 +1035,10 @@ func validateSnapshot(snapInternalVolPath string, snap *nfsSnapshot, enableCompr
+ 		// Check if it's either compressed or uncompressed archive
+ 		compressedName := snap.archiveName(true)
+ 		uncompressedName := snap.archiveName(false)
++		if d.Name() == compressedName+populatingSuffix || d.Name() == uncompressedName+populatingSuffix {
 +			// leftover of a previously interrupted copy, removed on retry
 +			return nil
 +		}
- 		if d.Name() != snap.archiveName() {
+ 		if d.Name() != compressedName && d.Name() != uncompressedName {
  			// there should be just one archive in the snapshot path and archive name should match
- 			return status.Errorf(codes.AlreadyExists, "snapshot with the same name but different source volume ID already exists: found %q, desired %q", d.Name(), snap.archiveName())
+ 			return status.Errorf(codes.AlreadyExists, "snapshot with the same name but different source volume ID already exists: found %q, desired %q", d.Name(), expectedArchiveName)
 diff --git a/pkg/nfs/controllerserver_idempotency_test.go b/pkg/nfs/controllerserver_idempotency_test.go
 new file mode 100644
-index 0000000..b840b7e
+index 00000000..b840b7e0
 --- /dev/null
 +++ b/pkg/nfs/controllerserver_idempotency_test.go
 @@ -0,0 +1,367 @@
@@ -684,10 +680,10 @@ index 0000000..b840b7e
 +	}
 +}
 diff --git a/pkg/nfs/controllerserver_test.go b/pkg/nfs/controllerserver_test.go
-index 0fd4e04..e6f2796 100644
+index 86c9281a..c706b597 100644
 --- a/pkg/nfs/controllerserver_test.go
 +++ b/pkg/nfs/controllerserver_test.go
-@@ -902,7 +902,7 @@ func TestCopyVolume(t *testing.T) {
+@@ -927,7 +927,7 @@ func TestCopyVolume(t *testing.T) {
  				}
  			}
  			cs := initTestController(t)
@@ -696,7 +692,7 @@ index 0fd4e04..e6f2796 100644
  			if (err == nil) == test.expectErr {
  				t.Errorf(`[test: %s] Error expectation mismatch, expected error: "%v", received: %q`, test.desc, test.expectErr, err)
  			}
-@@ -941,7 +941,13 @@ func TestCreateSnapshot(t *testing.T) {
+@@ -966,7 +966,13 @@ func TestCreateSnapshot(t *testing.T) {
  				},
  			},
  			prepare: func() error { return os.MkdirAll("/tmp/src-pv-name/subdir", 0777) },
@@ -711,12 +707,31 @@ index 0fd4e04..e6f2796 100644
  		},
  		{
  			desc: "create snapshot from nonexisting volume",
+@@ -1370,14 +1376,13 @@ func TestCopyVolumeFromUncompressedSnapshot(t *testing.T) {
+ 		uuid:    "dst-pv-name-restored",
+ 	}
+ 
+-	// Create destination directory
++	// The destination directory must not exist: copyFromSnapshot populates a
++	// staging directory and renames it into place, as CreateVolume only copies
++	// into a volume that has not been populated yet.
+ 	dstPath := filepath.Join("/tmp", dstVol.uuid, dstVol.subDir)
+-	if err := os.MkdirAll(dstPath, 0777); err != nil {
+-		t.Fatalf("failed to create destination directory: %v", err)
+-	}
+ 	defer func() { _ = os.RemoveAll("/tmp/dst-pv-name-restored") }()
+ 
+-	err = cs.copyFromSnapshot(context.TODO(), req, dstVol)
++	err = cs.copyFromSnapshot(context.TODO(), req, dstVol, getInternalVolumePath(cs.Driver.workingMountDir, dstVol), 0)
+ 	if err != nil {
+ 		t.Fatalf("copyFromSnapshot failed for uncompressed archive: %v", err)
+ 	}
 diff --git a/pkg/nfs/tar.go b/pkg/nfs/tar.go
-index ef4171d..e5b53c7 100644
+index 090ee80f..07e81817 100644
 --- a/pkg/nfs/tar.go
 +++ b/pkg/nfs/tar.go
-@@ -28,9 +28,13 @@ import (
- 	"strings"
+@@ -30,9 +30,13 @@ import (
+ 	"time"
  )
  
 -func TarPack(srcDirPath string, dstPath string, enableCompression bool) error {
@@ -731,6 +746,3 @@ index ef4171d..e5b53c7 100644
  	if err != nil {
  		return fmt.Errorf("normalizing destination path: %w", err)
  	}
--- 
-2.43.0
-

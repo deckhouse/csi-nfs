@@ -1,7 +1,9 @@
-From ddc1c867f466becf2c9c21ab5a823e5dd9932764 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: "v.oleynikov" <vasily.oleynikov@flant.com>
-Date: Thu, 4 Dec 2025 20:30:27 +0300
-Subject: [PATCH] add socket permissions
+Date: Sat, 26 Sep 2026 08:15:48 +0300
+Subject: [PATCH 3/5] Add socket permissions
+
+Add the --socket-permissions flag that sets the mode of the CSI Unix socket. Ported onto v4.13.4.
 
 Signed-off-by: v.oleynikov <vasily.oleynikov@flant.com>
 ---
@@ -11,7 +13,7 @@ Signed-off-by: v.oleynikov <vasily.oleynikov@flant.com>
  3 files changed, 23 insertions(+), 5 deletions(-)
 
 diff --git a/cmd/nfsplugin/main.go b/cmd/nfsplugin/main.go
-index a34547ca..8a3eb8ab 100644
+index c09c08b0..d8bb9e55 100644
 --- a/cmd/nfsplugin/main.go
 +++ b/cmd/nfsplugin/main.go
 @@ -29,6 +29,7 @@ var (
@@ -22,7 +24,7 @@ index a34547ca..8a3eb8ab 100644
  	driverName                   = flag.String("drivername", nfs.DefaultDriverName, "name of the driver")
  	workingMountDir              = flag.String("working-mount-dir", "/tmp", "working directory for provisioner to mount nfs shares temporarily")
  	defaultOnDeletePolicy        = flag.String("default-ondelete-policy", "", "default policy for deleting subdirectory when deleting a volume")
-@@ -55,6 +56,7 @@ func handle() {
+@@ -56,6 +57,7 @@ func handle() {
  		DriverName:                   *driverName,
  		Endpoint:                     *endpoint,
  		MountPermissions:             *mountPermissions,
@@ -31,7 +33,7 @@ index a34547ca..8a3eb8ab 100644
  		DefaultOnDeletePolicy:        *defaultOnDeletePolicy,
  		VolStatsCacheExpireInMinutes: *volStatsCacheExpireInMinutes,
 diff --git a/pkg/nfs/nfs.go b/pkg/nfs/nfs.go
-index 919d078d..a965ad45 100644
+index 692aba02..66b0f250 100644
 --- a/pkg/nfs/nfs.go
 +++ b/pkg/nfs/nfs.go
 @@ -17,6 +17,7 @@ limitations under the License.
@@ -42,31 +44,31 @@ index 919d078d..a965ad45 100644
  	"runtime"
  	"strings"
  	"time"
-@@ -39,6 +40,7 @@ type DriverOptions struct {
- 	VolStatsCacheExpireInMinutes int
+@@ -38,6 +39,7 @@ type DriverOptions struct {
  	RemoveArchivedVolumePath     bool
  	UseTarCommandInSnapshot      bool
+ 	EnableSnapshotCompression    bool
 +	SocketPermissions            uint32 // Unix socket file permissions (e.g., 0700, 0777, 0666). If 0, default permissions (0700) will be used.
  }
  
  type Driver struct {
 @@ -51,6 +53,7 @@ type Driver struct {
- 	defaultOnDeletePolicy    string
- 	removeArchivedVolumePath bool
- 	useTarCommandInSnapshot  bool
-+	socketPermissions        uint32
+ 	removeArchivedVolumePath  bool
+ 	useTarCommandInSnapshot   bool
+ 	enableSnapshotCompression bool
++	socketPermissions         uint32
  
  	//ids *identityServer
  	ns          *NodeServer
-@@ -100,6 +103,7 @@ func NewDriver(options *DriverOptions) *Driver {
- 		removeArchivedVolumePath:     options.RemoveArchivedVolumePath,
+@@ -101,6 +104,7 @@ func NewDriver(options *DriverOptions) *Driver {
  		useTarCommandInSnapshot:      options.UseTarCommandInSnapshot,
+ 		enableSnapshotCompression:    options.EnableSnapshotCompression,
  		defaultOnDeletePolicy:        options.DefaultOnDeletePolicy,
 +		socketPermissions:            options.SocketPermissions,
  	}
  
  	n.AddControllerServiceCapabilities([]csi.ControllerServiceCapability_RPC_Type{
-@@ -159,7 +163,8 @@ func (n *Driver) Run(testMode bool) {
+@@ -160,7 +164,8 @@ func (n *Driver) Run(testMode bool) {
  		// using default controllerserver.
  		NewControllerServer(n),
  		n.ns,
@@ -77,7 +79,7 @@ index 919d078d..a965ad45 100644
  }
  
 diff --git a/pkg/nfs/server.go b/pkg/nfs/server.go
-index b1620cb4..d19e1e9c 100644
+index b1620cb4..3693458c 100644
 --- a/pkg/nfs/server.go
 +++ b/pkg/nfs/server.go
 @@ -30,7 +30,9 @@ import (
@@ -85,7 +87,7 @@ index b1620cb4..d19e1e9c 100644
  type NonBlockingGRPCServer interface {
  	// Start services at the endpoint
 -	Start(endpoint string, ids csi.IdentityServer, cs csi.ControllerServer, ns csi.NodeServer, testMode bool)
-+	// socketPermissions: Unix socket file permissions (e.g., 0700, 0777, 0666). 
++	// socketPermissions: Unix socket file permissions (e.g., 0700, 0777, 0666).
 +	// If 0, default permissions (0700) will be used. Only applies to Unix sockets.
 +	Start(endpoint string, ids csi.IdentityServer, cs csi.ControllerServer, ns csi.NodeServer, testMode bool, socketPermissions os.FileMode)
  	// Waits for the service to stop
@@ -130,6 +132,3 @@ index b1620cb4..d19e1e9c 100644
  	opts := []grpc.ServerOption{
  		grpc.UnaryInterceptor(logGRPC),
  	}
--- 
-2.43.0
-

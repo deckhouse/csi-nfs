@@ -1,8 +1,8 @@
 {
   "@context": "https://openvex.dev/ns/v0.2.0",
   "@id": "https://openvex.dev/docs/public/vex-9c5387d957d88b47252b3f199c5cfd6eebcbceefb6e6bc13790149db4ffaa9e6",
-  "author": "Deckhouse \u003ccontact@deckhouse.io\u003e",
-  "version": 1,
+  "author": "Deckhouse <contact@deckhouse.io>",
+  "version": 2,
   "statements": [
     {
       "vulnerability": {
@@ -10,14 +10,56 @@
       },
       "products": [
         {
-          "@id": "pkg:golang/k8s.io/kubernetes@v1.31.12"
+          "@id": "pkg:golang/k8s.io/kubernetes@v1.32.10"
         }
       ],
       "status": "not_affected",
       "justification": "vulnerable_code_not_in_execute_path",
       "impact_statement": "Уязвимость затрагивает устаревший механизм in-tree gitRepo volume. В рамках csi-nfs создание таких томов невозможно, прав на создание таких томов у пользователя нет и уязвимость использоваться не может",
-      "timestamp": "2025-10-30T13:13:05.237532425Z"
+      "timestamp": "2026-09-26T00:00:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-41579"
+      },
+      "products": [
+        {
+          "@id": "pkg:golang/github.com/opencontainers/runc@v1.2.9"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present",
+      "impact_statement": "github.com/opencontainers/runc is required by the csi-driver-nfs module only through its e2e test suite (test/e2e/testsuites -> k8s.io/kubernetes/test/e2e/framework/pod -> k8s.io/kubernetes/pkg/kubelet/cm -> runc/libcontainer/cgroups); no runc package is compiled into the csi-nfs binary (go version -m lists no runc). The fixed releases (v1.3.6, v1.4.3) moved libcontainer/cgroups to github.com/opencontainers/cgroups and no longer build with k8s.io/kubernetes v1.32.",
+      "timestamp": "2026-09-26T00:00:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "GHSA-gcjh-h69q-9w9g"
+      },
+      "products": [
+        {
+          "@id": "pkg:golang/github.com/google/cel-go@v0.22.0"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present",
+      "impact_statement": "github.com/google/cel-go is required by the csi-driver-nfs module only through its e2e test suite (test/e2e/testsuites -> k8s.io/kubernetes/test/utils -> k8s.io/apiserver admission plugins); no cel-go package is compiled into the csi-nfs binary (go version -m lists no cel-go). The fixed release v0.29.0 changes the ext.TwoVarComprehensions signature and breaks the build of k8s.io/apiserver v0.32.",
+      "timestamp": "2026-09-26T00:00:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "GO-2026-5932"
+      },
+      "products": [
+        {
+          "@id": "pkg:golang/golang.org/x/crypto@v0.56.0"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present",
+      "impact_statement": "Advisory covers the unmaintained golang.org/x/crypto/openpgp subpackage. The csi-driver-nfs module requires golang.org/x/crypto only through its e2e test suite (k8s.io/kubernetes/test/e2e/framework/ssh -> golang.org/x/crypto/ssh); `go mod why golang.org/x/crypto/openpgp` reports the main module does not need the openpgp package, and no golang.org/x/crypto package is compiled into the csi-nfs binary. golang.org/x/crypto has no release that drops openpgp, so the finding cannot be resolved by upgrading.",
+      "timestamp": "2026-09-26T00:00:00Z"
     }
   ],
-  "timestamp": "2025-10-30T13:13:05Z"
+  "timestamp": "2026-09-26T00:00:00Z"
 }

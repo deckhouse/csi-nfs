@@ -4,7 +4,7 @@
   logo: https://avatars.githubusercontent.com/u/33050221?s=200&v=4
   license: Apache License 2.0
   id: csi-driver-nfs
-  version: 4.12.1
+  version: 4.13.4
 - name: kmod
   link: https://git.kernel.org/pub/scm/utils/kernel/kmod/kmod.git
   description: Linux kernel module tools (insmod, rmmod, modprobe, etc.).
