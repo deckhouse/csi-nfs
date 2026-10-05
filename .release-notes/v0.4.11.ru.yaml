@@ -1,0 +1,36 @@
+date: "2026-10-05"
+
+summary: "rpcbind и rpc.statd теперь всегда ставятся из собственного пакета модуля без пакетного менеджера узла, CSI-драйвер переведён на csi-driver-nfs v4.13.4, добавлены роли доступа для модели RBACv2 из DKP 1.78."
+
+highlights:
+  - "`NodeGroupConfiguration` больше не запрашивает у пакетного менеджера узла `rpcbind` и `nfs-common`/`nfs-utils`: пакет модуля `nfs-tools` устанавливается на каждый узел с меткой `storage.deckhouse.io/csi-nfs-node` и ставит только те демоны, которых нет на хосте. Узлы без доступа к репозиториям дистрибутива больше не ждут пакетный менеджер при каждом запуске bashible."
+  - "CSI-драйвер обновлён с csi-driver-nfs v4.12.1 до v4.13.4."
+  - "На DKP 1.78 и новее модуль поставляет роли `d8:system-capability:csi-nfs:view` и `d8:system-capability:csi-nfs:edit` новой модели RBACv2 для `NFSStorageClass`."
+
+new_features:
+  - "На DKP 1.78 и новее модуль создаёт ClusterRole `d8:system-capability:csi-nfs:view` (чтение `NFSStorageClass`) и `d8:system-capability:csi-nfs:edit` (создание, изменение и удаление `NFSStorageClass`), которые агрегируются в роль `manager` подсистемы хранения через `rbac.deckhouse.io/kind: capability` и `rbac.deckhouse.io/scope: system`. На DKP ниже 1.78 по-прежнему создаются прежние роли `d8:manage:permission:module:csi-nfs:view` и `d8:manage:permission:module:csi-nfs:edit` без изменений."
+
+improvements:
+  - "Пакет `nfs-tools` решает для `rpcbind` и `rpc.statd` по отдельности: узел, на котором есть свой `rpcbind`, но нет `nfs-common`/`nfs-utils`, теперь получает `rpc.statd` модуля, запускаемый после portmapper дистрибутива. Демон, который на хосте уже есть, остаётся хостовым, а юнит и ссылка `sm-notify`, оставленные для него прежней версией модуля, удаляются."
+  - "Если набор утилит на узле изменился после установки пакета (с хоста пропал `rpcbind` или `rpc.statd` либо позже был установлен пакет дистрибутива с одним из них), `NodeGroupConfiguration` заново запускает установку пакета при следующем запуске bashible, а не ждёт следующего релиза модуля."
+
+fixes:
+  - "`rpcbind` и `rpc.statd` из пакета `nfs-tools` больше не падают при запуске на узлах без `/etc/netconfig`, например на чистой Ubuntu 24.04: установка теперь кладёт туда `netconfig` из пакета и удаляет его при деинсталляции. Раньше установка завершалась ошибкой, а под `csi-node` бесконечно ждал `/run/rpcbind.sock`."
+  - "Prometheus снова собирает метрики `csi-nfs-scheduler-extender`: его `kube-rbac-proxy` получил права на аутентификацию запросов, постоянный алерт `TargetDown` по нему пропал."
+
+security:
+  - "В CSI-драйвере (`csi-nfs`) `github.com/opencontainers/runc` обновлён с v1.2.9 до v1.3.6, а `github.com/google/cel-go` — с v0.22.0 до v0.29.0, поэтому CVE-2026-41579 и GHSA-gcjh-h69q-9w9g пропали из результатов сканирования образа. Уязвимый код в драйвер не компилировался."
+
+upgrade_notes:
+  - "После обновления bashible устанавливает пакет `nfs-tools` на каждый узел с меткой `storage.deckhouse.io/csi-nfs-node` и перестаёт ставить `rpcbind` и `nfs-common`/`nfs-utils` из репозиториев дистрибутива. Уже установленные на узле пакеты остаются и продолжают его обслуживать; вручную ничего делать не нужно."
+  - "На DKP 1.78 и новее роли `d8:manage:permission:module:csi-nfs:view` и `d8:manage:permission:module:csi-nfs:edit` больше не создаются, их место занимают `d8:system-capability:csi-nfs:view` и `d8:system-capability:csi-nfs:edit`. ClusterRoleBinding, ссылающийся на старую роль по имени, нужно перевести на новую; доступ, выданный через роль `manager` подсистемы хранения, переносится сам. На DKP ниже 1.78 делать ничего не нужно."
+
+docs:
+  - "Раздел FAQ про `rpcbind` и `rpc.statd` описывает, откуда на узле берётся каждый демон, как их различить и зачем `netconfig` из пакета кладётся в `/etc/netconfig`."
+
+dependencies:
+  - name: csi-driver-nfs
+    from: "4.12.1"
+    to: "4.13.4"
+    changelog_url: "https://github.com/kubernetes-csi/csi-driver-nfs/releases/tag/v4.13.4"
+    notes: "Устаревшие NFS-монтирования обнаруживаются и перемонтируются в `NodePublishVolume`; восстановление тома из снимка сохраняет временные метки файлов и отвергает в архиве выход за пределы каталога и атаки через символические ссылки; `server` и `share` из `VolumeSnapshotClass` больше не перекрывают параметры исходного тома; идентификаторы томов проверяются."

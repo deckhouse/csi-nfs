@@ -1,0 +1,36 @@
+date: "2026-10-05"
+
+summary: "rpcbind and rpc.statd now always come from the module's own package without the node's package manager, the CSI driver moves to csi-driver-nfs v4.13.4, and access roles are added for the RBACv2 model of DKP 1.78."
+
+highlights:
+  - "The `NodeGroupConfiguration` no longer asks the node's package manager for `rpcbind` and `nfs-common`/`nfs-utils`: the module's `nfs-tools` package is installed on every node with the `storage.deckhouse.io/csi-nfs-node` label, and it provides only the daemons the host lacks. Nodes without access to the distribution's repositories no longer wait out the package manager on every bashible run."
+  - "The CSI driver is updated from csi-driver-nfs v4.12.1 to v4.13.4."
+  - "On DKP 1.78 and later the module ships the roles `d8:system-capability:csi-nfs:view` and `d8:system-capability:csi-nfs:edit` of the new RBACv2 model for `NFSStorageClass`."
+
+new_features:
+  - "On DKP 1.78 and later the module creates the ClusterRoles `d8:system-capability:csi-nfs:view` (read `NFSStorageClass`) and `d8:system-capability:csi-nfs:edit` (create, update and delete `NFSStorageClass`), aggregated into the `manager` role of the storage subsystem through `rbac.deckhouse.io/kind: capability` and `rbac.deckhouse.io/scope: system`. On DKP below 1.78 the existing `d8:manage:permission:module:csi-nfs:view` and `d8:manage:permission:module:csi-nfs:edit` roles are created unchanged."
+
+improvements:
+  - "The `nfs-tools` package decides for `rpcbind` and `rpc.statd` separately: a node that has `rpcbind` of its own but no `nfs-common`/`nfs-utils` now gets the module's `rpc.statd`, ordered after the distribution's portmapper. A daemon the host already has stays the host's, and the unit and the `sm-notify` link that an earlier version of the module left for it are removed."
+  - "When the tools on a node change after the package was installed (the host lost `rpcbind` or `rpc.statd`, or a distribution package with one of them was installed later), the `NodeGroupConfiguration` runs the package's install again on the next bashible run instead of waiting for the next module release."
+
+fixes:
+  - "`rpcbind` and `rpc.statd` from the `nfs-tools` package no longer fail to start on nodes without `/etc/netconfig`, such as a fresh Ubuntu 24.04: the install now puts the package's `netconfig` there and removes it on uninstall. Previously the install failed and the `csi-node` Pod waited for `/run/rpcbind.sock` forever."
+  - "Prometheus can scrape the metrics of `csi-nfs-scheduler-extender` again: its `kube-rbac-proxy` got the permissions to authenticate requests, the permanent `TargetDown` alert for it is gone."
+
+security:
+  - "In the CSI driver (`csi-nfs`) `github.com/opencontainers/runc` is raised from v1.2.9 to v1.3.6 and `github.com/google/cel-go` from v0.22.0 to v0.29.0, which removes CVE-2026-41579 and GHSA-gcjh-h69q-9w9g from the image scan results. The vulnerable code was not compiled into the driver."
+
+upgrade_notes:
+  - "After the update bashible installs the `nfs-tools` package on every node with the `storage.deckhouse.io/csi-nfs-node` label and stops installing `rpcbind` and `nfs-common`/`nfs-utils` from the distribution's repositories. Packages already installed on a node stay and keep serving it; nothing needs to be done by hand."
+  - "On DKP 1.78 and later the `d8:manage:permission:module:csi-nfs:view` and `d8:manage:permission:module:csi-nfs:edit` roles are no longer created, `d8:system-capability:csi-nfs:view` and `d8:system-capability:csi-nfs:edit` take their place. A ClusterRoleBinding that refers to an old role by name has to be pointed at the new one; access granted through the storage subsystem's `manager` role carries over by itself. On DKP below 1.78 nothing needs to be done."
+
+docs:
+  - "The FAQ section on `rpcbind` and `rpc.statd` describes where each daemon on a node comes from, how to tell them apart, and why the package's `netconfig` is placed in `/etc/netconfig`."
+
+dependencies:
+  - name: csi-driver-nfs
+    from: "4.12.1"
+    to: "4.13.4"
+    changelog_url: "https://github.com/kubernetes-csi/csi-driver-nfs/releases/tag/v4.13.4"
+    notes: "Stale NFS mounts are detected and remounted in `NodePublishVolume`; restoring a volume from a snapshot preserves file timestamps and rejects path traversal and symlink attacks in the archive; the `server` and `share` of a `VolumeSnapshotClass` no longer override those of the source volume; volume IDs are validated."
