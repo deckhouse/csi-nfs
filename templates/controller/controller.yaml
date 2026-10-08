@@ -47,6 +47,7 @@ metrics - reconcile counts, queue depth, Go runtime - in every case. */ -}}
   "valuesKey" "csiNfs"
   "path" "/sc-validate"
   "rules" (list (dict "apiGroups" (list "storage.k8s.io") "apiVersions" (list "v1") "operations" (list "*") "resources" (list "storageclasses") "scope" "Cluster"))
+  "matchConditions" (list (dict "name" "nfs-provisioner" "expression" "(object != null && object.provisioner == \"nfs.csi.k8s.io\") || (oldObject != null && oldObject.provisioner == \"nfs.csi.k8s.io\")"))
 }}
 {{ include "helm_lib_module_validating_webhook_configuration" (list . $scWebhookConfig) }}
 
