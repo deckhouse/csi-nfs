@@ -125,7 +125,7 @@ shell:
 
 ---
 image: {{ .ModuleNamePrefix }}{{ $.ImageName }}
-from: {{ index $.Images "builder/distroless" }}
+from: {{ index $.Images "base/distroless" }}
 
 # One import, and nothing after it: the last layer has to carry the whole
 # package, scripts and payload together.

@@ -61,18 +61,14 @@ shell:
     - chmod +x /{{ $.ImageName }}
 
 ---
-image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-runtime-artifact
 from: {{ index $.Images "builder/distroless" }}
-import:
-  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-golang-artifact
-    add: /{{ $.ImageName }}
-    to: /{{ $.ImageName }}
-    before: install
-git:
-{{- include "image mount points" . }}
+final: false
 shell:
   setup:
-    - pm install libtirpc util-linux coreutils gnu-glibc nfs-utils
+    - pm install --rootDir /relocate libtirpc util-linux coreutils gnu-glibc nfs-utils
+    - mkdir -p /relocate/etc
+    - if [ -x /relocate/sbin/ldconfig ]; then chroot /relocate /sbin/ldconfig; fi
     # /etc/netconfig is libtirpc's transport table, and the pm libtirpc package
     # does not ship it. Without the file every userspace SUN RPC call inside
     # mount.nfs fails with RPC_UNKNOWNPROTO ("mount.nfs: Protocol not supported"),
@@ -80,7 +76,7 @@ shell:
     # portmapper/MOUNT probes and the statd check, while v4 mounts are kernel-only
     # and never notice. Content is the stock netconfig(5) table.
     - |
-      cat >/etc/netconfig <<'EOF'
+      cat >/relocate/etc/netconfig <<'EOF'
       udp        tpi_clts      v     inet     udp     -       -
       tcp        tpi_cots_ord  v     inet     tcp     -       -
       udp6       tpi_clts      v     inet6    udp     -       -
@@ -98,7 +94,22 @@ shell:
     # (module v0.4.4 has it, v0.4.5 does not) and the base pin floats, so the image
     # has to place it itself. The symlink is what every distribution ships, and it
     # makes the mount-table update a no-op.
-    - ln -sf /proc/self/mounts /etc/mtab
+    - ln -sf /proc/self/mounts /relocate/etc/mtab
+
+---
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+from: {{ index $.Images "base/distroless" }}
+import:
+  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-runtime-artifact
+    add: /relocate
+    to: /
+    before: setup
+  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-golang-artifact
+    add: /{{ $.ImageName }}
+    to: /{{ $.ImageName }}
+    before: install
+git:
+{{- include "image mount points" . }}
 imageSpec:
   config:
     entrypoint: ["/{{ $.ImageName }}"]

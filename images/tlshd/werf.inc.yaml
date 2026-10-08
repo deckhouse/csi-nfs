@@ -50,10 +50,24 @@ shell:
     - chmod +x /{{ $.ImageName }}
 
 ---
-image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-runtime-artifact
 from: {{ index $.Images "builder/distroless" }}
+final: false
+shell:
+  setup:
+    - pm install --rootDir /relocate ktls-utils
+    - mkdir -p /relocate/etc
+    - if [ -x /relocate/sbin/ldconfig ]; then chroot /relocate /sbin/ldconfig; fi
+
+---
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+from: {{ index $.Images "base/distroless" }}
 
 import:
+  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-runtime-artifact
+    add: /relocate
+    to: /
+    before: setup
   - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-golang-artifact
     add: /{{ $.ImageName }}
     to: /{{ $.ImageName }}
@@ -61,10 +75,6 @@ import:
 
 git:
 {{- include "image mount points" . }}
-
-shell:
-  setup:
-    - pm install ktls-utils
 
 imageSpec:
   config:
