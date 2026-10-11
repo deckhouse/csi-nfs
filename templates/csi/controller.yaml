@@ -148,7 +148,7 @@ storage.deckhouse.io/csi-nfs-node: ""
 
 
 {{- define "csi_controller_args" }}
-- "--v=5"
+- "--v={{ include "module_klog_verbosity" . }}"
 - "--nodeid=$(NODE_ID)"
 - "--endpoint=$(CSI_ENDPOINT)"
 - "--drivername=nfs.csi.k8s.io"
@@ -219,7 +219,7 @@ storage.deckhouse.io/csi-nfs-node: ""
 
 
 {{- define "csi_node_args" }}
-- "--v=5"
+- "--v={{ include "module_klog_verbosity" . }}"
 - "--nodeid=$(NODE_ID)"
 - "--endpoint=$(CSI_ENDPOINT)"
 - "--drivername=nfs.csi.k8s.io"
