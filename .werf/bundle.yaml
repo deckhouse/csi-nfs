@@ -47,7 +47,7 @@ shell:
 # Bundle image, stored in your.registry.io/modules/<module-name>:<semver>
 ---
 image: bundle
-from: {{ index $.Images "builder/scratch" }}
+from: scratch
 # The go-hooks binary is produced in a stage that sets up the private-module netrc;
 # see .werf/defines/golang.tmpl. Its mode changes with that fix while its bytes do not,
 # and an import is keyed on content, so the cache needs busting once.

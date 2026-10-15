@@ -46,7 +46,7 @@ shell:
     # the rest is what binary_replace.sh needs to resolve their library closure.
     # libtirpc is explicit: rpcbind and statd do userspace SUN RPC through it,
     # and the closure walk only finds what the linker records.
-    - pm install rpcbind nfs-utils libtirpc ldd gnu-glibc coreutils findutils grep gawk
+    - pm install rpcbind nfs-utils libtirpc posix-libc-utils glibc coreutils findutils grep gawk
     - chmod +x /binary_replace.sh
     # Paths are resolved rather than spelled out: the catalog's packages are free
     # to put these in /sbin or /usr/sbin, and a wrong guess would stage nothing

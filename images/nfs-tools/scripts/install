@@ -106,7 +106,7 @@ cp -a nfs-tools/. "${PREFIX}/"
 # The payload is built against the catalog's glibc, not the host's, so every
 # binary is started through its own loader with its own library path. Nothing of
 # ours is ever merged into the host's /lib64.
-LOADER="$(ls "${PREFIX}"/lib64/ld-linux-*.so.* 2>/dev/null | head -n 1 || true)"
+LOADER="$(ls "${PREFIX}"/lib64/ld-linux-*.so.* "${PREFIX}"/usr/lib64/ld-linux-*.so.* "${PREFIX}"/usr/lib/ld-linux-*.so.* 2>/dev/null | head -n 1 || true)"
 if [[ -z "${LOADER}" ]]; then
   echo "the package carries no dynamic loader, refusing to install a payload that cannot run" >&2
   exit 1

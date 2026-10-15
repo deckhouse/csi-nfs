@@ -4,7 +4,7 @@ from: {{ index $.Images "builder/distroless" }}
 final: false
 shell:
   setup:
-    - pm install --rootDir /relocate kmod
+    - pm install -n --rootDir /relocate kmod
     - mkdir -p /relocate/etc
     - if [ -x /relocate/sbin/ldconfig ]; then chroot /relocate /sbin/ldconfig; fi
 

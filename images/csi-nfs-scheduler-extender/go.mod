@@ -1,6 +1,6 @@
 module github.com/deckhouse/csi-nfs/images/csi-nfs-scheduler-extender
 
-go 1.27.1
+go 1.27.2
 require (
 	github.com/deckhouse/csi-nfs/api v0.0.0-20250213115525-4785a9da80db
 	github.com/deckhouse/sds-common-lib v0.15.0

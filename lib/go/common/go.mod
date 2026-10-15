@@ -1,6 +1,6 @@
 module github.com/deckhouse/csi-nfs/lib/go/common
 
-go 1.27.1
+go 1.27.2
 require (
 	github.com/deckhouse/csi-nfs/api v0.0.0-20250116103144-d23aedd591a3
 	github.com/deckhouse/sds-common-lib v0.10.0

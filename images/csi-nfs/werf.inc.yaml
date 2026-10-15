@@ -66,7 +66,7 @@ from: {{ index $.Images "builder/distroless" }}
 final: false
 shell:
   setup:
-    - pm install --rootDir /relocate libtirpc util-linux coreutils gnu-glibc nfs-utils
+    - pm install -n --rootDir /relocate libtirpc util-linux mount umount blkid blockdev findmnt losetup lsblk wipefs fstrim sfdisk partx coreutils glibc nfs-utils
     - mkdir -p /relocate/etc
     - if [ -x /relocate/sbin/ldconfig ]; then chroot /relocate /sbin/ldconfig; fi
     # /etc/netconfig is libtirpc's transport table, and the pm libtirpc package
