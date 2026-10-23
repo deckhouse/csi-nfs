@@ -24,6 +24,9 @@ checksum/ca: {{ .Values.csiNfs.tlsParameters.ca | sha256sum | quote }}
       mountPath: /run
   securityContext:
     readOnlyRootFilesystem: true
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop: ["ALL"]
 {{- end }}
 
 {{- if .Values.csiNfs.internal.featureTLSEnabled }}
@@ -35,6 +38,8 @@ checksum/ca: {{ .Values.csiNfs.tlsParameters.ca | sha256sum | quote }}
   securityContext:
     privileged: true
     readOnlyRootFilesystem: true
+    capabilities:
+      drop: ["ALL"]
   volumeMounts:
     - name: host-sys
       mountPath: /sys
@@ -49,6 +54,8 @@ checksum/ca: {{ .Values.csiNfs.tlsParameters.ca | sha256sum | quote }}
   securityContext:
     privileged: true
     readOnlyRootFilesystem: true
+    capabilities:
+      drop: ["ALL"]
 {{- end }}
 {{- end }}
 {{- end }}
@@ -90,6 +97,8 @@ checksum/ca: {{ .Values.csiNfs.tlsParameters.ca | sha256sum | quote }}
   securityContext:
     privileged: true
     readOnlyRootFilesystem: true
+    capabilities:
+      drop: ["ALL"]
   resources:
     requests:
       {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 6 }}    
@@ -202,6 +211,7 @@ storage.deckhouse.io/csi-nfs-node: ""
 {{- $_ := set $csiControllerConfig "livenessProbePort" 4229 }}
 {{- $_ := set $csiControllerConfig "csiControllerHaMode" true }}
 {{- $_ := set $csiControllerConfig "forceCsiControllerPrivilegedContainer" true }}
+{{- $_ := set $csiControllerConfig "securityPolicyExceptionEnabled" true }}
 {{- $_ := set $csiControllerConfig "additionalControllerArgs" (include "csi_controller_args" . | fromYamlArray) }}
 {{- $_ := set $csiControllerConfig "additionalControllerEnvs" (include "csi_controller_envs" . | fromYamlArray) }}
 {{- $_ := set $csiControllerConfig "additionalControllerVolumes" (include "csi_additional_controller_volume" . | fromYamlArray) }}
@@ -282,5 +292,6 @@ storage.deckhouse.io/csi-nfs-node: ""
 {{- $_ := set $csiNodeConfig "customNodeSelector" (include "csi_custom_node_selector" . | fromYaml) }}
 {{- $_ := set $csiNodeConfig "additionalCsiNodePodAnnotations" (include "additional_csi_annotations" . | fromYaml) }}
 {{- $_ := set $csiNodeConfig "forceCsiNodeAndStaticNodesDepoloy" true }}
+{{- $_ := set $csiNodeConfig "securityPolicyExceptionEnabled" true }}
 
 {{- include "helm_lib_csi_node_manifests" (list . $csiNodeConfig) }}
