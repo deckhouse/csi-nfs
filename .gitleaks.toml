@@ -1,8 +1,4 @@
-# Extend the centralized Deckhouse gitleaks config + module allowlist
-[extend]
-useDefault = false
-path = "gitleaks.base.toml"
-
+# Module allowlist; CI merges it into the centralized Deckhouse gitleaks config.
 [allowlist]
 paths = [
   '''(?:^|/)images/.*\.patch$''',

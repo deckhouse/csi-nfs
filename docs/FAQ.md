@@ -99,7 +99,7 @@ Advantages of this method:
 - works for both hard disks and SSDs;
 - can maximize SSD lifetime.
 
-## Why are PVs created in a StorageClass with RPC-with-TLS support not being deleted, along with their <PV name> directories on the NFS server?
+## Why are PVs of a StorageClass with RPC-with-TLS support not deleted along with their NFS directories?
 
 If the [NFSStorageClass](./cr.html#nfsstorageclass) resource was configured with RPC-with-TLS support, there might be a situation where the PV fails to be deleted.
 This happens due to the removal of the secret (for example, after deleting NFSStorageClass), which holds the mount options. As a result, the controller is unable to mount the NFS directory to delete the `<PV name>` directory.

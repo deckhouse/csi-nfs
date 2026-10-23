@@ -1,7 +1,7 @@
 Изменения:
-  - Исправление: успешное монтирование больше не считается ошибкой — в образ добавлен /etc/mtab (симлинк на /proc/self/mounts), из-за отсутствия которого mount возвращал код 16. Обёртка wrap-mount, маскировавшая эту ошибку, удалена
-  - Исправление: VPA переведён с устаревшего режима обновления Auto на InPlaceOrRecreate
-  - Исправление: контроллеру выданы права patch на events вместо list — повторная запись события больше не отклоняется по правам
-  - Добавлены метрики срока действия сертификатов RPC-with-TLS — csi_nfs_tls_certificate_not_after_timestamp_seconds и csi_nfs_tls_certificate_not_before_timestamp_seconds, по одной серии на каждый сертификат из ConfigMap tlshd-conf, — и три правила алертинга: CsiNfsTLSCertificateExpiringSoon (осталось меньше 14 дней), CsiNfsTLSCertificateExpired и CsiNfsTLSCertificateNotYetValid
+  - "Исправление: успешное монтирование больше не считается ошибкой — в образ добавлен /etc/mtab (симлинк на /proc/self/mounts), из-за отсутствия которого mount возвращал код 16. Обёртка wrap-mount, маскировавшая эту ошибку, удалена"
+  - "Исправление: VPA переведён с устаревшего режима обновления Auto на InPlaceOrRecreate"
+  - "Исправление: контроллеру выданы права patch на events вместо list — повторная запись события больше не отклоняется по правам"
+  - "Добавлены метрики срока действия сертификатов RPC-with-TLS — csi_nfs_tls_certificate_not_after_timestamp_seconds и csi_nfs_tls_certificate_not_before_timestamp_seconds, по одной серии на каждый сертификат из ConfigMap tlshd-conf, — и три правила алертинга: CsiNfsTLSCertificateExpiringSoon (осталось меньше 14 дней), CsiNfsTLSCertificateExpired и CsiNfsTLSCertificateNotYetValid"
   - Обновление базовых образов до v2.1.2, Go до 1.26.6 и lib-helm до 1.72.14
   - Фиксы CVE

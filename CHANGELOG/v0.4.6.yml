@@ -1,7 +1,7 @@
 Changes:
-  - Bugfix: a successful mount is no longer reported as a failure - the image now ships /etc/mtab (a symlink to /proc/self/mounts), without which mount returned exit code 16. The wrap-mount wrapper that used to mask this error has been removed
-  - Bugfix: the VPA is switched from the deprecated Auto update mode to InPlaceOrRecreate
-  - Bugfix: the controller is granted patch on events instead of list - a repeated event write is no longer denied by RBAC
-  - Expiry metrics for the RPC-with-TLS certificates - csi_nfs_tls_certificate_not_after_timestamp_seconds and csi_nfs_tls_certificate_not_before_timestamp_seconds, one series per certificate from the tlshd-conf ConfigMap - and three alerting rules: CsiNfsTLSCertificateExpiringSoon (less than 14 days left), CsiNfsTLSCertificateExpired and CsiNfsTLSCertificateNotYetValid
+  - "Bugfix: a successful mount is no longer reported as a failure - the image now ships /etc/mtab (a symlink to /proc/self/mounts), without which mount returned exit code 16. The wrap-mount wrapper that used to mask this error has been removed"
+  - "Bugfix: the VPA is switched from the deprecated Auto update mode to InPlaceOrRecreate"
+  - "Bugfix: the controller is granted patch on events instead of list - a repeated event write is no longer denied by RBAC"
+  - "Expiry metrics for the RPC-with-TLS certificates - csi_nfs_tls_certificate_not_after_timestamp_seconds and csi_nfs_tls_certificate_not_before_timestamp_seconds, one series per certificate from the tlshd-conf ConfigMap - and three alerting rules: CsiNfsTLSCertificateExpiringSoon (less than 14 days left), CsiNfsTLSCertificateExpired and CsiNfsTLSCertificateNotYetValid"
   - Base images updated to v2.1.2, Go to 1.26.6 and lib-helm to 1.72.14
   - CVE fixes

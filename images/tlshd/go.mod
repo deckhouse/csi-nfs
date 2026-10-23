@@ -1,6 +1,6 @@
 module github.com/deckhouse/csi-nfs/images/tlshd
 
-go 1.27.2
+go 1.27.3
 require github.com/spf13/cobra v1.8.1
 
 require (
