@@ -1,0 +1,18 @@
+date: "2026-10-26"
+
+summary: "The module's StorageClass webhook no longer stands in the way of StorageClasses of other provisioners, the CSI driver logs at the level set in `logLevel`, the CSI Pods are ready for the Pod Security enforcement of DKP 1.79, and dependencies with known vulnerabilities are updated in the module's images."
+
+highlights:
+  - "The module's validating webhook for StorageClasses now receives only classes with the `nfs.csi.k8s.io` provisioner. While the webhook had no ready endpoint, every StorageClass write in the cluster used to be rejected, which could hold up other modules that create StorageClasses."
+  - "The `nfsplugin` containers of the CSI controller and the CSI node follow the module's `logLevel` instead of always running at klog verbosity 5, so a default installation no longer floods the log with debug output."
+  - "The CSI controller and CSI node Pods come with a `SecurityPolicyException` each, so they keep being admitted on DKP 1.79 and later, where privileged Pods in system namespaces are rejected instead of only warned about."
+
+improvements:
+  - "The CSI controller and CSI node Pods come with a `SecurityPolicyException` each, describing what they need beyond the restricted Pod Security Standard: root and privileged containers, `SYS_ADMIN` on the controller, the host network and the hostPath volumes of the kubelet, `/dev`, `/run`, `/sys` and `/lib/modules`. On DKP 1.79 and later such Pods in system namespaces are rejected without an exception. The exceptions are created only while the `admission-policy-engine-crd` module is enabled. The containers the module adds to these Pods (`wait-rpcbind`, `ktls-enabler`, `net-handshake-checker`, `tlshd`) now drop all capabilities, and `wait-rpcbind` no longer allows privilege escalation."
+
+fixes:
+  - "The validating webhook for StorageClasses has a match condition on the `nfs.csi.k8s.io` provisioner of the new or the old object, the same classes it validates. It used to receive every StorageClass in the cluster with `failurePolicy: Fail`, so while the module's webhook Pods were not ready (for example, could not pull their images) StorageClasses of other modules could not be created, changed or deleted, and Deckhouse could get stuck on a module that applies its own StorageClasses before csi-nfs got a chance to recover."
+  - "The `nfsplugin` containers of the CSI controller and the CSI node take their klog verbosity from the module's `logLevel`: `ERROR` gives 0, `WARN` 1, `INFO` (the default) 2, `DEBUG` 4 and `TRACE` 5. They used to run with `--v=5` whatever `logLevel` said; to get the previous amount of output, set `logLevel: TRACE`."
+
+security:
+  - "The CSI driver (`csi-nfs`) and the module's controller, scheduler extender, webhooks and hooks are built with updated Go dependencies, which closes CVE-2026-78669, CVE-2026-78659, CVE-2026-78660, CVE-2026-78663, CVE-2026-97032 and CVE-2026-56851, and in the driver also CVE-2026-61801; the hooks also close CVE-2026-63209 and no longer contain `github.com/docker/distribution`, which carried CVE-2026-85747 without a fixed release."
