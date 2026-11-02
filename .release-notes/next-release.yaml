@@ -4,6 +4,9 @@ date: "2026-xx-xx"
 summary: ""
 highlights: []
 
+improvements:
+  - "An NFSStorageClass can no longer be created under the name of a StorageClass that belongs to another provisioner. The module names its StorageClass after the NFSStorageClass, so such a resource used to be created and then stay `Failed`; the webhook now rejects it at creation and names the StorageClass that holds the name."
+
 # Optional sections — delete rather than leave empty.
 # new_features: []
 # improvements: []

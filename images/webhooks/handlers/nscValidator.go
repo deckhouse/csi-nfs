@@ -26,10 +26,12 @@ import (
 	"k8s.io/api/resource/v1alpha3"
 	sv1 "k8s.io/api/storage/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	commonvalidating "github.com/deckhouse/csi-nfs/lib/go/common/pkg/validating"
@@ -64,6 +66,23 @@ func NSCValidate(ctx context.Context, arReview *model.AdmissionReview, obj metav
 		klog.Fatal(err) // pod restarting
 	}
 
+	// The controller names the StorageClass after the NFSStorageClass, so a
+	// name held by a StorageClass of another provisioner could only ever leave
+	// the class Failed.
+	if arReview.Operation == model.OperationCreate {
+		sc, err := foreignStorageClass(ctx, cl, nsc.Name)
+		if err != nil {
+			klog.Error(err)
+			return nil, err
+		}
+		if sc != nil {
+			return &kwhvalidating.ValidatorResult{
+				Valid:   false,
+				Message: fmt.Sprintf("StorageClass %q already exists with provisioner %q; choose a different NFSStorageClass name", sc.Name, sc.Provisioner),
+			}, nil
+		}
+	}
+
 	nfsModuleConfig := &d8commonapi.ModuleConfig{}
 	err = cl.Get(ctx, types.NamespacedName{Name: csiNfsModuleName, Namespace: ""}, nfsModuleConfig)
 	if err != nil {
@@ -79,4 +98,22 @@ func NSCValidate(ctx context.Context, arReview *model.AdmissionReview, obj metav
 	}
 
 	return &kwhvalidating.ValidatorResult{Valid: true}, nil
+}
+
+// foreignStorageClass returns the StorageClass named name when it belongs to a
+// provisioner other than the module's, and nil when there is no such
+// StorageClass or it is the module's own.
+func foreignStorageClass(ctx context.Context, cl client.Client, name string) (*sv1.StorageClass, error) {
+	sc := &sv1.StorageClass{}
+	err := cl.Get(ctx, client.ObjectKey{Name: name}, sc)
+	if apierrors.IsNotFound(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("unable to get the StorageClass %s: %w", name, err)
+	}
+	if sc.Provisioner == NFSStorageClassProvisioner {
+		return nil, nil
+	}
+	return sc, nil
 }
