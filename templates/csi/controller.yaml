@@ -232,6 +232,9 @@ storage.deckhouse.io/csi-nfs-node: ""
 - "--v={{ include "module_klog_verbosity" . }}"
 - "--nodeid=$(NODE_ID)"
 - "--endpoint=$(CSI_ENDPOINT)"
+{{- with .Values.global.clusterConfiguration }}
+- "--deny-inline-cidrs={{ .podSubnetCIDR }},{{ .serviceSubnetCIDR }}"
+{{- end }}
 - "--drivername=nfs.csi.k8s.io"
 - "--mount-permissions=0"
 {{- end }}

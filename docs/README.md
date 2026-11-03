@@ -39,6 +39,10 @@ For module pods to restart when the [`tlsParameters`](./configuration.html#param
 
 ## Limitations
 
+### Inline volumes
+
+An inline CSI volume of `nfs.csi.k8s.io` (a `csi` volume in the pod spec) cannot mount an NFS server inside the cluster: when the server resolves to an address in the pod or service network of the cluster, the pod fails to start with `PermissionDenied`. The node plugin mounts from the node, and a server in the cluster that admits the nodes would otherwise give any pod that knows its address everything it exports. Mount such a server through a PersistentVolume of an `NFSStorageClass`. Inline volumes of servers outside the cluster work as before.
+
 ### Creating volume snapshots
 
 When creating snapshots of NFS volumes, it is important to understand their creation scheme and associated limitations. Avoid using snapshots in `csi-nfs` when possible:

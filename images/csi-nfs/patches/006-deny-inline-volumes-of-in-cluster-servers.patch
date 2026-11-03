@@ -1,0 +1,242 @@
+diff --git a/cmd/nfsplugin/main.go b/cmd/nfsplugin/main.go
+index d8bb9e55..5db60240 100644
+--- a/cmd/nfsplugin/main.go
++++ b/cmd/nfsplugin/main.go
+@@ -37,6 +37,7 @@ var (
+ 	removeArchivedVolumePath     = flag.Bool("remove-archived-volume-path", false, "remove archived volume path in DeleteVolume")
+ 	useTarCommandInSnapshot      = flag.Bool("use-tar-command-in-snapshot", false, "use tar command to pack and unpack snapshot data")
+ 	enableSnapshotCompression    = flag.Bool("enable-snapshot-compression", true, "enable compression when creating volume snapshots")
++	denyInlineCIDRs              = flag.String("deny-inline-cidrs", "", "comma-separated networks whose NFS servers inline volumes may not mount")
+ )
+ 
+ func main() {
+@@ -64,6 +65,7 @@ func handle() {
+ 		RemoveArchivedVolumePath:     *removeArchivedVolumePath,
+ 		UseTarCommandInSnapshot:      *useTarCommandInSnapshot,
+ 		EnableSnapshotCompression:    *enableSnapshotCompression,
++		DenyInlineCIDRs:              *denyInlineCIDRs,
+ 	}
+ 	d := nfs.NewDriver(&driverOptions)
+ 	d.Run(false)
+diff --git a/pkg/nfs/inline_server.go b/pkg/nfs/inline_server.go
+new file mode 100644
+index 00000000..d4185196
+--- /dev/null
++++ b/pkg/nfs/inline_server.go
+@@ -0,0 +1,77 @@
++/*
++Copyright 2026 Flant JSC
++
++Licensed under the Apache License, Version 2.0 (the "License");
++you may not use this file except in compliance with the License.
++You may obtain a copy of the License at
++
++    http://www.apache.org/licenses/LICENSE-2.0
++
++Unless required by applicable law or agreed to in writing, software
++distributed under the License is distributed on an "AS IS" BASIS,
++WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++See the License for the specific language governing permissions and
++limitations under the License.
++*/
++
++package nfs
++
++import (
++	"fmt"
++	"net"
++	"strings"
++
++	"google.golang.org/grpc/codes"
++	"google.golang.org/grpc/status"
++)
++
++// ephemeralContextKey is set by kubelet in the volume context of an inline
++// CSI volume when the CSIDriver asks for pod info on mount.
++const ephemeralContextKey = "csi.storage.k8s.io/ephemeral"
++
++var lookupIP = net.LookupIP
++
++// ParseCIDRs parses a comma-separated list of CIDRs; empty items are skipped.
++func ParseCIDRs(list string) ([]*net.IPNet, error) {
++	var nets []*net.IPNet
++	for _, item := range strings.Split(list, ",") {
++		item = strings.TrimSpace(item)
++		if item == "" {
++			continue
++		}
++		_, n, err := net.ParseCIDR(item)
++		if err != nil {
++			return nil, fmt.Errorf("parsing CIDR %q: %w", item, err)
++		}
++		nets = append(nets, n)
++	}
++	return nets, nil
++}
++
++// checkInlineServer refuses an inline volume whose server is inside the
++// cluster networks. The node plugin mounts from the node, and an NFS server
++// in the cluster admits the nodes: an inline volume would give any pod that
++// knows the address of such a server every directory it exports, the
++// volumes of other namespaces included. A PersistentVolume of its
++// StorageClass is the way to mount it.
++func (d *Driver) checkInlineServer(volumeContext map[string]string, server string) error {
++	if len(d.deniedInlineNets) == 0 || volumeContext[ephemeralContextKey] != "true" {
++		return nil
++	}
++	host := strings.TrimSuffix(strings.TrimPrefix(server, "["), "]")
++	ips := []net.IP{net.ParseIP(host)}
++	if ips[0] == nil {
++		var err error
++		if ips, err = lookupIP(host); err != nil {
++			return status.Errorf(codes.PermissionDenied, "an inline volume cannot mount server %s: it does not resolve (%v), so it cannot be told apart from a server inside the cluster", server, err)
++		}
++	}
++	for _, ip := range ips {
++		for _, n := range d.deniedInlineNets {
++			if n.Contains(ip) {
++				return status.Errorf(codes.PermissionDenied, "an inline volume cannot mount server %s: it is at %s, inside the cluster network %s; mount it through a PersistentVolume of its StorageClass", server, ip, n)
++			}
++		}
++	}
++	return nil
++}
+diff --git a/pkg/nfs/inline_server_test.go b/pkg/nfs/inline_server_test.go
+new file mode 100644
+index 00000000..1d490971
+--- /dev/null
++++ b/pkg/nfs/inline_server_test.go
+@@ -0,0 +1,77 @@
++/*
++Copyright 2026 Flant JSC
++
++Licensed under the Apache License, Version 2.0 (the "License");
++you may not use this file except in compliance with the License.
++You may obtain a copy of the License at
++
++    http://www.apache.org/licenses/LICENSE-2.0
++
++Unless required by applicable law or agreed to in writing, software
++distributed under the License is distributed on an "AS IS" BASIS,
++WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++See the License for the specific language governing permissions and
++limitations under the License.
++*/
++
++package nfs
++
++import (
++	"errors"
++	"net"
++	"testing"
++
++	"google.golang.org/grpc/codes"
++	"google.golang.org/grpc/status"
++)
++
++func TestCheckInlineServer(t *testing.T) {
++	nets, err := ParseCIDRs("10.111.0.0/16, 10.222.0.0/16,")
++	if err != nil || len(nets) != 2 {
++		t.Fatalf("ParseCIDRs: %v %v", nets, err)
++	}
++	if _, err := ParseCIDRs("10.0.0.0/33"); err == nil {
++		t.Fatal("a bad CIDR is accepted")
++	}
++
++	lookupIP = func(host string) ([]net.IP, error) {
++		switch host {
++		case "nfs-shared.d8-sds-nfs.svc":
++			return []net.IP{net.ParseIP("10.222.3.4")}, nil
++		case "nas.example.com":
++			return []net.IP{net.ParseIP("192.168.1.10")}, nil
++		}
++		return nil, errors.New("no such host")
++	}
++	defer func() { lookupIP = net.LookupIP }()
++
++	d := &Driver{deniedInlineNets: nets}
++	inline := map[string]string{ephemeralContextKey: "true"}
++	cases := []struct {
++		name    string
++		context map[string]string
++		server  string
++		denied  bool
++	}{
++		{"service address", inline, "10.222.1.1", true},
++		{"pod address", inline, "10.111.5.6", true},
++		{"name of a service", inline, "nfs-shared.d8-sds-nfs.svc", true},
++		{"server outside the cluster", inline, "nas.example.com", false},
++		{"address outside the cluster", inline, "192.168.1.20", false},
++		{"unresolvable name", inline, "nowhere", true},
++		{"persistent volume", map[string]string{}, "10.222.1.1", false},
++	}
++	for _, c := range cases {
++		err := d.checkInlineServer(c.context, c.server)
++		if (err != nil) != c.denied {
++			t.Fatalf("%s: denied=%v, err=%v", c.name, c.denied, err)
++		}
++		if err != nil && status.Code(err) != codes.PermissionDenied {
++			t.Fatalf("%s: code %v", c.name, status.Code(err))
++		}
++	}
++
++	if err := (&Driver{}).checkInlineServer(inline, "10.222.1.1"); err != nil {
++		t.Fatalf("no denied networks configured: %v", err)
++	}
++}
+diff --git a/pkg/nfs/nfs.go b/pkg/nfs/nfs.go
+index 66b0f250..1c09f6dc 100644
+--- a/pkg/nfs/nfs.go
++++ b/pkg/nfs/nfs.go
+@@ -17,6 +17,7 @@ limitations under the License.
+ package nfs
+ 
+ import (
++	"net"
+ 	"os"
+ 	"runtime"
+ 	"strings"
+@@ -40,6 +41,7 @@ type DriverOptions struct {
+ 	UseTarCommandInSnapshot      bool
+ 	EnableSnapshotCompression    bool
+ 	SocketPermissions            uint32 // Unix socket file permissions (e.g., 0700, 0777, 0666). If 0, default permissions (0700) will be used.
++	DenyInlineCIDRs              string // Networks whose NFS servers inline volumes may not mount.
+ }
+ 
+ type Driver struct {
+@@ -54,6 +56,7 @@ type Driver struct {
+ 	useTarCommandInSnapshot   bool
+ 	enableSnapshotCompression bool
+ 	socketPermissions         uint32
++	deniedInlineNets          []*net.IPNet
+ 
+ 	//ids *identityServer
+ 	ns          *NodeServer
+@@ -92,7 +95,13 @@ const (
+ func NewDriver(options *DriverOptions) *Driver {
+ 	klog.V(2).Infof("Driver: %v version: %v", options.DriverName, driverVersion)
+ 
++	deniedInlineNets, parseErr := ParseCIDRs(options.DenyInlineCIDRs)
++	if parseErr != nil {
++		klog.Fatalf("--deny-inline-cidrs: %v", parseErr)
++	}
++
+ 	n := &Driver{
++		deniedInlineNets:             deniedInlineNets,
+ 		name:                         options.DriverName,
+ 		version:                      driverVersion,
+ 		nodeID:                       options.NodeID,
+diff --git a/pkg/nfs/nodeserver.go b/pkg/nfs/nodeserver.go
+index 45bef7dc..3c8c3246 100644
+--- a/pkg/nfs/nodeserver.go
++++ b/pkg/nfs/nodeserver.go
+@@ -107,6 +107,9 @@ func (ns *NodeServer) NodePublishVolume(_ context.Context, req *csi.NodePublishV
+ 	if server == "" {
+ 		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("%v is a required parameter", paramServer))
+ 	}
++	if err := ns.Driver.checkInlineServer(req.GetVolumeContext(), server); err != nil {
++		return nil, err
++	}
+ 	if baseDir == "" {
+ 		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("%v is a required parameter", paramShare))
+ 	}
