@@ -54,6 +54,7 @@ type NFSStorageClassList struct {
 // Defines a Kubernetes StorageClass configuration.
 // +k8s:deepcopy-gen=true
 // +kubebuilder:validation:XValidation:rule="!(self.connection.mtls == true) || (self.connection.tls == true)",message="If mtls is true, tls must also be true."
+// +kubebuilder:validation:XValidation:rule="!has(self.tlsParameters) || self.connection.tls == true",message="tlsParameters require connection.tls to be true."
 // +kubebuilder:validation:XValidation:rule="self.reclaimPolicy != 'Retain' || !has(self.volumeCleanup)",message="If reclaimPolicy is 'Retain', volumeCleanup must be omitted."
 // +kubebuilder:validation:XValidation:rule="self.connection.nfsVersion == '4.2' || !has(self.volumeCleanup)|| self.volumeCleanup != 'Discard'",message="Discard mode is only available when connection.nfsVersion is '4.2'."
 type NFSStorageClassSpec struct {
@@ -111,6 +112,21 @@ type NFSStorageClassSpec struct {
 	// +kubebuilder:validation:Enum=Discard;RandomFillSinglePass;RandomFillThreePass
 	// +crd-enricher:raw:x-doc-d8editions=[ee, fe]
 	VolumeCleanup string `json:"volumeCleanup,omitempty"`
+
+	// > Available in SE, SE+, EE, and FE editions.
+	//
+	// RPC-with-TLS parameters of the class, for `connection.tls: true`. With them a class with TLS does not need `tlsParameters.ca` of the module.
+	// +optional
+	// +crd-enricher:raw:x-doc-d8editions=[se, se-plus, ee, fe]
+	TLSParameters *NFSStorageClassTLSParameters `json:"tlsParameters,omitempty"`
+}
+
+// +k8s:deepcopy-gen=true
+type NFSStorageClassTLSParameters struct {
+	// Root certificate in PEM format, encoded in Base64, that verifies the certificate of the NFS server of this class. The nodes trust it together with the CAs of the other classes and `tlsParameters.ca` of the module: the truststore of a node is one for all its mounts, so a class adds a CA rather than limiting which servers its volumes trust.
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^[A-Za-z0-9+/]*={0,2}$`
+	CA string `json:"ca"`
 }
 
 // +k8s:deepcopy-gen=true

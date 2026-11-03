@@ -14,6 +14,11 @@ properties:
         default: []
         items:
           type: string
+      tlsCABundle:
+        type: string
+        default: ""
+        description: |
+          The CAs that verify the NFS servers, PEM encoded in Base64: tlsParameters.ca of the module and spec.tlsParameters.ca of every NFSStorageClass, gathered by a hook. Empty when no CA is configured, and then tlshd does not run.
       customWebhookCert:
         type: object
         default: {}

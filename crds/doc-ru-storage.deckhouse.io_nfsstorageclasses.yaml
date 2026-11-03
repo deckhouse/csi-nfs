@@ -103,6 +103,15 @@ spec:
                                 description: Оператор, применяемый к ключу.
                               values:
                                 description: Список строковых значений. Обязателен для операторов вида `In` и `NotIn`, игнорируется для `Exists` и `DoesNotExist`.
+                tlsParameters:
+                  description: |
+                    > Функция доступна в редакциях SE, SE+, EE и FE.
+
+                    Параметры RPC-with-TLS класса для `connection.tls: true`. С ними классу с TLS не нужен `tlsParameters.ca` модуля.
+                  properties:
+                    ca:
+                      description: |
+                        Корневой сертификат в формате PEM, закодированный в Base64, которым проверяется сертификат NFS-сервера этого класса. Узлы доверяют ему вместе с CA других классов и `tlsParameters.ca` модуля: хранилище доверенных сертификатов на узле одно на все монтирования, поэтому класс добавляет CA, а не ограничивает, каким серверам доверяют его тома.
                 volumeCleanup:
                   description: |
                     > Функция доступна в Enterprise Edition.

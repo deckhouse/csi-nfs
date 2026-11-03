@@ -153,6 +153,30 @@ spec:
                 x-kubernetes-validations:
                 - message: Value is immutable.
                   rule: self == oldSelf
+              tlsParameters:
+                description: |-
+                  > Available in SE, SE+, EE, and FE editions.
+
+                  RPC-with-TLS parameters of the class, for `connection.tls: true`. With them a class with TLS does not need `tlsParameters.ca` of the module.
+                properties:
+                  ca:
+                    description: 'Root certificate in PEM format, encoded in Base64,
+                      that verifies the certificate of the NFS server of this class.
+                      The nodes trust it together with the CAs of the other classes
+                      and `tlsParameters.ca` of the module: the truststore of a node
+                      is one for all its mounts, so a class adds a CA rather than
+                      limiting which servers its volumes trust.'
+                    minLength: 1
+                    pattern: ^[A-Za-z0-9+/]*={0,2}$
+                    type: string
+                required:
+                - ca
+                type: object
+                x-doc-d8editions:
+                - se
+                - se-plus
+                - ee
+                - fe
               volumeBindingMode:
                 description: |-
                   Defines the volume binding mode.
@@ -256,6 +280,8 @@ spec:
             x-kubernetes-validations:
             - message: If mtls is true, tls must also be true.
               rule: '!(self.connection.mtls == true) || (self.connection.tls == true)'
+            - message: tlsParameters require connection.tls to be true.
+              rule: '!has(self.tlsParameters) || self.connection.tls == true'
             - message: If reclaimPolicy is 'Retain', volumeCleanup must be omitted.
               rule: self.reclaimPolicy != 'Retain' || !has(self.volumeCleanup)
             - message: Discard mode is only available when connection.nfsVersion is

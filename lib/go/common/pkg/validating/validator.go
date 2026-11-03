@@ -17,6 +17,11 @@ limitations under the License.
 package validating
 
 import (
+	"bytes"
+	"crypto/x509"
+	"encoding/base64"
+	"encoding/pem"
+	"errors"
 	"fmt"
 
 	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
@@ -43,43 +48,40 @@ func ValidateNFSStorageClass(nfsModuleConfig *d8commonapi.ModuleConfig, nsc *cn.
 
 	if feature.TLSEnabled() {
 		if nsc.Spec.Connection.Tls || nsc.Spec.Connection.Mtls {
-			var tlsParameters map[string]any
+			tlsParameters, _ := nfsModuleConfig.Spec.Settings["tlsParameters"].(map[string]any)
+			moduleCA, _ := tlsParameters["ca"].(string)
 
-			value, ok := nfsModuleConfig.Spec.Settings["tlsParameters"]
-			if !ok {
-				return fmt.Errorf(
-					"ModuleConfig: %s (the tlsParameters parameter is missing); NFSStorageClass: %s (tls or mtls is enabled); %s",
-					nfsModuleConfig.Name, nsc.Name, logPostfix,
-				)
+			var classCA string
+			if nsc.Spec.TLSParameters != nil {
+				classCA = nsc.Spec.TLSParameters.CA
+				if err := ValidateCA(classCA); err != nil {
+					return fmt.Errorf("NFSStorageClass: %s (tlsParameters.ca: %v); %s", nsc.Name, err, logPostfix)
+				}
 			}
-			tlsParameters = value.(map[string]any)
 
-			if value, ok := tlsParameters["ca"]; !ok || len(value.(string)) == 0 {
+			if moduleCA == "" && classCA == "" {
 				return fmt.Errorf(
-					"ModuleConfig: %s (the tlsParameters.ca parameter is either missing or has a zero length); NFSStorageClass: %s (tls or mtls is enabled); %s",
+					"ModuleConfig: %s (the tlsParameters.ca parameter is either missing or has a zero length); NFSStorageClass: %s (tls or mtls is enabled, and the class has no tlsParameters.ca of its own); %s",
 					nfsModuleConfig.Name, nsc.Name, logPostfix,
 				)
 			}
 
 			if nsc.Spec.Connection.Mtls {
-				var mtls map[string]any
-
-				value, ok := tlsParameters["mtls"]
+				mtls, ok := tlsParameters["mtls"].(map[string]any)
 				if !ok {
 					return fmt.Errorf(
 						"ModuleConfig: %s (the tlsParameters.mtls parameter is missing); NFSStorageClass: %s (mtls is enabled); %s",
 						nfsModuleConfig.Name, nsc.Name, logPostfix,
 					)
 				}
-				mtls = value.(map[string]any)
 
-				if value, ok := mtls["clientCert"]; !ok || len(value.(string)) == 0 {
+				if value, ok := mtls["clientCert"].(string); !ok || len(value) == 0 {
 					return fmt.Errorf(
 						"ModuleConfig: %s (the tlsParameters.mtls.clientCert parameter is either missing or has a zero length); NFSStorageClass: %s (mtls is enabled); %s",
 						nfsModuleConfig.Name, nsc.Name, logPostfix,
 					)
 				}
-				if value, ok := mtls["clientKey"]; !ok || len(value.(string)) == 0 {
+				if value, ok := mtls["clientKey"].(string); !ok || len(value) == 0 {
 					return fmt.Errorf(
 						"ModuleConfig: %s (the tlsParameters.mtls.clientKey parameter is either missing or has a zero length); NFSStorageClass: %s (mtls is enabled); %s",
 						nfsModuleConfig.Name, nsc.Name, logPostfix,
@@ -89,10 +91,41 @@ func ValidateNFSStorageClass(nfsModuleConfig *d8commonapi.ModuleConfig, nsc *cn.
 		}
 	} else {
 		_, ok := nfsModuleConfig.Spec.Settings["tlsParameters"]
-		if nsc.Spec.Connection.Tls || nsc.Spec.Connection.Mtls || ok {
+		if nsc.Spec.Connection.Tls || nsc.Spec.Connection.Mtls || nsc.Spec.TLSParameters != nil || ok {
 			return fmt.Errorf("RPC-with-TLS related parameters are not allowed because the TLS feature is not available in your edition")
 		}
 	}
 
+	return nil
+}
+
+// ValidateCA checks that a Base64-encoded value holds PEM certificates and
+// nothing else, as tlshd reads the truststore.
+func ValidateCA(encoded string) error {
+	data, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		return fmt.Errorf("not Base64: %w", err)
+	}
+	found := false
+	for rest := data; ; {
+		var block *pem.Block
+		block, rest = pem.Decode(rest)
+		if block == nil {
+			if len(bytes.TrimSpace(rest)) > 0 {
+				return errors.New("holds data that is not a PEM block")
+			}
+			break
+		}
+		if block.Type != "CERTIFICATE" {
+			return fmt.Errorf("holds a PEM block of type %q, not a certificate", block.Type)
+		}
+		if _, err := x509.ParseCertificate(block.Bytes); err != nil {
+			return fmt.Errorf("holds a certificate that does not parse: %w", err)
+		}
+		found = true
+	}
+	if !found {
+		return errors.New("holds no PEM certificate")
+	}
 	return nil
 }

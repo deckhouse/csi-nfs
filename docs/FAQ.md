@@ -106,7 +106,7 @@ This happens due to the removal of the secret (for example, after deleting NFSSt
 
 ## How to place multiple CAs in the tlsParameters.ca setting in ModuleConfig?
 
-Concatenate the certificates into a single file and encode the result in Base64. Examples:
+Each NFSStorageClass can carry the CA of its server in `spec.tlsParameters.ca` (see [Examples](./examples.html)); the nodes trust all of them together with the CA of the module. To keep several CAs in the ModuleConfig, concatenate the certificates into a single file and encode the result in Base64. Examples:
 
 {{< tabs name="csi-nfs_faq_multiple_ca" >}}
 {{% tab name="Two CAs" %}}

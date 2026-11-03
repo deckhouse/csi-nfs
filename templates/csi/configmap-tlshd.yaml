@@ -1,5 +1,5 @@
 {{- if .Values.csiNfs.internal.featureTLSEnabled }}
-{{- if .Values.csiNfs.tlsParameters.ca }}
+{{- if .Values.csiNfs.internal.tlsCABundle }}
 {{/*  File /etc/client.crt: expected mode 644 - because of this message in the tlshd container log, I did not create a separate ConfigMap. */}}
 ---
 apiVersion: v1
@@ -41,7 +41,7 @@ data:
     #keyrings= <keyring>;<keyring>;<keyring>
 
     [authenticate.client]
-    x509.truststore=/etc/ca.crt
+    x509.truststore=/etc/tlshd-ca/ca.crt
     x509.certificate=/etc/client.crt
     x509.private_key=/etc/client.key
 
@@ -51,7 +51,7 @@ data:
     #x509.private_key= <pathname>
 
   ca.crt: |
-    {{- .Values.csiNfs.tlsParameters.ca | b64dec | nindent 4 }}
+    {{- .Values.csiNfs.internal.tlsCABundle | b64dec | nindent 4 }}
 
   {{- if .Values.csiNfs.tlsParameters.mtls.clientCert }}
   client.crt: |

@@ -2,14 +2,6 @@
 ### common
 ###
 
-{{- define "additional_csi_annotations" }}
-{{- if .Values.csiNfs.internal.featureTLSEnabled }}
-{{- if .Values.csiNfs.tlsParameters.ca }}
-checksum/ca: {{ .Values.csiNfs.tlsParameters.ca | sha256sum | quote }}    
-{{- end }}
-{{- end }}
-{{- end }}
-
 {{- $csiControllerImage := include "helm_lib_module_image" (list . "csiNfs") }}
 
 
@@ -30,7 +22,7 @@ checksum/ca: {{ .Values.csiNfs.tlsParameters.ca | sha256sum | quote }}
 {{- end }}
 
 {{- if .Values.csiNfs.internal.featureTLSEnabled }}
-{{- if .Values.csiNfs.tlsParameters.ca }}
+{{- if .Values.csiNfs.internal.tlsCABundle }}
 - name: ktls-enabler
   image: {{ include "helm_lib_module_image" (list . "kmod") }}
   command: ["/bin/modprobe", "tls"]
@@ -69,7 +61,7 @@ checksum/ca: {{ .Values.csiNfs.tlsParameters.ca | sha256sum | quote }}
 {{- end }}
 
 {{- if .Values.csiNfs.internal.featureTLSEnabled }}
-{{- if .Values.csiNfs.tlsParameters.ca }}
+{{- if .Values.csiNfs.internal.tlsCABundle }}
 - name: host-sys
   hostPath:
     path: /sys
@@ -89,7 +81,7 @@ checksum/ca: {{ .Values.csiNfs.tlsParameters.ca | sha256sum | quote }}
 
 {{- define "csi_tlshd_container" }}
 {{- if .Values.csiNfs.internal.featureTLSEnabled }}
-{{- if .Values.csiNfs.tlsParameters.ca }}
+{{- if .Values.csiNfs.internal.tlsCABundle }}
 - name: tlshd
   image: {{ include "helm_lib_module_image" (list . "tlshd") }}
   args: ["--mode=containers"]
@@ -107,9 +99,8 @@ checksum/ca: {{ .Values.csiNfs.tlsParameters.ca | sha256sum | quote }}
       mountPath: /etc/tlshd.conf
       subPath: tlshd.conf
       readOnly: true
-    - name: cm-tlshd-conf
-      mountPath: /etc/ca.crt
-      subPath: ca.crt
+    - name: cm-tlshd-ca
+      mountPath: /etc/tlshd-ca
       readOnly: true
 
     {{- if .Values.csiNfs.tlsParameters.mtls }}
@@ -129,11 +120,18 @@ checksum/ca: {{ .Values.csiNfs.tlsParameters.ca | sha256sum | quote }}
 
 {{- define "csi_tlshd_container_volume" }}
 {{- if .Values.csiNfs.internal.featureTLSEnabled }}
-{{- if .Values.csiNfs.tlsParameters.ca }}
+{{- if .Values.csiNfs.internal.tlsCABundle }}
 - name: cm-tlshd-conf
   configMap:
     name: tlshd-conf
     defaultMode: 384
+- name: cm-tlshd-ca
+  configMap:
+    name: tlshd-conf
+    defaultMode: 384
+    items:
+      - key: ca.crt
+        path: ca.crt
 {{- end }}
 {{- end }}
 {{- end }}
@@ -218,7 +216,6 @@ storage.deckhouse.io/csi-nfs-node: ""
 {{- $_ := set $csiControllerConfig "additionalControllerVolumeMounts" (include "csi_additional_controller_volume_mounts" . | fromYamlArray) }}
 {{- $_ := set $csiControllerConfig "initContainers" (include "csi_init_containers" . | fromYamlArray) }}
 {{- $_ := set $csiControllerConfig "customNodeSelector" (include "csi_custom_node_selector" . | fromYaml) }}
-{{- $_ := set $csiControllerConfig "additionalCsiControllerPodAnnotations" (include "additional_csi_annotations" . | fromYaml) }}
 
 {{- include "helm_lib_csi_controller_manifests" (list . $csiControllerConfig) }}
 
@@ -250,7 +247,7 @@ storage.deckhouse.io/csi-nfs-node: ""
 
 {{- define "csi_node_additional_vpa" }}
 {{- if .Values.csiNfs.internal.featureTLSEnabled }}
-{{- if .Values.csiNfs.tlsParameters.ca }}
+{{- if .Values.csiNfs.internal.tlsCABundle }}
 - containerName: "tlshd"
   minAllowed:
     cpu: 12m
@@ -293,7 +290,6 @@ storage.deckhouse.io/csi-nfs-node: ""
 {{- $_ := set $csiNodeConfig "additionalContainers" (include "csi_additional_node_containers" . | fromYamlArray) }}
 {{- $_ := set $csiNodeConfig "initContainers" (include "csi_init_containers" . | fromYamlArray) }}
 {{- $_ := set $csiNodeConfig "customNodeSelector" (include "csi_custom_node_selector" . | fromYaml) }}
-{{- $_ := set $csiNodeConfig "additionalCsiNodePodAnnotations" (include "additional_csi_annotations" . | fromYaml) }}
 {{- $_ := set $csiNodeConfig "forceCsiNodeAndStaticNodesDepoloy" true }}
 {{- $_ := set $csiNodeConfig "securityPolicyExceptionEnabled" true }}
 

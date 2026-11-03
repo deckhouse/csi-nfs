@@ -43,6 +43,32 @@ spec:
   volumeBindingMode: WaitForFirstConsumer
 ```
 
+## Собственный CA для StorageClass
+
+NFSStorageClass может хранить CA, которым проверяется сертификат его NFS-сервера, в `spec.tlsParameters.ca` вместо `tlsParameters.ca` модуля:
+
+```yaml
+apiVersion: storage.deckhouse.io/v1alpha1
+kind: NFSStorageClass
+metadata:
+  name: nfs-storage-class-own-ca
+spec:
+  connection:
+    host: nfs-server-name.io
+    share: /
+    nfsVersion: "4.1"
+    tls: true
+  tlsParameters:
+    ca: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUZFVENDQXZtZ...
+  reclaimPolicy: Delete
+  volumeBindingMode: WaitForFirstConsumer
+```
+
+- Такому классу не нужен `tlsParameters.ca` в ModuleConfig.
+- На узле одно хранилище доверенных сертификатов на все монтирования: узел доверяет CA модуля и CA всех классов вместе, поэтому CA класса добавляет доверие, а не ограничивает его этим классом.
+- Изменённый CA доходит до узлов без перезапуска подов модуля, как только kubelet обновит ConfigMap `tlshd-conf`, — обычно за минуту-две.
+- При `mtls: true` клиентский сертификат по-прежнему берётся из `tlsParameters.mtls` ModuleConfig.
+
 ## Установка NFS-сервера с поддержкой RPC-with-TLS 2.7.1 на РЕД ОС 8
 
 ### Генерация TLS-сертификатов (опционально)

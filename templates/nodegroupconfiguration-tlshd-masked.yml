@@ -1,5 +1,5 @@
 {{- if .Values.csiNfs.internal.featureTLSEnabled }}
-{{- if .Values.csiNfs.tlsParameters.ca }}
+{{- if .Values.csiNfs.internal.tlsCABundle }}
 ---
 apiVersion: deckhouse.io/v1alpha1
 kind: NodeGroupConfiguration

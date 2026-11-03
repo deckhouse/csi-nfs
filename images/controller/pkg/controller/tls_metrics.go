@@ -68,16 +68,17 @@ const (
 	//
 	// Generous on purpose: what is being measured moves at one second per second, and
 	// the alerts on it are counted in days. The interval that matters is not this one
-	// but the one after a change - a certificate replaced in the ModuleConfig is
-	// reported within ten minutes, while the pods that mount it are restarted by the
-	// checksum annotation immediately, so the metric can lag the fix but never the
-	// failure.
+	// but the one after a change - a CA replaced in the ModuleConfig or an
+	// NFSStorageClass is reported within ten minutes, while tlshd reads the truststore
+	// on every handshake and gets the new one as soon as kubelet refreshes the
+	// ConfigMap, so the metric can lag the fix but never the failure.
 	tlsCertificateMetricsInterval = 10 * time.Minute
 
 	// tlshdConfigMapName is the ConfigMap the chart renders the certificates into; see
 	// templates/csi/configmap-tlshd.yaml. It exists only when the TLS feature is enabled
-	// and a CA has been configured, which is what makes "no series" the right answer on
-	// every cluster that does not use RPC-with-TLS.
+	// and a CA has been configured in the ModuleConfig or in an NFSStorageClass, which is
+	// what makes "no series" the right answer on every cluster that does not use
+	// RPC-with-TLS. Its ca.crt holds every one of those CAs.
 	tlshdConfigMapName = "tlshd-conf"
 
 	tlsCertificateKindCA     = "ca"

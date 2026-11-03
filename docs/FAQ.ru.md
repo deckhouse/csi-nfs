@@ -106,7 +106,7 @@ d8 k -n d8-csi-nfs get pod -owide -w
 
 ## Как в настройках ModuleConfig в параметре tlsParameters.ca разместить несколько CA?
 
-Объедините сертификаты в один файл и закодируйте результат в Base64. Примеры:
+Каждый NFSStorageClass может хранить CA своего сервера в `spec.tlsParameters.ca` (см. [Примеры](./examples.html)); узлы доверяют им всем вместе с CA модуля. Чтобы держать несколько CA в ModuleConfig, объедините сертификаты в один файл и закодируйте результат в Base64. Примеры:
 
 {{< tabs name="csi-nfs_faq_multiple_ca_ru" >}}
 {{% tab name="Два CA" %}}
