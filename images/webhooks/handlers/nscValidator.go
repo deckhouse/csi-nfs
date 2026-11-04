@@ -30,13 +30,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	commonvalidating "github.com/deckhouse/csi-nfs/lib/go/common/pkg/validating"
 	d8commonapi "github.com/deckhouse/sds-common-lib/api/v1alpha1"
 	"github.com/deckhouse/sds-common-lib/kubeclient"
+	"github.com/deckhouse/sds-common-lib/logger"
 )
 
 const (
@@ -63,7 +63,7 @@ func NSCValidate(ctx context.Context, arReview *model.AdmissionReview, obj metav
 		sv1.AddToScheme,
 	)
 	if err != nil {
-		klog.Fatal(err) // pod restarting
+		handlerLog.Fatal("unable to create the kube client", logger.Err(err)) // pod restarting
 	}
 
 	// The controller names the StorageClass after the NFSStorageClass, so a
@@ -72,7 +72,7 @@ func NSCValidate(ctx context.Context, arReview *model.AdmissionReview, obj metav
 	if arReview.Operation == model.OperationCreate {
 		sc, err := foreignStorageClass(ctx, cl, nsc.Name)
 		if err != nil {
-			klog.Error(err)
+			handlerLog.Error("unable to check for a foreign StorageClass", logger.Err(err))
 			return nil, err
 		}
 		if sc != nil {
@@ -86,11 +86,11 @@ func NSCValidate(ctx context.Context, arReview *model.AdmissionReview, obj metav
 	nfsModuleConfig := &d8commonapi.ModuleConfig{}
 	err = cl.Get(ctx, types.NamespacedName{Name: csiNfsModuleName, Namespace: ""}, nfsModuleConfig)
 	if err != nil {
-		klog.Fatal(err)
+		handlerLog.Fatal("unable to get the csi-nfs ModuleConfig", logger.Err(err))
 	}
 
 	if err := commonvalidating.ValidateNFSStorageClass(nfsModuleConfig, nsc); err != nil {
-		klog.Error(err)
+		handlerLog.Error("the NFSStorageClass is rejected", logger.Err(err))
 		return &kwhvalidating.ValidatorResult{
 			Valid:   false,
 			Message: fmt.Sprintf("%v", err),

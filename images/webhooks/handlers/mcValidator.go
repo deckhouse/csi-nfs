@@ -28,11 +28,11 @@ import (
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/klog/v2"
 
 	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	d8commonapi "github.com/deckhouse/sds-common-lib/api/v1alpha1"
 	"github.com/deckhouse/sds-common-lib/kubeclient"
+	"github.com/deckhouse/sds-common-lib/logger"
 )
 
 func MCValidate(ctx context.Context, arReview *model.AdmissionReview, obj metav1.Object) (*kwhvalidating.ValidatorResult, error) {
@@ -55,17 +55,17 @@ func MCValidate(ctx context.Context, arReview *model.AdmissionReview, obj metav1
 		sv1.AddToScheme,
 	)
 	if err != nil {
-		klog.Fatal(err) // pod restarting
+		handlerLog.Fatal("unable to create the kube client", logger.Err(err)) // pod restarting
 	}
 
 	nscList := &cn.NFSStorageClassList{}
 	err = cl.List(ctx, nscList)
 	if err != nil {
-		klog.Fatal(err)
+		handlerLog.Fatal("unable to list the NFSStorageClasses", logger.Err(err))
 	}
 
 	if err := validateModuleConfig(nfsModuleConfig, nscList); err != nil {
-		klog.Error(err)
+		handlerLog.Error("the ModuleConfig is rejected", logger.Err(err))
 		return &kwhvalidating.ValidatorResult{
 			Valid:   false,
 			Message: fmt.Sprintf("%v", err),

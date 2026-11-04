@@ -70,6 +70,9 @@ func main() {
 		os.Exit(1)
 	}
 	kwhLog := kwhlogger.New(log)
+	// One logger per process: the handlers are plain functions with nowhere to pass
+	// one through, so they read it from their own package.
+	handlers.SetLogger(log)
 
 	cfg := initFlags()
 

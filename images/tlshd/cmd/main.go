@@ -20,8 +20,8 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -30,6 +30,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+
+	"github.com/deckhouse/sds-common-lib/logger"
 )
 
 var (
@@ -72,10 +74,10 @@ func (o *Opt) Parse() {
 	}
 }
 
-func terminateProcessGracefully(cmd *exec.Cmd, done chan error) {
-	log.Println("Sending SIGTERM to the process...")
+func terminateProcessGracefully(log logger.Logger, cmd *exec.Cmd, done chan error) {
+	log.Info("Sending SIGTERM to the process...")
 	if err := cmd.Process.Signal(syscall.SIGTERM); err != nil {
-		log.Printf("Failed to send SIGTERM to the process: %v", err)
+		log.Error("Failed to send SIGTERM to the process", logger.Err(err))
 		return
 	}
 
@@ -84,16 +86,25 @@ func terminateProcessGracefully(cmd *exec.Cmd, done chan error) {
 	if err != nil {
 		// Such a message is considered normal when a signal is sent to terminate the process.
 		// "Process exited with an error after SIGTERM: signal: terminated"
-		log.Printf("Process exited with an error after SIGTERM: %v", err)
+		log.Info("Process exited with an error after SIGTERM", logger.Err(err))
 	} else {
-		log.Println("Process exited successfully after SIGTERM.")
+		log.Info("Process exited successfully after SIGTERM.")
 	}
 }
 
 func main() {
+	// LOG_LEVEL is the numeric 0..4 the chart gives every module container. The
+	// wrapper used the standard library logger, which has no level and wrote text
+	// where the rest of the pod writes JSON.
+	log, err := logger.NewLoggerFromEnv(logger.InfoLevel)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "unable to create the logger: %s\n", err)
+		os.Exit(1)
+	}
+
 	opt.Parse()
 
-	log.Printf("Launch in %s mode", opt.Mode)
+	log.Info(fmt.Sprintf("Launch in %s mode", opt.Mode))
 
 	path := "/usr/bin/tlshd"
 	args := []string{"-s"}
@@ -108,7 +119,7 @@ func main() {
 		// Perform the execve system call to replace the current process
 		err := syscall.Exec(path, append([]string{path}, args...), env)
 		if err != nil {
-			log.Fatalf("Error executing exec for %s: %v", path, err)
+			log.Fatal(fmt.Sprintf("Error executing exec for %s", path), logger.Err(err))
 		}
 	}
 	cmd := exec.Command(path, args...)
@@ -127,11 +138,11 @@ func main() {
 	cmd.Stderr = multiStderr
 	cmd.Stdout = os.Stdout
 
-	err := cmd.Start()
+	err = cmd.Start()
 	if err != nil {
-		log.Fatalf("Failed to start the command: %v", err)
+		log.Fatal("Failed to start the command", logger.Err(err))
 	}
-	log.Printf("Process started with PID: %d", cmd.Process.Pid)
+	log.Info(fmt.Sprintf("Process started with PID: %d", cmd.Process.Pid))
 
 	// Create a base context
 	ctx, cancel := context.WithCancel(context.Background())
@@ -141,7 +152,7 @@ func main() {
 	if opt.Mode == "init-containers" {
 		ctx, cancel = context.WithTimeout(ctx, time.Duration(opt.TimeoutWait)*time.Second)
 		// defer cancel()
-		log.Printf("Timeout specified: %d seconds", opt.TimeoutWait)
+		log.Info(fmt.Sprintf("Timeout specified: %d seconds", opt.TimeoutWait))
 	}
 
 	// Channel to handle process completion
@@ -158,12 +169,12 @@ func main() {
 
 	select {
 	case <-ctx.Done(): // Timeout or cancellation occurred
-		log.Println("Context done (timeout or cancellation)")
-		terminateProcessGracefully(cmd, done)
+		log.Info("Context done (timeout or cancellation)")
+		terminateProcessGracefully(log, cmd, done)
 	case err := <-done: // Process finished on its own
 		if err != nil {
 			cancel()
-			log.Fatalf("Process exited with an error: %v", err)
+			log.Fatal("Process exited with an error", logger.Err(err))
 		}
 
 		r := regexp.MustCompile(`\s+is\s+not\s+available`)
@@ -171,9 +182,9 @@ func main() {
 			os.Exit(1)
 		}
 
-		log.Println("Process exited successfully.")
+		log.Info("Process exited successfully.")
 	case sig := <-signalChan: // Received termination signal
-		log.Printf("Received signal: %v", sig)
-		terminateProcessGracefully(cmd, done)
+		log.Info(fmt.Sprintf("Received signal: %v", sig))
+		terminateProcessGracefully(log, cmd, done)
 	}
 }
