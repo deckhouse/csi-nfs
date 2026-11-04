@@ -18,12 +18,14 @@ package controller
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"testing"
 	"unicode/utf8"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -84,7 +86,7 @@ func TestEveryDeclaredConditionTypeIsWritten(t *testing.T) {
 			}
 			cl := newStatusTestClient(t, nsc)
 
-			if err := updateNFSStorageClassPhase(context.Background(), cl, nsc, tc.phase, tc.reason); err != nil {
+			if err := updateNFSStorageClassPhase(context.Background(), cl, nil, nsc, tc.phase, tc.reason); err != nil {
 				t.Fatalf("updateNFSStorageClassPhase: %v", err)
 			}
 
@@ -124,7 +126,7 @@ func TestUpdateNFSStorageClassPhase_Created(t *testing.T) {
 	}
 	cl := newStatusTestClient(t, nsc)
 
-	if err := updateNFSStorageClassPhase(context.Background(), cl, nsc, CreatedStatusPhase, ""); err != nil {
+	if err := updateNFSStorageClassPhase(context.Background(), cl, nil, nsc, CreatedStatusPhase, ""); err != nil {
 		t.Fatalf("updateNFSStorageClassPhase: %v", err)
 	}
 
@@ -154,7 +156,7 @@ func TestUpdateNFSStorageClassPhase_Failed(t *testing.T) {
 	cl := newStatusTestClient(t, nsc)
 
 	const reason = "unable to create the StorageClass"
-	if err := updateNFSStorageClassPhase(context.Background(), cl, nsc, FailedStatusPhase, reason); err != nil {
+	if err := updateNFSStorageClassPhase(context.Background(), cl, nil, nsc, FailedStatusPhase, reason); err != nil {
 		t.Fatalf("updateNFSStorageClassPhase: %v", err)
 	}
 
@@ -192,7 +194,7 @@ func TestUpdateNFSStorageClassPhase_TruncatesAnOversizedMessage(t *testing.T) {
 	// Written as an escape rather than the character itself: the module linter
 	// rejects non-ASCII bytes in Go sources.
 	huge := strings.Repeat("\u044f", conditions.MaxMessageLen+100)
-	if err := updateNFSStorageClassPhase(context.Background(), cl, nsc, FailedStatusPhase, huge); err != nil {
+	if err := updateNFSStorageClassPhase(context.Background(), cl, nil, nsc, FailedStatusPhase, huge); err != nil {
 		t.Fatalf("updateNFSStorageClassPhase: %v", err)
 	}
 
@@ -212,12 +214,12 @@ func TestUpdateNFSStorageClassPhase_SkipsWriteWhenNothingChanges(t *testing.T) {
 	}
 	cl := newStatusTestClient(t, nsc)
 
-	if err := updateNFSStorageClassPhase(context.Background(), cl, nsc, CreatedStatusPhase, ""); err != nil {
+	if err := updateNFSStorageClassPhase(context.Background(), cl, nil, nsc, CreatedStatusPhase, ""); err != nil {
 		t.Fatalf("first update: %v", err)
 	}
 	first := readNSC(t, cl)
 
-	if err := updateNFSStorageClassPhase(context.Background(), cl, nsc, CreatedStatusPhase, ""); err != nil {
+	if err := updateNFSStorageClassPhase(context.Background(), cl, nil, nsc, CreatedStatusPhase, ""); err != nil {
 		t.Fatalf("second update: %v", err)
 	}
 	second := readNSC(t, cl)
@@ -239,12 +241,12 @@ func TestUpdateNFSStorageClassPhase_KeepsTransitionTimeAcrossMessageChange(t *te
 	}
 	cl := newStatusTestClient(t, nsc)
 
-	if err := updateNFSStorageClassPhase(context.Background(), cl, nsc, FailedStatusPhase, "first failure"); err != nil {
+	if err := updateNFSStorageClassPhase(context.Background(), cl, nil, nsc, FailedStatusPhase, "first failure"); err != nil {
 		t.Fatalf("first update: %v", err)
 	}
 	first := conditions.Get(readNSC(t, cl).Status.Conditions, v1alpha1.ConditionTypeReady)
 
-	if err := updateNFSStorageClassPhase(context.Background(), cl, nsc, FailedStatusPhase, "second failure"); err != nil {
+	if err := updateNFSStorageClassPhase(context.Background(), cl, nil, nsc, FailedStatusPhase, "second failure"); err != nil {
 		t.Fatalf("second update: %v", err)
 	}
 	second := conditions.Get(readNSC(t, cl).Status.Conditions, v1alpha1.ConditionTypeReady)
@@ -276,7 +278,7 @@ func TestUpdateNFSStorageClassPhase_ObservedGenerationIsTheReconciledOne(t *test
 	reconciled := nsc.DeepCopy()
 	reconciled.Generation = reconciledGeneration
 
-	if err := updateNFSStorageClassPhase(context.Background(), cl, reconciled, CreatedStatusPhase, ""); err != nil {
+	if err := updateNFSStorageClassPhase(context.Background(), cl, nil, reconciled, CreatedStatusPhase, ""); err != nil {
 		t.Fatalf("updateNFSStorageClassPhase: %v", err)
 	}
 
@@ -286,5 +288,51 @@ func TestUpdateNFSStorageClassPhase_ObservedGenerationIsTheReconciledOne(t *test
 	}
 	if !conditions.IsStale(got.Status.Conditions, v1alpha1.ConditionTypeReady, currentGeneration) {
 		t.Error("the Ready condition should read as stale against the current generation")
+	}
+}
+
+// drainEvents returns what the fake recorder has received so far.
+func drainEvents(rec *record.FakeRecorder) []string {
+	var got []string
+	for {
+		select {
+		case e := <-rec.Events:
+			got = append(got, e)
+		default:
+			return got
+		}
+	}
+}
+
+// The status writer records an Event when Ready moves and only then: a pass
+// that repeats the verdict, or re-words it, must not add to the resource's
+// Events, or the one that tells when it broke scrolls away.
+func TestUpdateNFSStorageClassPhase_RecordsReadyTransitions(t *testing.T) {
+	const created = "the NFSStorageClass is in the Created phase"
+
+	steps := []struct {
+		name   string
+		phase  string
+		reason string
+		want   []string
+	}{
+		{"first verdict", CreatedStatusPhase, "", []string{"Normal Reconciled " + created}},
+		{"same verdict", CreatedStatusPhase, "", nil},
+		{"breaks", FailedStatusPhase, "unable to create the StorageClass", []string{"Warning ReconcileFailed unable to create the StorageClass"}},
+		{"fails with another message", FailedStatusPhase, "unable to create the StorageClass: timeout", nil},
+		{"recovers", CreatedStatusPhase, "", []string{"Normal Reconciled " + created}},
+	}
+
+	nsc := &v1alpha1.NFSStorageClass{ObjectMeta: metav1.ObjectMeta{Name: testNSCName}}
+	cl := newStatusTestClient(t, nsc)
+	rec := record.NewFakeRecorder(10)
+
+	for _, s := range steps {
+		if err := updateNFSStorageClassPhase(context.Background(), cl, conditions.FromLegacyRecorder(rec), nsc, s.phase, s.reason); err != nil {
+			t.Fatalf("%s: updating status: %v", s.name, err)
+		}
+		if got := drainEvents(rec); !slices.Equal(got, s.want) {
+			t.Errorf("%s: Events = %q, want %q", s.name, got, s.want)
+		}
 	}
 }

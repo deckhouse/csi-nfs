@@ -4,6 +4,9 @@ date: "2026-xx-xx"
 summary: ""
 highlights: []
 
+new_features:
+  - "NFSStorageClass now records a Kubernetes Event when its `Ready` condition changes status or reason: a `Warning` with the reason `ReconcileFailed` when it turns `False`, a `Normal` one with the reason `Reconciled` when it turns `True` again, so `kubectl describe` shows when a class broke and when it recovered. A reconcile pass that changes nothing records no Event. NFSStorageClass is cluster-scoped, so its Events are in the `default` namespace, and the controller is granted the right to create them there."
+
 improvements:
   - "An NFSStorageClass can no longer be created under the name of a StorageClass that belongs to another provisioner. The module names its StorageClass after the NFSStorageClass, so such a resource used to be created and then stay `Failed`; the webhook now rejects it at creation and names the StorageClass that holds the name."
 

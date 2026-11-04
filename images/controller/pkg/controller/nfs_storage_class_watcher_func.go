@@ -43,6 +43,7 @@ import (
 func reconcileStorageClassCreateFunc(
 	ctx context.Context,
 	cl client.Client,
+	recorder conditions.EventRecorder,
 	log logger.Logger,
 	newSC *storagev1.StorageClass,
 	nsc *v1alpha1.NFSStorageClass,
@@ -55,7 +56,7 @@ func reconcileStorageClassCreateFunc(
 	err := cl.Create(ctx, newSC)
 	if err != nil {
 		err = fmt.Errorf("[reconcileStorageClassCreateFunc] unable to create a Storage Class %s: %w", newSC.Name, err)
-		upError := updateNFSStorageClassPhase(ctx, cl, nsc, FailedStatusPhase, err.Error())
+		upError := updateNFSStorageClassPhase(ctx, cl, recorder, nsc, FailedStatusPhase, err.Error())
 		if upError != nil {
 			upError = fmt.Errorf("[reconcileStorageClassCreateFunc] unable to update the NFSStorageClass %s: %w", nsc.Name, upError)
 			err = errors.Join(err, upError)
@@ -71,6 +72,7 @@ func reconcileStorageClassCreateFunc(
 func reconcileStorageClassRecreateFunc(
 	ctx context.Context,
 	cl client.Client,
+	recorder conditions.EventRecorder,
 	log logger.Logger,
 	oldSC *storagev1.StorageClass,
 	newSC *storagev1.StorageClass,
@@ -83,7 +85,7 @@ func reconcileStorageClassRecreateFunc(
 	err := recreateStorageClass(ctx, cl, oldSC, newSC)
 	if err != nil {
 		err = fmt.Errorf("[reconcileStorageClassRecreateFunc] unable to recreate a Storage Class %s: %w", newSC.Name, err)
-		upError := updateNFSStorageClassPhase(ctx, cl, nsc, FailedStatusPhase, err.Error())
+		upError := updateNFSStorageClassPhase(ctx, cl, recorder, nsc, FailedStatusPhase, err.Error())
 		if upError != nil {
 			upError = fmt.Errorf("[reconcileStorageClassRecreateFunc] unable to update the NFSStorageClass %s: %w", nsc.Name, upError)
 			err = errors.Join(err, upError)
@@ -99,6 +101,7 @@ func reconcileStorageClassRecreateFunc(
 func reconcileStorageClassUpdateFunc(
 	ctx context.Context,
 	cl client.Client,
+	recorder conditions.EventRecorder,
 	log logger.Logger,
 	oldSC *storagev1.StorageClass,
 	newSC *storagev1.StorageClass,
@@ -112,7 +115,7 @@ func reconcileStorageClassUpdateFunc(
 	err := cl.Update(ctx, newSC)
 	if err != nil {
 		err = fmt.Errorf("[reconcileStorageClassUpdateFunc] unable to update a Storage Class %s: %w", newSC.Name, err)
-		upError := updateNFSStorageClassPhase(ctx, cl, nsc, FailedStatusPhase, err.Error())
+		upError := updateNFSStorageClassPhase(ctx, cl, recorder, nsc, FailedStatusPhase, err.Error())
 		if upError != nil {
 			upError = fmt.Errorf("[reconcileStorageClassUpdateFunc] unable to update the NFSStorageClass %s: %w", nsc.Name, upError)
 			err = errors.Join(err, upError)
@@ -128,6 +131,7 @@ func reconcileStorageClassUpdateFunc(
 func reconcileStorageClassDeleteFunc(
 	ctx context.Context,
 	cl client.Client,
+	recorder conditions.EventRecorder,
 	log logger.Logger,
 	oldSC *storagev1.StorageClass,
 	nsc *v1alpha1.NFSStorageClass,
@@ -153,7 +157,7 @@ func reconcileStorageClassDeleteFunc(
 	err := deleteStorageClass(ctx, cl, oldSC)
 	if err != nil {
 		err = fmt.Errorf("[reconcileStorageClassDeleteFunc] unable to delete a storage class %s: %w", oldSC.Name, err)
-		upErr := updateNFSStorageClassPhase(ctx, cl, nsc, FailedStatusPhase, fmt.Sprintf("Unable to delete a storage class, err: %s", err.Error()))
+		upErr := updateNFSStorageClassPhase(ctx, cl, recorder, nsc, FailedStatusPhase, fmt.Sprintf("Unable to delete a storage class, err: %s", err.Error()))
 		if upErr != nil {
 			upErr = fmt.Errorf("[reconcileStorageClassDeleteFunc] unable to update the NFSStorageClass %s: %w", nsc.Name, upErr)
 			err = errors.Join(err, upErr)
@@ -166,7 +170,7 @@ func reconcileStorageClassDeleteFunc(
 	return false, nil
 }
 
-func reconcileSecretCreateFunc(ctx context.Context, cl client.Client, log logger.Logger, nsc *v1alpha1.NFSStorageClass, controllerNamespace string) (bool, error) {
+func reconcileSecretCreateFunc(ctx context.Context, cl client.Client, recorder conditions.EventRecorder, log logger.Logger, nsc *v1alpha1.NFSStorageClass, controllerNamespace string) (bool, error) {
 	log = log.Named("reconcileSecretCreateFunc")
 
 	log.Debug(fmt.Sprintf("starts for NFSStorageClass %q", nsc.Name))
@@ -178,7 +182,7 @@ func reconcileSecretCreateFunc(ctx context.Context, cl client.Client, log logger
 	err := cl.Create(ctx, newSecret)
 	if err != nil {
 		err = fmt.Errorf("[reconcileSecretCreateFunc] unable to create a Secret %s: %w", newSecret.Name, err)
-		upError := updateNFSStorageClassPhase(ctx, cl, nsc, FailedStatusPhase, err.Error())
+		upError := updateNFSStorageClassPhase(ctx, cl, recorder, nsc, FailedStatusPhase, err.Error())
 		if upError != nil {
 			upError = fmt.Errorf("[reconcileSecretCreateFunc] unable to update the NFSStorageClass %s: %w", nsc.Name, upError)
 			err = errors.Join(err, upError)
@@ -189,7 +193,7 @@ func reconcileSecretCreateFunc(ctx context.Context, cl client.Client, log logger
 	return false, nil
 }
 
-func reconcileSecretUpdateFunc(ctx context.Context, cl client.Client, log logger.Logger, secretList *corev1.SecretList, nsc *v1alpha1.NFSStorageClass, controllerNamespace string) (bool, error) {
+func reconcileSecretUpdateFunc(ctx context.Context, cl client.Client, recorder conditions.EventRecorder, log logger.Logger, secretList *corev1.SecretList, nsc *v1alpha1.NFSStorageClass, controllerNamespace string) (bool, error) {
 	log = log.Named("reconcileSecretUpdateFunc")
 
 	log.Debug(fmt.Sprintf("starts for secret %q", SecretForMountOptionsPrefix+nsc.Name))
@@ -204,7 +208,7 @@ func reconcileSecretUpdateFunc(ctx context.Context, cl client.Client, log logger
 
 	if oldSecret == nil {
 		err := fmt.Errorf("[reconcileSecretUpdateFunc] unable to find a secret %s for the NFSStorageClass, name: %s", SecretForMountOptionsPrefix+nsc.Name, nsc.Name)
-		upError := updateNFSStorageClassPhase(ctx, cl, nsc, FailedStatusPhase, err.Error())
+		upError := updateNFSStorageClassPhase(ctx, cl, recorder, nsc, FailedStatusPhase, err.Error())
 		if upError != nil {
 			upError = fmt.Errorf("[reconcileSecretUpdateFunc] unable to update the NFSStorageClass %s: %w", nsc.Name, upError)
 			err = errors.Join(err, upError)
@@ -224,7 +228,7 @@ func reconcileSecretUpdateFunc(ctx context.Context, cl client.Client, log logger
 	err := cl.Update(ctx, newSecret)
 	if err != nil {
 		err = fmt.Errorf("[reconcileSecretUpdateFunc] unable to update a Secret %s: %w", newSecret.Name, err)
-		upError := updateNFSStorageClassPhase(ctx, cl, nsc, FailedStatusPhase, err.Error())
+		upError := updateNFSStorageClassPhase(ctx, cl, recorder, nsc, FailedStatusPhase, err.Error())
 		if upError != nil {
 			upError = fmt.Errorf("[reconcileSecretUpdateFunc] unable to update the NFSStorageClass %s: %w", nsc.Name, upError)
 			err = errors.Join(err, upError)
@@ -237,7 +241,7 @@ func reconcileSecretUpdateFunc(ctx context.Context, cl client.Client, log logger
 	return false, nil
 }
 
-func reconcileSecretDeleteFunc(ctx context.Context, cl client.Client, log logger.Logger, secretList *corev1.SecretList, nsc *v1alpha1.NFSStorageClass) (bool, error) {
+func reconcileSecretDeleteFunc(ctx context.Context, cl client.Client, recorder conditions.EventRecorder, log logger.Logger, secretList *corev1.SecretList, nsc *v1alpha1.NFSStorageClass) (bool, error) {
 	log = log.Named("reconcileSecretDeleteFunc")
 
 	log.Debug(fmt.Sprintf("tries to find a secret for the NFSStorageClass %q with name %q", nsc.Name, SecretForMountOptionsPrefix+nsc.Name))
@@ -258,7 +262,7 @@ func reconcileSecretDeleteFunc(ctx context.Context, cl client.Client, log logger
 		_, err := removeFinalizerIfExists(ctx, cl, secret, NFSStorageClassControllerFinalizerName)
 		if err != nil {
 			err = fmt.Errorf("[reconcileSecretDeleteFunc] unable to remove a finalizer %s from the Secret %s: %w", NFSStorageClassControllerFinalizerName, secret.Name, err)
-			upErr := updateNFSStorageClassPhase(ctx, cl, nsc, FailedStatusPhase, fmt.Sprintf("Unable to remove a finalizer, err: %s", err.Error()))
+			upErr := updateNFSStorageClassPhase(ctx, cl, recorder, nsc, FailedStatusPhase, fmt.Sprintf("Unable to remove a finalizer, err: %s", err.Error()))
 			if upErr != nil {
 				upErr = fmt.Errorf("[reconcileSecretDeleteFunc] unable to update the NFSStorageClass %s: %w", nsc.Name, upErr)
 				err = errors.Join(err, upErr)
@@ -269,7 +273,7 @@ func reconcileSecretDeleteFunc(ctx context.Context, cl client.Client, log logger
 		err = cl.Delete(ctx, secret)
 		if err != nil {
 			err = fmt.Errorf("[reconcileSecretDeleteFunc] unable to delete a secret %s: %w", secret.Name, err)
-			upErr := updateNFSStorageClassPhase(ctx, cl, nsc, FailedStatusPhase, fmt.Sprintf("Unable to delete a secret, err: %s", err.Error()))
+			upErr := updateNFSStorageClassPhase(ctx, cl, recorder, nsc, FailedStatusPhase, fmt.Sprintf("Unable to delete a secret, err: %s", err.Error()))
 			if upErr != nil {
 				upErr = fmt.Errorf("[reconcileSecretDeleteFunc] unable to update the NFSStorageClass %s: %w", nsc.Name, upErr)
 				err = errors.Join(err, upErr)
@@ -284,7 +288,7 @@ func reconcileSecretDeleteFunc(ctx context.Context, cl client.Client, log logger
 	removed, err := removeFinalizerIfExists(ctx, cl, nsc, NFSStorageClassControllerFinalizerName)
 	if err != nil {
 		err = fmt.Errorf("[reconcileSecretDeleteFunc] unable to remove a finalizer %s from the NFSStorageClass %s: %w", NFSStorageClassControllerFinalizerName, nsc.Name, err)
-		upErr := updateNFSStorageClassPhase(ctx, cl, nsc, FailedStatusPhase, fmt.Sprintf("Unable to remove a finalizer, err: %s", err.Error()))
+		upErr := updateNFSStorageClassPhase(ctx, cl, recorder, nsc, FailedStatusPhase, fmt.Sprintf("Unable to remove a finalizer, err: %s", err.Error()))
 		if upErr != nil {
 			upErr = fmt.Errorf("[reconcileSecretDeleteFunc] unable to update the NFSStorageClass %s: %w", nsc.Name, upErr)
 			err = errors.Join(err, upErr)
@@ -547,7 +551,10 @@ func isIgnoredLabelKey(key string, ignoredPrefixes []string) bool {
 // Writing goes through conditions.UpdateStatus, which reads fresh state, skips
 // the write when nothing changed, and retries on conflict — the three things the
 // previous implementation's "TODO: add retry logic" stood for.
-func updateNFSStorageClassPhase(ctx context.Context, cl client.Client, nsc *v1alpha1.NFSStorageClass, phase, reason string) error {
+//
+// A write that moves Ready records an Event on the NFSStorageClass through
+// recorder, which may be nil.
+func updateNFSStorageClassPhase(ctx context.Context, cl client.Client, recorder conditions.EventRecorder, nsc *v1alpha1.NFSStorageClass, phase, reason string) error {
 	// The generation that was actually reconciled. Taken from the object the
 	// caller reconciled rather than from the one read inside UpdateStatus: if
 	// the spec changed in between, observedGeneration must still point at the
@@ -587,7 +594,17 @@ func updateNFSStorageClassPhase(ctx context.Context, cl client.Client, nsc *v1al
 		conditions.Set(&sc.Status.Conditions, cond)
 		sc.Status.Phase = phase
 		sc.Status.Reason = reason
-	})
+	}, conditions.WithEvents(recorder, nfsStorageClassConditions))
+}
+
+// nfsStorageClassConditions is how conditions.WithEvents reads the conditions
+// of an NFSStorageClass. It runs on the object as read from the API server,
+// whose status may still be nil.
+func nfsStorageClassConditions(sc *v1alpha1.NFSStorageClass) []metav1.Condition {
+	if sc.Status == nil {
+		return nil
+	}
+	return sc.Status.Conditions
 }
 
 func recreateStorageClass(ctx context.Context, cl client.Client, oldSC, newSC *storagev1.StorageClass) error {
@@ -913,6 +930,7 @@ func CompareVSClasses(vsClass, newVSClass *snapshotv1.VolumeSnapshotClass) strin
 func reconcileVolumeSnapshotClassCreateFunc(
 	ctx context.Context,
 	cl client.Client,
+	recorder conditions.EventRecorder,
 	log logger.Logger,
 	newVSClass *snapshotv1.VolumeSnapshotClass,
 	nsc *v1alpha1.NFSStorageClass,
@@ -925,7 +943,7 @@ func reconcileVolumeSnapshotClassCreateFunc(
 	err := cl.Create(ctx, newVSClass)
 	if err != nil {
 		err = fmt.Errorf("[reconcileVolumeSnapshotClassCreateFunc] unable to create a VolumeSnapshotClass %s: %w", newVSClass.Name, err)
-		upError := updateNFSStorageClassPhase(ctx, cl, nsc, FailedStatusPhase, err.Error())
+		upError := updateNFSStorageClassPhase(ctx, cl, recorder, nsc, FailedStatusPhase, err.Error())
 		if upError != nil {
 			upError = fmt.Errorf("[reconcileVolumeSnapshotClassCreateFunc] unable to update the NFSStorageClass %s: %w", nsc.Name, upError)
 			err = errors.Join(err, upError)
@@ -941,6 +959,7 @@ func reconcileVolumeSnapshotClassCreateFunc(
 func reconcileVolumeSnapshotClassUpdateFunc(
 	ctx context.Context,
 	cl client.Client,
+	recorder conditions.EventRecorder,
 	log logger.Logger,
 	oldVSClass *snapshotv1.VolumeSnapshotClass,
 	newVSClass *snapshotv1.VolumeSnapshotClass,
@@ -954,7 +973,7 @@ func reconcileVolumeSnapshotClassUpdateFunc(
 	err := cl.Update(ctx, newVSClass)
 	if err != nil {
 		err = fmt.Errorf("[reconcileVolumeSnapshotClassUpdateFunc] unable to update a VolumeSnapshotClass %s: %w", newVSClass.Name, err)
-		upError := updateNFSStorageClassPhase(ctx, cl, nsc, FailedStatusPhase, err.Error())
+		upError := updateNFSStorageClassPhase(ctx, cl, recorder, nsc, FailedStatusPhase, err.Error())
 		if upError != nil {
 			upError = fmt.Errorf("[reconcileVolumeSnapshotClassUpdateFunc] unable to update the NFSStorageClass %s: %w", nsc.Name, upError)
 			err = errors.Join(err, upError)
@@ -970,6 +989,7 @@ func reconcileVolumeSnapshotClassUpdateFunc(
 func reconcileVolumeSnapshotClassDeleteFunc(
 	ctx context.Context,
 	cl client.Client,
+	recorder conditions.EventRecorder,
 	log logger.Logger,
 	oldVSClass *snapshotv1.VolumeSnapshotClass,
 	nsc *v1alpha1.NFSStorageClass,
@@ -995,7 +1015,7 @@ func reconcileVolumeSnapshotClassDeleteFunc(
 	err := deleteVolumeSnapshotClass(ctx, cl, oldVSClass)
 	if err != nil {
 		err = fmt.Errorf("[reconcileVolumeSnapshotClassDeleteFunc] unable to delete a volume snapshot class %s: %w", oldVSClass.Name, err)
-		upError := updateNFSStorageClassPhase(ctx, cl, nsc, FailedStatusPhase, err.Error())
+		upError := updateNFSStorageClassPhase(ctx, cl, recorder, nsc, FailedStatusPhase, err.Error())
 		if upError != nil {
 			upError = fmt.Errorf("[reconcileVolumeSnapshotClassDeleteFunc] unable to update the NFSStorageClass %s: %w", nsc.Name, upError)
 			err = errors.Join(err, upError)
