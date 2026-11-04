@@ -19,10 +19,12 @@ package controller_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1alpha1 "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	"github.com/deckhouse/csi-nfs/images/controller/pkg/controller"
+	"github.com/deckhouse/sds-common-lib/logger"
 )
 
 var systemIgnoredPrefixes = []string{
@@ -76,7 +78,7 @@ var _ = Describe("NFSStorageClass label propagation filtering", func() {
 		Expect(sc.Labels).To(HaveKeyWithValue("team", "storage"))
 		Expect(sc.Labels).To(HaveKeyWithValue("workload", "prod"))
 		Expect(sc.Labels).To(HaveKeyWithValue("some/team", "infra"))
-		Expect(sc.Labels).To(HaveKeyWithValue(controller.NFSStorageClassManagedLabelKey, controller.NFSStorageClassManagedLabelValue))
+		Expect(sc.Labels).To(HaveKeyWithValue(controller.NFSStorageClassManagedLabelKey, controller.StorageClassManagedByValue))
 	})
 
 	It("filters labels matching system and user prefixes", func() {
@@ -95,7 +97,7 @@ var _ = Describe("NFSStorageClass label propagation filtering", func() {
 		sc := controller.ConfigureStorageClass(nil, nsc, controllerNamespace, ignoredPrefixesUnion())
 
 		Expect(sc.Labels).To(HaveKeyWithValue("team", "storage"))
-		Expect(sc.Labels).To(HaveKeyWithValue(controller.NFSStorageClassManagedLabelKey, controller.NFSStorageClassManagedLabelValue))
+		Expect(sc.Labels).To(HaveKeyWithValue(controller.NFSStorageClassManagedLabelKey, controller.StorageClassManagedByValue))
 
 		for _, key := range []string{
 			"app.kubernetes.io/managed-by",
@@ -119,7 +121,7 @@ var _ = Describe("NFSStorageClass label propagation filtering", func() {
 
 		sc := controller.ConfigureStorageClass(nil, nsc, controllerNamespace, ignoredPrefixesUnion())
 
-		Expect(sc.Labels).To(HaveKeyWithValue(controller.NFSStorageClassManagedLabelKey, controller.NFSStorageClassManagedLabelValue))
+		Expect(sc.Labels).To(HaveKeyWithValue(controller.NFSStorageClassManagedLabelKey, controller.StorageClassManagedByValue))
 		Expect(sc.Labels).To(HaveKeyWithValue("team", "storage"))
 	})
 
@@ -132,7 +134,7 @@ var _ = Describe("NFSStorageClass label propagation filtering", func() {
 		sc := controller.ConfigureStorageClass(nil, nsc, controllerNamespace, ignoredPrefixesUnion())
 
 		Expect(sc.Labels).To(HaveLen(1))
-		Expect(sc.Labels).To(HaveKeyWithValue(controller.NFSStorageClassManagedLabelKey, controller.NFSStorageClassManagedLabelValue))
+		Expect(sc.Labels).To(HaveKeyWithValue(controller.NFSStorageClassManagedLabelKey, controller.StorageClassManagedByValue))
 	})
 
 	It("treats an empty prefix in the ignored list as a no-op", func() {
@@ -143,7 +145,7 @@ var _ = Describe("NFSStorageClass label propagation filtering", func() {
 		sc := controller.ConfigureStorageClass(nil, nsc, controllerNamespace, []string{""})
 
 		Expect(sc.Labels).To(HaveKeyWithValue("team", "storage"))
-		Expect(sc.Labels).To(HaveKeyWithValue(controller.NFSStorageClassManagedLabelKey, controller.NFSStorageClassManagedLabelValue))
+		Expect(sc.Labels).To(HaveKeyWithValue(controller.NFSStorageClassManagedLabelKey, controller.StorageClassManagedByValue))
 	})
 
 	It("propagates all NFSSC labels when no prefixes are provided", func() {
@@ -156,6 +158,17 @@ var _ = Describe("NFSStorageClass label propagation filtering", func() {
 
 		Expect(sc.Labels).To(HaveKeyWithValue("argocd.argoproj.io/x", "1"))
 		Expect(sc.Labels).To(HaveKeyWithValue("team", "storage"))
-		Expect(sc.Labels).To(HaveKeyWithValue(controller.NFSStorageClassManagedLabelKey, controller.NFSStorageClassManagedLabelValue))
+		Expect(sc.Labels).To(HaveKeyWithValue(controller.NFSStorageClassManagedLabelKey, controller.StorageClassManagedByValue))
+	})
+
+	It("relabels a StorageClass of an older release in place", func() {
+		nsc := newNsc("nfs-sc-old-value", nil)
+		oldSC := controller.ConfigureStorageClass(nil, nsc, controllerNamespace, nil)
+		oldSC.Labels[controller.NFSStorageClassManagedLabelKey] = controller.NFSStorageClassManagedLabelValue
+
+		reconcileType, _, newSC := controller.IdentifyReconcileFuncForStorageClass(logger.NewNop(), &storagev1.StorageClassList{Items: []storagev1.StorageClass{*oldSC}}, nsc, controllerNamespace, nil)
+
+		Expect(reconcileType).To(Equal(controller.UpdateReconcile))
+		Expect(newSC.Labels).To(HaveKeyWithValue(controller.NFSStorageClassManagedLabelKey, controller.StorageClassManagedByValue))
 	})
 })

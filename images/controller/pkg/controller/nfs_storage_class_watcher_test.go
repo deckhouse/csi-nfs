@@ -116,6 +116,22 @@ var _ = Describe(controller.NFSStorageClassCtrlName, func() {
 		Expect(needRecreate).To(BeFalse())
 		Expect(diff).NotTo(BeEmpty())
 
+		// A difference in the metadata alone is applied in place.
+		sc3 := sc1.DeepCopy()
+		sc3.Labels = map[string]string{controller.NFSStorageClassManagedLabelKey: "another-value"}
+		sc3.Annotations = map[string]string{controller.StorageClassDefaultAnnotationKey: controller.StorageClassDefaultAnnotationValTrue}
+
+		needRecreate, diff = controller.CompareStorageClasses(sc1, sc3)
+		Expect(needRecreate).To(BeFalse())
+		Expect(diff).To(ContainSubstring("Labels"))
+		Expect(diff).To(ContainSubstring("Annotations"))
+
+		// The parameters cannot be changed on an existing StorageClass.
+		sc3.Parameters = map[string]string{"server": "192.168.1.101", "share": share}
+
+		needRecreate, diff = controller.CompareStorageClasses(sc1, sc3)
+		Expect(needRecreate).To(BeTrue())
+		Expect(diff).To(ContainSubstring("Parameters"))
 	})
 
 	It("Create_nfs_sc_with_all_options", func() {

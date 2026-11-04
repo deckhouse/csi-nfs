@@ -10,6 +10,10 @@ new_features:
 improvements:
   - "An NFSStorageClass can no longer be created under the name of a StorageClass that belongs to another provisioner. The module names its StorageClass after the NFSStorageClass, so such a resource used to be created and then stay `Failed`; the webhook now rejects it at creation and names the StorageClass that holds the name."
 
+fixes:
+  - "The `storage.deckhouse.io/managed-by` label of the StorageClasses the module creates now holds the module name, `csi-nfs`, instead of `nfs-storage-class-controller`. Existing StorageClasses get the new value on the first reconcile after the update, without being recreated. Label selectors and monitoring queries that match the old value have to be updated. The label on the Secrets and VolumeSnapshotClasses of the module keeps the old value."
+  - "The controller no longer removes the finalizers that others put on a StorageClass of the module when it updates the StorageClass in place, for example after a change of its labels or mount options. The update used to replace the whole object with the one the controller builds, which carries only its own finalizer."
+
 # Optional sections — delete rather than leave empty.
 # new_features: []
 # improvements: []

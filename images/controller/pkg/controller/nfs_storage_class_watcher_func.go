@@ -111,8 +111,21 @@ func reconcileStorageClassUpdateFunc(
 
 	log.Info(fmt.Sprintf("starts for NFSStorageClass %q", nsc.Name))
 
-	newSC.ResourceVersion = oldSC.ResourceVersion
-	err := cl.Update(ctx, newSC)
+	// Only what may differ on this path is taken from newSC; the rest of the
+	// existing object stays as it is. newSC carries only the finalizer of this
+	// controller, so the ones others put on the StorageClass are kept here; the
+	// annotations are merged by ConfigureStorageClass already.
+	sc := oldSC.DeepCopy()
+	sc.Labels = newSC.Labels
+	sc.Annotations = newSC.Annotations
+	sc.MountOptions = newSC.MountOptions
+	sc.AllowVolumeExpansion = newSC.AllowVolumeExpansion
+	for _, f := range newSC.Finalizers {
+		if !slices.Contains(sc.Finalizers, f) {
+			sc.Finalizers = append(sc.Finalizers, f)
+		}
+	}
+	err := cl.Update(ctx, sc)
 	if err != nil {
 		err = fmt.Errorf("[reconcileStorageClassUpdateFunc] unable to update a Storage Class %s: %w", newSC.Name, err)
 		upError := updateNFSStorageClassPhase(ctx, cl, recorder, nsc, FailedStatusPhase, err.Error())
@@ -502,10 +515,10 @@ func ConfigureStorageClass(oldSC *storagev1.StorageClass, nsc *v1alpha1.NFSStora
 	filteredLabels := filterLabelsForStorageClass(nsc.Labels, ignoredLabelPrefixes)
 	if len(filteredLabels) > 0 {
 		newSc.Labels = filteredLabels
-		newSc.Labels[NFSStorageClassManagedLabelKey] = NFSStorageClassManagedLabelValue
+		newSc.Labels[NFSStorageClassManagedLabelKey] = StorageClassManagedByValue
 	} else {
 		newSc.Labels = map[string]string{
-			NFSStorageClassManagedLabelKey: NFSStorageClassManagedLabelValue,
+			NFSStorageClassManagedLabelKey: StorageClassManagedByValue,
 		}
 	}
 

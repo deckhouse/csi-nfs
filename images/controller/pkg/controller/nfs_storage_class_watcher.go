@@ -57,6 +57,11 @@ const (
 	NFSStorageClassManagedLabelKey         = "storage.deckhouse.io/managed-by"
 	NFSStorageClassManagedLabelValue       = "nfs-storage-class-controller"
 
+	// StorageClassManagedByValue is the value of the managed-by label on the
+	// StorageClasses the module creates: the name of the module. The Secrets and
+	// VolumeSnapshotClasses keep NFSStorageClassManagedLabelValue.
+	StorageClassManagedByValue = "csi-nfs"
+
 	NFSStorageClassVolumeSnapshotClassAnnotationKey = "storage.deckhouse.io/volumesnapshotclass"
 
 	StorageClassDefaultAnnotationKey     = "storageclass.kubernetes.io/is-default-class"
