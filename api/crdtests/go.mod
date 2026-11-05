@@ -1,7 +1,6 @@
 module github.com/deckhouse/csi-nfs/api/crdtests
 
 go 1.27.3
-
 require (
 	github.com/deckhouse/csi-nfs/api v0.0.0-00010101000000-000000000000
 	github.com/deckhouse/sds-common-lib v0.18.0
