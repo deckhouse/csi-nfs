@@ -1,0 +1,319 @@
+diff --git a/pkg/nfs/mount_tracker.go b/pkg/nfs/mount_tracker.go
+new file mode 100644
+index 00000000..1fbc3549
+--- /dev/null
++++ b/pkg/nfs/mount_tracker.go
+@@ -0,0 +1,64 @@
++/*
++Copyright 2026 Flant JSC
++
++Licensed under the Apache License, Version 2.0 (the "License");
++you may not use this file except in compliance with the License.
++You may obtain a copy of the License at
++
++    http://www.apache.org/licenses/LICENSE-2.0
++
++Unless required by applicable law or agreed to in writing, software
++distributed under the License is distributed on an "AS IS" BASIS,
++WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++See the License for the specific language governing permissions and
++limitations under the License.
++*/
++
++package nfs
++
++import (
++	"maps"
++	"sync"
++	"time"
++)
++
++// mountTracker remembers the mounts that outlived the timeout of NodePublishVolume. The
++// mount process of such a mount keeps running after the call has returned, and with a
++// hard NFS mount it may never finish; a retry that started another one would only add
++// a process stuck in the kernel.
++type mountTracker struct {
++	mu      sync.Mutex
++	started map[string]time.Time
++}
++
++func newMountTracker() *mountTracker {
++	return &mountTracker{started: map[string]time.Time{}}
++}
++
++func (t *mountTracker) running(key string) (time.Time, bool) {
++	if t == nil {
++		return time.Time{}, false
++	}
++	t.mu.Lock()
++	defer t.mu.Unlock()
++	at, ok := t.started[key]
++	return at, ok
++}
++
++func (t *mountTracker) add(key string, at time.Time) {
++	if t == nil {
++		return
++	}
++	t.mu.Lock()
++	defer t.mu.Unlock()
++	t.started[key] = at
++}
++
++func (t *mountTracker) done(key string) {
++	if t == nil {
++		return
++	}
++	t.mu.Lock()
++	defer t.mu.Unlock()
++	maps.DeleteFunc(t.started, func(k string, _ time.Time) bool { return k == key })
++}
+diff --git a/pkg/nfs/mount_tracker_test.go b/pkg/nfs/mount_tracker_test.go
+new file mode 100644
+index 00000000..58367a29
+--- /dev/null
++++ b/pkg/nfs/mount_tracker_test.go
+@@ -0,0 +1,150 @@
++/*
++Copyright 2026 Flant JSC
++
++Licensed under the Apache License, Version 2.0 (the "License");
++you may not use this file except in compliance with the License.
++You may obtain a copy of the License at
++
++    http://www.apache.org/licenses/LICENSE-2.0
++
++Unless required by applicable law or agreed to in writing, software
++distributed under the License is distributed on an "AS IS" BASIS,
++WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++See the License for the specific language governing permissions and
++limitations under the License.
++*/
++
++package nfs
++
++import (
++	"context"
++	"errors"
++	"strings"
++	"sync/atomic"
++	"testing"
++	"time"
++
++	"github.com/container-storage-interface/spec/lib/go/csi"
++	"github.com/kubernetes-csi/csi-driver-nfs/test/utils/testutil"
++	"github.com/stretchr/testify/assert"
++	"google.golang.org/grpc/codes"
++	"google.golang.org/grpc/status"
++	mount "k8s.io/mount-utils"
++)
++
++type hangingMounter struct {
++	mount.Interface
++	release chan struct{}
++	calls   atomic.Int32
++}
++
++func (m *hangingMounter) Mount(source, target, fstype string, options []string) error {
++	m.calls.Add(1)
++	<-m.release
++	return m.Interface.Mount(source, target, fstype, options)
++}
++
++type failingMounter struct {
++	mount.Interface
++	calls atomic.Int32
++}
++
++func (m *failingMounter) Mount(_, _, _ string, _ []string) error {
++	m.calls.Add(1)
++	return errors.New("mount.nfs: Connection refused")
++}
++
++func publishRequest(target string) *csi.NodePublishVolumeRequest {
++	return &csi.NodePublishVolumeRequest{
++		VolumeId:         "vol_1",
++		TargetPath:       target,
++		VolumeCapability: &csi.VolumeCapability{AccessMode: &csi.VolumeCapability_AccessMode{Mode: csi.VolumeCapability_AccessMode_MULTI_NODE_MULTI_WRITER}},
++		VolumeContext:    map[string]string{"server": "server", "share": "share"},
++	}
++}
++
++func TestNodePublishVolumeHungMountBlocksOnlyItsTarget(t *testing.T) {
++	saved := mountTimeout
++	mountTimeout = 50 * time.Millisecond
++	t.Cleanup(func() { mountTimeout = saved })
++
++	fake, err := NewFakeMounter()
++	assert.NoError(t, err)
++	mounter := &hangingMounter{Interface: fake, release: make(chan struct{})}
++	t.Cleanup(func() { close(mounter.release) })
++	ns := NewNodeServer(NewEmptyDriver(""), mounter)
++
++	first := testutil.GetWorkDirPath("hung_mount_first", t)
++	second := testutil.GetWorkDirPath("hung_mount_second", t)
++	t.Cleanup(func() {
++		_ = mount.CleanupMountPoint(first, fake, true)
++		_ = mount.CleanupMountPoint(second, fake, true)
++	})
++
++	_, err = ns.NodePublishVolume(context.Background(), publishRequest(first))
++	assert.ErrorContains(t, err, "timeout after")
++
++	_, err = ns.NodePublishVolume(context.Background(), publishRequest(second))
++	assert.NotEqual(t, codes.Aborted, status.Code(err), "the same volume on another target path is not held by the hung mount")
++	assert.Equal(t, int32(2), mounter.calls.Load())
++}
++
++func TestNodePublishVolumeRetriesAMountThatFailed(t *testing.T) {
++	fake, err := NewFakeMounter()
++	assert.NoError(t, err)
++	mounter := &failingMounter{Interface: fake}
++	ns := NewNodeServer(NewEmptyDriver(""), mounter)
++
++	target := testutil.GetWorkDirPath("failed_mount_target", t)
++	t.Cleanup(func() { _ = mount.CleanupMountPoint(target, fake, true) })
++
++	for range 2 {
++		_, err = ns.NodePublishVolume(context.Background(), publishRequest(target))
++		assert.Equal(t, codes.Internal, status.Code(err))
++	}
++	assert.Equal(t, int32(2), mounter.calls.Load(), "a mount that failed within its timeout is not remembered")
++	_, running := ns.mounts.running("vol_1-" + target)
++	assert.False(t, running)
++}
++
++func TestNodePublishVolumeDoesNotStackHungMounts(t *testing.T) {
++	saved := mountTimeout
++	mountTimeout = 50 * time.Millisecond
++	t.Cleanup(func() { mountTimeout = saved })
++
++	fake, err := NewFakeMounter()
++	assert.NoError(t, err)
++	mounter := &hangingMounter{Interface: fake, release: make(chan struct{})}
++	ns := NewNodeServer(NewEmptyDriver(""), mounter)
++
++	target := testutil.GetWorkDirPath("hung_mount_target", t)
++	t.Cleanup(func() { _ = mount.CleanupMountPoint(target, fake, true) })
++	publish := &csi.NodePublishVolumeRequest{
++		VolumeId:         "vol_1",
++		TargetPath:       target,
++		VolumeCapability: &csi.VolumeCapability{AccessMode: &csi.VolumeCapability_AccessMode{Mode: csi.VolumeCapability_AccessMode_MULTI_NODE_MULTI_WRITER}},
++		VolumeContext:    map[string]string{"server": "server", "share": "share"},
++	}
++
++	_, err = ns.NodePublishVolume(context.Background(), publish)
++	assert.ErrorContains(t, err, "timeout after")
++
++	_, err = ns.NodePublishVolume(context.Background(), publish)
++	assert.Equal(t, codes.Aborted, status.Code(err))
++	assert.Contains(t, err.Error(), "has not finished")
++	assert.Equal(t, int32(1), mounter.calls.Load(), "a retry while the first mount hangs starts no other mount")
++
++	_, err = ns.NodeUnpublishVolume(context.Background(), &csi.NodeUnpublishVolumeRequest{VolumeId: "vol_1", TargetPath: target})
++	assert.NotEqual(t, codes.Aborted, status.Code(err), "a hung mount does not keep the pod from being torn down")
++
++	close(mounter.release)
++	assert.Eventually(t, func() bool {
++		_, running := ns.mounts.running("vol_1-" + target)
++		return !running
++	}, 5*time.Second, 10*time.Millisecond, "the hung mount is forgotten once its process exits")
++
++	_, err = ns.NodePublishVolume(context.Background(), publish)
++	if err != nil {
++		assert.False(t, strings.Contains(err.Error(), "has not finished"), err.Error())
++	}
++}
+diff --git a/pkg/nfs/nfs.go b/pkg/nfs/nfs.go
+index 66b0f250..b43b4305 100644
+--- a/pkg/nfs/nfs.go
++++ b/pkg/nfs/nfs.go
+@@ -141,6 +141,7 @@ func NewNodeServer(n *Driver, mounter mount.Interface) *NodeServer {
+ 	return &NodeServer{
+ 		Driver:  n,
+ 		mounter: mounter,
++		mounts:  newMountTracker(),
+ 	}
+ }
+ 
+diff --git a/pkg/nfs/nodeserver.go b/pkg/nfs/nodeserver.go
+index 45bef7dc..4bd289e7 100644
+--- a/pkg/nfs/nodeserver.go
++++ b/pkg/nfs/nodeserver.go
+@@ -36,6 +36,11 @@ import (
+ 
+ const mountTimeoutInSec = 110
+ 
++const mountStillRunningFmt = "the mount of %s on %s started %s ago and has not finished, so no other mount of it is started until it does; " +
++	"a mount that does not finish for minutes means that the NFS server does not answer, or that the NFS client of the kernel on this node is stuck, which only a restart of the node clears"
++
++var mountTimeout = mountTimeoutInSec * time.Second
++
+ // lstatFunc is used for testing to inject stale file handle errors
+ var lstatFunc = os.Lstat
+ 
+@@ -43,6 +48,7 @@ var lstatFunc = os.Lstat
+ type NodeServer struct {
+ 	Driver  *Driver
+ 	mounter mount.Interface
++	mounts  *mountTracker
+ 	csi.UnimplementedNodeServer
+ }
+ 
+@@ -150,14 +156,12 @@ func (ns *NodeServer) NodePublishVolume(_ context.Context, req *csi.NodePublishV
+ 		}
+ 	}
+ 
+-	klog.V(2).Infof("NodePublishVolume: volumeID(%v) source(%s) targetPath(%s) mountflags(%v)", volumeID, source, targetPath, mountOptions)
+-	execFunc := func() error {
+-		return ns.mounter.Mount(source, targetPath, "nfs", mountOptions)
++	if since, running := ns.mounts.running(lockKey); running {
++		return nil, status.Errorf(codes.Aborted, mountStillRunningFmt, source, targetPath, time.Since(since).Round(time.Second))
+ 	}
+-	timeoutFunc := func() error {
+-		return fmt.Errorf("mount volume %s to %s timeout after %ds", source, targetPath, mountTimeoutInSec)
+-	}
+-	if err := WaitUntilTimeout(mountTimeoutInSec*time.Second, execFunc, timeoutFunc); err != nil {
++
++	klog.V(2).Infof("NodePublishVolume: volumeID(%v) source(%s) targetPath(%s) mountflags(%v)", volumeID, source, targetPath, mountOptions)
++	if err := ns.mountWithTimeout(lockKey, source, targetPath, mountOptions); err != nil {
+ 		if os.IsPermission(err) {
+ 			return nil, status.Error(codes.PermissionDenied, err.Error())
+ 		}
+@@ -179,6 +183,36 @@ func (ns *NodeServer) NodePublishVolume(_ context.Context, req *csi.NodePublishV
+ 	return &csi.NodePublishVolumeResponse{}, nil
+ }
+ 
++// mountWithTimeout mounts the volume and gives up waiting after mountTimeout. A mount
++// that is still running then is recorded until its process exits, so that retries
++// do not start one mount process after another while the first one hangs.
++func (ns *NodeServer) mountWithTimeout(key, source, target string, options []string) error {
++	started := time.Now()
++	done := make(chan error, 1)
++	go func() {
++		done <- ns.mounter.Mount(source, target, "nfs", options)
++	}()
++
++	select {
++	case err := <-done:
++		return err
++	case <-time.After(mountTimeout):
++	}
++
++	ns.mounts.add(key, started)
++	go func() {
++		err := <-done
++		ns.mounts.done(key)
++		took := time.Since(started).Round(time.Second)
++		if err != nil {
++			klog.Warningf("NodePublishVolume: the mount of %s on %s failed %s after it started, past its timeout: %v", source, target, took, err)
++			return
++		}
++		klog.Warningf("NodePublishVolume: the mount of %s on %s succeeded %s after it started, past its timeout", source, target, took)
++	}()
++	return fmt.Errorf("mount volume %s to %s timeout after %ds", source, target, int(mountTimeout/time.Second))
++}
++
+ // NodeUnpublishVolume unmount the volume
+ func (ns *NodeServer) NodeUnpublishVolume(_ context.Context, req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
+ 	volumeID := req.GetVolumeId()
