@@ -1,1 +1,39 @@
 {{- include "helm_lib_csi_controller_rbac" . }}
+
+{{- /*
+  The root-squash probe in the CSI controller Pod (see controller.yaml) reads the
+  NFSStorageClasses and writes their RootSquash condition through the status
+  subresource, with an Event when root turns out to be squashed. Its leader-election
+  Lease is covered by the lease Roles helm_lib_csi_controller_rbac binds to the same
+  ServiceAccount.
+*/}}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: d8:{{ .Chart.Name }}:csi:controller:root-squash-probe
+  {{- include "helm_lib_module_labels" (list . (dict "app" "csi-controller")) | nindent 2 }}
+rules:
+  - apiGroups: ["storage.deckhouse.io"]
+    resources: ["nfsstorageclasses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["storage.deckhouse.io"]
+    resources: ["nfsstorageclasses/status"]
+    verbs: ["get", "update"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: d8:{{ .Chart.Name }}:csi:controller:root-squash-probe
+  {{- include "helm_lib_module_labels" (list . (dict "app" "csi-controller")) | nindent 2 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: d8:{{ .Chart.Name }}:csi:controller:root-squash-probe
+subjects:
+  - kind: ServiceAccount
+    name: csi
+    namespace: d8-{{ .Chart.Name }}

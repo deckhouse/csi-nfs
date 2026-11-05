@@ -1,0 +1,74 @@
+---
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+from: {{ index $.Images "builder/src" }}
+final: false
+
+git:
+  - add: {{ .ModuleDir }}
+    to: /src
+    includePaths:
+      - api
+      - lib/go
+      - images/{{ $.ImageName }}
+    stageDependencies:
+      install:
+        - '**/*'
+    excludePaths:
+      - images/{{ $.ImageName }}/werf.inc.yaml
+
+shell:
+  install:
+    - echo "src artifact"
+
+---
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-golang-artifact
+from: {{ index $.Images "builder/golang" }}
+final: false
+
+import:
+  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+    add: /src
+    to: /src
+    before: install
+
+mount:
+{{ include "mount points for golang builds" . }}
+
+secrets:
+- id: GOPROXY
+  value: {{ .GOPROXY }}
+{{ include "secret for private go modules" . }}
+
+shell:
+  setup:
+    {{- include "svace toolchain for golang builds" . | nindent 4 }}
+    {{- include "auth for private go modules" . | nindent 4 }}
+    - cd /src/images/{{ $.ImageName }}/cmd
+    - GOPROXY=$(cat /run/secrets/GOPROXY) go mod download
+    - export GOOS=linux GOARCH=amd64 CGO_ENABLED=0
+    - |
+      {{- include "image-build.build" (set $ "BuildCommand" (printf `go build -ldflags="-s -w" -tags "%s" -o /%s` .MODULE_EDITION $.ImageName)) | nindent 6 }}
+    # Absolute mode: see the note in .werf/defines/golang.tmpl -- `chmod +x` is masked by
+    # the umask in effect and can leave the binary executable by root only.
+    - chmod 0755 /{{ $.ImageName }}
+
+---
+# The probe mounts the export with the mount(8) and mount.nfs of the CSI driver
+# image, /etc/netconfig and /etc/mtab included, so that it mounts exactly the way
+# the driver mounts the volumes.
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+from: {{ index $.Images "base/distroless" }}
+import:
+  - image: {{ .ModuleNamePrefix }}csi-nfs-runtime-artifact
+    add: /relocate
+    to: /
+    before: setup
+  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-golang-artifact
+    add: /{{ $.ImageName }}
+    to: /{{ $.ImageName }}
+    before: setup
+git:
+{{- include "image mount points" . }}
+imageSpec:
+  config:
+    entrypoint: ["/{{ $.ImageName }}"]

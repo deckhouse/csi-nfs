@@ -59,8 +59,9 @@ func readNSC(t *testing.T, cl client.Client) *v1alpha1.NFSStorageClass {
 	return got
 }
 
-// NFSStorageClass declares the condition types it publishes; this checks that
-// the writer delivers exactly those.
+// NFSStorageClass declares the condition types the module controller publishes;
+// this checks that the writer delivers exactly those. RootSquash is declared for
+// the root-squash probe of the CSI controller Pod and is held to it there.
 //
 // A condition type that is declared but never written is worse than one that
 // does not exist: an absent condition is indistinguishable from "not yet
@@ -107,7 +108,7 @@ func TestEveryDeclaredConditionTypeIsWritten(t *testing.T) {
 				}
 			}
 
-			for _, condType := range v1alpha1.NFSStorageClassConditionTypes {
+			for _, condType := range v1alpha1.NFSStorageClassControllerConditionTypes {
 				if !present[condType] {
 					t.Errorf("NFSStorageClass declares %s but the writer did not set it", condType)
 				}

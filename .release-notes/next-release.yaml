@@ -6,6 +6,7 @@ highlights: []
 
 new_features:
   - "NFSStorageClass now records a Kubernetes Event when its `Ready` condition changes status or reason: a `Warning` with the reason `ReconcileFailed` when it turns `False`, a `Normal` one with the reason `Reconciled` when it turns `True` again, so `kubectl describe` shows when a class broke and when it recovered. A reconcile pass that changes nothing records no Event. NFSStorageClass is cluster-scoped, so its Events are in the `default` namespace, and the controller is granted the right to create them there."
+  - "NFSStorageClass reports in the `RootSquash` condition whether the NFS server maps root to another user on the export (`root_squash` or `all_squash`), which makes provisioning, deletion and cleanup of volumes and `fsGroup` ownership changes fail. The CSI controller checks the export when the NFSStorageClass is created and every 10 minutes after that, and records a `Warning` event when root is squashed. The check only warns: the NFSStorageClass is still created and `Ready` does not depend on it. See the FAQ for the symptoms and how to read the condition."
 
 improvements:
   - "An NFSStorageClass can no longer be created under the name of a StorageClass that belongs to another provisioner. The module names its StorageClass after the NFSStorageClass, so such a resource used to be created and then stay `Failed`; the webhook now rejects it at creation and names the StorageClass that holds the name."

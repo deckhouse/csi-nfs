@@ -293,7 +293,7 @@ spec:
             properties:
               conditions:
                 description: 'The latest observations of the resource state. Condition
-                  type: `Ready`.'
+                  types: `Ready`, `RootSquash`.'
                 items:
                   properties:
                     lastTransitionTime:
@@ -328,10 +328,12 @@ spec:
                       - Unknown
                       type: string
                     type:
-                      description: Condition type. `Ready` is `True` once the StorageClass,
-                        the mount-options secret and the VolumeSnapshotClass are in
-                        place, `False` when a reconcile pass failed, and `Unknown`
-                        before the controller has observed the resource.
+                      description: |-
+                        Condition type.
+
+                        `Ready` is `True` once the StorageClass, the mount-options secret and the VolumeSnapshotClass are in place, `False` when a reconcile pass failed, and `Unknown` before the controller has observed the resource.
+
+                        `RootSquash` is `True` when the NFS server maps root to another user on the export (`root_squash` or `all_squash`), `False` when root keeps its identity, and `Unknown` when the check could not reach a verdict: the export could not be mounted (reason `MountFailed`), it is read-only (`ExportReadOnly`), or the check failed otherwise (`ProbeFailed`). The CSI controller checks the export when the NFSStorageClass is created and every 10 minutes after that. The condition only warns and does not affect `Ready`.
                       maxLength: 316
                       pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                       type: string

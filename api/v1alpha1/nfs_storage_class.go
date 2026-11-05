@@ -249,12 +249,12 @@ type NFSStorageClassStatus struct {
 	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
-	// The latest observations of the resource state. Condition type: `Ready`.
+	// The latest observations of the resource state. Condition types: `Ready`, `RootSquash`.
 	// +optional
 	// +listType=map
 	// +listMapKey=type
 	// +crd-enricher:unset:items.description
-	// +crd-enricher:raw:items.properties.type.description=Condition type. `Ready` is `True` once the StorageClass, the mount-options secret and the VolumeSnapshotClass are in place, `False` when a reconcile pass failed, and `Unknown` before the controller has observed the resource.
+	// +crd-enricher:raw:items.properties.type.description="Condition type.\n\n`Ready` is `True` once the StorageClass, the mount-options secret and the VolumeSnapshotClass are in place, `False` when a reconcile pass failed, and `Unknown` before the controller has observed the resource.\n\n`RootSquash` is `True` when the NFS server maps root to another user on the export (`root_squash` or `all_squash`), `False` when root keeps its identity, and `Unknown` when the check could not reach a verdict: the export could not be mounted (reason `MountFailed`), it is read-only (`ExportReadOnly`), or the check failed otherwise (`ProbeFailed`). The CSI controller checks the export when the NFSStorageClass is created and every 10 minutes after that. The condition only warns and does not affect `Ready`."
 	// +crd-enricher:raw:items.properties.status.description=Current status of the condition.
 	// +crd-enricher:raw:items.properties.observedGeneration.description=The value of `metadata.generation` this condition was set against.
 	// +crd-enricher:raw:items.properties.lastTransitionTime.description="Timestamp of the last status transition for this condition. It is not bumped\nwhen only the reason or the message changes."

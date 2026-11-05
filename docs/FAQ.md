@@ -15,6 +15,40 @@ d8 k -n d8-csi-nfs get pod -owide -w
 
 No, the connection data to the NFS server is stored directly in the PV manifest and cannot be changed. Changing the StorageClass also does not affect the connection settings in already existing PVs.
 
+## How to tell whether the NFS server squashes root?
+
+The CSI controller works on the export as root: it creates the `<PV name>` directory and sets its permissions, removes it when the PV is deleted, and wipes its files when `volumeCleanup` is set. The kubelet changes the ownership of the volume files for the `fsGroup` of a pod. If the NFS server maps root to another user (the `root_squash` or `all_squash` export options in Linux; other operating systems and storage systems may name them differently), these operations fail. Typical symptoms:
+
+- a PVC stays `Pending`, and the CSI controller reports `permission denied` while creating the directory of the volume or changing its permissions;
+- a PV is not deleted, or its directory stays on the NFS server after it is deleted;
+- `volumeCleanup` does not wipe the data;
+- a pod with `securityContext.fsGroup` does not start, and its events report that the ownership of the volume files could not be changed (`operation not permitted`).
+
+The module checks the export of every [NFSStorageClass](./cr.html#nfsstorageclass): when the NFSStorageClass is created and every 10 minutes after that, the CSI controller mounts the export with the NFS version and RPC-with-TLS settings of the class, creates a file in the export root as root, asks the server to hand it to root, and removes it. The result is the `RootSquash` condition in the NFSStorageClass status:
+
+```shell
+d8 k get nfsstorageclass <NFSStorageClass name> -o jsonpath='{.status.conditions[?(@.type=="RootSquash")]}'
+```
+
+| `status` | `reason` | Meaning |
+| -------- | -------- | ------- |
+| `True` | `RootSquashed` | The server created the file of root as another user and refused to hand it to root. |
+| `True` | `RootWriteDenied` | The server refused root to create a file in the export root. |
+| `False` | `RootNotSquashed` | Root keeps its identity on the export. |
+| `Unknown` | `MountFailed` | The export could not be mounted: the server is unreachable, the share does not exist or is not exported to the nodes. The `message` field carries the error of `mount.nfs`. |
+| `Unknown` | `ExportReadOnly` | The export is read-only. |
+| `Unknown` | `ProbeFailed` | The check failed for another reason, see the `message` field. |
+
+When `RootSquash` becomes `True`, a `Warning` event is also recorded for the NFSStorageClass; `d8 k describe nfsstorageclass <NFSStorageClass name>` shows it. The condition only warns: the NFSStorageClass and its StorageClass are created anyway, and `Ready` does not depend on `RootSquash`.
+
+To fix the problem, export the share with `no_root_squash` and without `all_squash`. The condition is updated at the next check, within 10 minutes; to check at once, restart the CSI controller:
+
+```shell
+d8 k -n d8-csi-nfs rollout restart deployment csi-controller
+```
+
+During the check, a hidden file `.csi-nfs-root-squash-probe-<hash>` exists in the export root. If it cannot be removed, the `message` field of the condition says so, and the next check removes it.
+
 ## How to create volume snapshots?
 
 Before creating snapshots, review the limitations in ["Creating volume snapshots"](./#creating-volume-snapshots).
