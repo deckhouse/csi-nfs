@@ -1,0 +1,38 @@
+date: "2026-11-05"
+
+summary: "An NFSStorageClass can carry its own CA for RPC-with-TLS and reports whether its NFS server squashes root, the CSI node plugin no longer piles up mounts that hang, inline volumes can no longer reach NFS servers inside the cluster, and the module images no longer carry the reported vulnerabilities of `golang.org/x/net`."
+
+highlights:
+  - "The CSI node plugin no longer starts another `mount` of a volume while an earlier one still hangs: a retry returns `Aborted` with the age of the running mount instead of adding one more process every two minutes."
+  - "`spec.tlsParameters.ca` of NFSStorageClass sets the CA that verifies the NFS server of the class, so classes with RPC-with-TLS no longer need a CA in the ModuleConfig, and a new CA reaches the nodes without restarting Pods."
+  - "An inline CSI volume of `nfs.csi.k8s.io` whose server is in the pod or service network of the cluster is refused with `PermissionDenied`, so a Pod can no longer mount the exports of an in-cluster NFS server, such as the volumes of other namespaces, by its address."
+
+new_features:
+  - "NFSStorageClass has the `spec.tlsParameters.ca` field: a PEM root certificate encoded in Base64 that verifies the NFS server of the class. It is allowed only with `connection.tls: true` and can be changed in place. A class with TLS now needs a CA either in the class or in `tlsParameters.ca` of the module. The nodes trust the CA of the module and the CAs of all classes together, since a node has one truststore for all its mounts. mTLS still takes the client certificate from the ModuleConfig. Available in the SE, SE+, EE and FE editions."
+  - "NFSStorageClass now records a Kubernetes Event when its `Ready` condition changes status or reason: a `Warning` with the reason `ReconcileFailed` when it turns `False`, a `Normal` one with the reason `Reconciled` when it turns `True` again, so `kubectl describe` shows when a class broke and when it recovered. A reconcile pass that changes nothing records no Event. NFSStorageClass is cluster-scoped, so its Events are in the `default` namespace, and the controller is granted the right to create them there."
+  - "NFSStorageClass reports in the `RootSquash` condition whether the NFS server maps root to another user on the export (`root_squash` or `all_squash`), which makes provisioning, deletion and cleanup of volumes and `fsGroup` ownership changes fail. The CSI controller checks the export when the NFSStorageClass is created and every 10 minutes after that, and records a `Warning` event when root is squashed. The check only warns: the NFSStorageClass is still created and `Ready` does not depend on it. See the FAQ for the symptoms and how to read the condition."
+
+improvements:
+  - "An NFSStorageClass can no longer be created under the name of a StorageClass that belongs to another provisioner. The module names its StorageClass after the NFSStorageClass, so such a resource used to be created and then stay `Failed`; the webhook now rejects it at creation and names the StorageClass that holds the name."
+  - "A change of the CAs in the ModuleConfig or in the NFSStorageClasses reaches the `tlshd` truststore of the nodes without restarting the CSI Pods: the truststore is mounted as a directory, which kubelet refreshes, and `tlshd` reads it on every handshake."
+  - "The validating webhooks and the `tlshd` wrapper write their messages through the module logger: they follow `logLevel` of the module and come out as JSON like the other module containers, instead of text at a fixed level."
+
+fixes:
+  - "The CSI node plugin no longer stacks mounts that hang. `NodePublishVolume` gave up waiting for `mount` after 110 seconds while the process kept running, and with a `hard` NFS mount stuck in the kernel every kubelet retry started one more; on a test node 1660 of them piled up in two days. A mount that outlives its timeout is now remembered until its process exits, and a retry for the same volume and target path returns `Aborted` with the age of that mount instead of starting another one. The Pod can still be torn down while the mount hangs. The record is kept in memory: after the csi-node container restarts, a retry starts one new mount."
+  - "The `storage.deckhouse.io/managed-by` label of the StorageClasses the module creates now holds the module name, `csi-nfs`, instead of `nfs-storage-class-controller`. Existing StorageClasses get the new value on the first reconcile after the update, without being recreated. Label selectors and monitoring queries that match the old value have to be updated. The label on the Secrets and VolumeSnapshotClasses of the module keeps the old value."
+  - "The controller no longer removes the finalizers that others put on a StorageClass of the module when it updates the StorageClass in place, for example after a change of its labels or mount options. The update used to replace the whole object with the one the controller builds, which carries only its own finalizer."
+
+security:
+  - "An inline CSI volume of `nfs.csi.k8s.io` (a `csi` volume in the Pod spec) can no longer mount an NFS server inside the cluster. The node plugin mounts from the node, so a server in the cluster that admits the nodes, as the servers of sds-nfs do, gave any Pod that knew its address everything it exported, the volumes of other namespaces included. When the server of an inline volume resolves to an address in the pod or service network of the cluster, or does not resolve, the Pod fails to start with `PermissionDenied`. For this the `nfs.csi.k8s.io` CSIDriver now has `podInfoOnMount: true`. PersistentVolumes and inline volumes of servers outside the cluster are not affected."
+  - "`golang.org/x/net` is raised from v0.60.0 to v0.62.0 in the CSI driver (`csi-nfs`) and the module's controller, scheduler extender, webhooks and hooks, closing CVE-2026-78661 and CVE-2026-97045."
+
+breaking:
+  - "Inline CSI volumes of `nfs.csi.k8s.io` that point to an NFS server inside the cluster (its address is in the pod or service network, or its name does not resolve on the node) no longer mount, and their Pods fail to start with `PermissionDenied`."
+
+upgrade_notes:
+  - "If Pods use inline CSI volumes of `nfs.csi.k8s.io` with an NFS server inside the cluster, move them to PersistentVolumes of an NFSStorageClass before the update."
+  - "The CSI controller Pod gets the `root-squash-probe` container. Every 10 minutes it mounts the export of every NFSStorageClass and briefly creates the hidden file `.csi-nfs-root-squash-probe-<hash>` in the export root. Check the `RootSquash` condition of the classes after the update."
+  - "Label selectors, monitoring queries and automation that match `storage.deckhouse.io/managed-by: nfs-storage-class-controller` on StorageClasses have to be switched to `csi-nfs`. The existing StorageClasses are relabelled in place."
+
+docs:
+  - "The FAQ lists what fails when the NFS server squashes root, how the module checks the export and how to read the `RootSquash` condition. The examples show an NFSStorageClass with its own CA in `spec.tlsParameters.ca`, and the limitations describe the refusal of inline volumes of in-cluster NFS servers."
