@@ -81,6 +81,11 @@ In `csi-nfs`, snapshots are created by archiving the volume directory. The archi
 
 This command will display a list of all snapshots and their current status.
 
+## What happens to snapshots and restored volumes when one of them is deleted?
+
+- A snapshot is a separate `tar.gz` archive on the NFS server, and a volume restored from it is a full copy unpacked from the archive. They depend neither on each other nor on the source volume, so they can be deleted in any order.
+- The space is freed as soon as the directory of a volume or the archive of a snapshot is deleted. The VolumeSnapshotClass of an NFSStorageClass takes its `reclaimPolicy`: with `Retain`, deleting a VolumeSnapshot keeps the archive, and it has to be deleted on the NFS server by hand.
+
 ## How to select the method to clean the volume before deleting the PV?
 
 {{< alert level="warning" >}}
