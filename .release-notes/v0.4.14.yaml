@@ -1,0 +1,22 @@
+date: "2026-11-06"
+
+summary: "mTLS works without a client certificate in the ModuleConfig: the module issues one for the nodes and publishes its CA in the NFSStorageClass, and an NFSStorageClass can mount its volumes with `nosuid` and `nodev`."
+
+highlights:
+  - "With `connection.mtls: true` the nodes present a client certificate the module issues itself, and its CA is published in `status.clientCA` of the NFSStorageClass, so an NFS server that requires mTLS, such as a server of sds-nfs, can trust the nodes without a certificate in the ModuleConfig."
+  - "`spec.mountOptions.nosuid` and `spec.mountOptions.nodev` of NFSStorageClass mount the volumes of the class with `nosuid` and `nodev` on the node."
+
+new_features:
+  - "The module issues the client certificate of mTLS for the nodes: a certificate valid for ten years, renewed half a year before it expires by the same CA, which is valid for twenty years, so the NFS servers keep trusting the nodes through a renewal. A renewed certificate reaches the nodes without restarting the Pods of the module. `tlsParameters.mtls.clientCert` and `clientKey` of the ModuleConfig still replace it, both together. Available in the SE, SE+, EE and FE editions."
+  - "NFSStorageClass with `connection.mtls: true` publishes in `status.clientCA` the CA of the client certificate the nodes present, Base64-encoded PEM: the CA the module issues, or the one set in the new `tlsParameters.mtls.clientCA` parameter of the ModuleConfig together with `clientCert` and `clientKey`. With a certificate of the ModuleConfig but no `clientCA`, the field is empty. The NFS server of the class has to trust this CA."
+  - "NFSStorageClass has the `spec.mountOptions.nosuid` and `spec.mountOptions.nodev` fields. They mount the volumes of the class with `nosuid` and `nodev` on the node: the set-user-ID bits of the files on the share do not take effect there, and device files on it cannot be opened. The container runtime bind-mounts the volume into a container without these flags, so inside a Pod `securityContext.allowPrivilegeEscalation: false` is what stops a set-user-ID binary."
+
+improvements:
+  - "An NFSStorageClass with `connection.mtls: true` no longer needs `tlsParameters.mtls` in the ModuleConfig. The webhook now refuses only a ModuleConfig that sets one of `clientCert` and `clientKey` without the other."
+
+upgrade_notes:
+  - "Nothing has to be done by hand. Classes with `connection.mtls: true` keep the client certificate of `tlsParameters.mtls` if the ModuleConfig sets it. The module keeps the certificate it issues, with its CA, in the new Secret `d8-csi-nfs/nfs-client-tls`, even when the ModuleConfig sets its own; the key the nodes present is in the new Secret `d8-csi-nfs/tlshd-client-key`."
+
+docs:
+  - "The examples describe the client certificate of mTLS: which certificate the nodes present, where its CA is published and how a ModuleConfig replaces it, and the hardened mount options `nosuid` and `nodev` with what they do and do not cover inside a Pod."
+  - "The FAQ explains what happens to snapshots and restored volumes when one of them is deleted: a snapshot is a separate archive and a restored volume is a full copy, so any order of deletion is allowed and the space is freed at once, while a VolumeSnapshotClass with `Retain` keeps the archive on the NFS server."

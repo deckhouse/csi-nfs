@@ -1,0 +1,22 @@
+date: "2026-11-06"
+
+summary: "mTLS работает без клиентского сертификата в ModuleConfig: модуль сам выпускает сертификат для узлов и публикует его CA в NFSStorageClass, а NFSStorageClass может монтировать тома с `nosuid` и `nodev`."
+
+highlights:
+  - "При `connection.mtls: true` узлы предъявляют клиентский сертификат, который выпускает сам модуль, а его CA публикуется в `status.clientCA` NFSStorageClass, поэтому NFS-сервер, требующий mTLS, например сервер sds-nfs, может доверять узлам без сертификата в ModuleConfig."
+  - "Поля `spec.mountOptions.nosuid` и `spec.mountOptions.nodev` NFSStorageClass монтируют тома класса на узле с `nosuid` и `nodev`."
+
+new_features:
+  - "Модуль выпускает клиентский сертификат mTLS для узлов: сертификат действует десять лет и за полгода до истечения обновляется тем же CA, который действует двадцать лет, поэтому NFS-серверы продолжают доверять узлам после обновления. Обновлённый сертификат доходит до узлов без перезапуска подов модуля. Параметры `tlsParameters.mtls.clientCert` и `clientKey` в ModuleConfig по-прежнему его заменяют, только вместе. Доступно в редакциях SE, SE+, EE и FE."
+  - "NFSStorageClass с `connection.mtls: true` публикует в `status.clientCA` CA клиентского сертификата, который предъявляют узлы, в формате PEM, закодированный в Base64: CA, выпущенный модулем, или CA из нового параметра `tlsParameters.mtls.clientCA` в ModuleConfig, заданного вместе с `clientCert` и `clientKey`. Если в ModuleConfig задан сертификат без `clientCA`, поле пустое. NFS-сервер класса должен доверять этому CA."
+  - "У NFSStorageClass появились поля `spec.mountOptions.nosuid` и `spec.mountOptions.nodev`. Они монтируют тома класса на узле с `nosuid` и `nodev`: биты set-user-ID у файлов шары там не действуют, а файлы устройств на ней нельзя открыть. В контейнер среда выполнения подключает том без этих флагов, поэтому внутри пода запуск программы с битом set-user-ID останавливает `securityContext.allowPrivilegeEscalation: false`."
+
+improvements:
+  - "NFSStorageClass с `connection.mtls: true` больше не требует `tlsParameters.mtls` в ModuleConfig. Вебхук теперь отклоняет только ModuleConfig, в котором задан один из параметров `clientCert` и `clientKey` без другого."
+
+upgrade_notes:
+  - "Вручную ничего делать не нужно. Классы с `connection.mtls: true` продолжают использовать клиентский сертификат из `tlsParameters.mtls`, если он задан в ModuleConfig. Сертификат, который выпускает модуль, вместе с его CA хранится в новом секрете `d8-csi-nfs/nfs-client-tls`, даже если в ModuleConfig задан свой сертификат; ключ, который предъявляют узлы, — в новом секрете `d8-csi-nfs/tlshd-client-key`."
+
+docs:
+  - "В примерах описан клиентский сертификат mTLS: какой сертификат предъявляют узлы, где публикуется его CA и как его заменить через ModuleConfig, а также защищённые параметры монтирования `nosuid` и `nodev` — что они дают и чего не закрывают внутри пода."
+  - "В FAQ описано, что происходит со снимками и восстановленными томами, когда один из них удаляют: снимок — отдельный архив, а восстановленный том — полная копия, поэтому удалять можно в любом порядке и место освобождается сразу, а VolumeSnapshotClass с `Retain` оставляет архив на NFS-сервере."

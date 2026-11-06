@@ -4,9 +4,6 @@ date: "2026-xx-xx"
 summary: ""
 highlights: []
 
-docs:
-  - "The FAQ explains what happens to snapshots and restored volumes when one of them is deleted: a snapshot is a separate archive and a restored volume is a full copy, so any order of deletion is allowed and the space is freed at once, while a VolumeSnapshotClass with `Retain` keeps the archive on the NFS server."
-
 # Optional sections — delete rather than leave empty.
 # new_features: []
 # improvements: []
