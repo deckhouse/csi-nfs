@@ -67,23 +67,15 @@ func ValidateNFSStorageClass(nfsModuleConfig *d8commonapi.ModuleConfig, nsc *cn.
 			}
 
 			if nsc.Spec.Connection.Mtls {
-				mtls, ok := tlsParameters["mtls"].(map[string]any)
-				if !ok {
+				// The nodes present the client certificate the module issues unless
+				// tlsParameters.mtls replaces it, which takes the certificate and the
+				// key together.
+				mtls, _ := tlsParameters["mtls"].(map[string]any)
+				cert, _ := mtls["clientCert"].(string)
+				key, _ := mtls["clientKey"].(string)
+				if (cert == "") != (key == "") {
 					return fmt.Errorf(
-						"ModuleConfig: %s (the tlsParameters.mtls parameter is missing); NFSStorageClass: %s (mtls is enabled); %s",
-						nfsModuleConfig.Name, nsc.Name, logPostfix,
-					)
-				}
-
-				if value, ok := mtls["clientCert"].(string); !ok || len(value) == 0 {
-					return fmt.Errorf(
-						"ModuleConfig: %s (the tlsParameters.mtls.clientCert parameter is either missing or has a zero length); NFSStorageClass: %s (mtls is enabled); %s",
-						nfsModuleConfig.Name, nsc.Name, logPostfix,
-					)
-				}
-				if value, ok := mtls["clientKey"].(string); !ok || len(value) == 0 {
-					return fmt.Errorf(
-						"ModuleConfig: %s (the tlsParameters.mtls.clientKey parameter is either missing or has a zero length); NFSStorageClass: %s (mtls is enabled); %s",
+						"ModuleConfig: %s (tlsParameters.mtls sets only one of clientCert and clientKey); NFSStorageClass: %s (mtls is enabled); %s",
 						nfsModuleConfig.Name, nsc.Name, logPostfix,
 					)
 				}

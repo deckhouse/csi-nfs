@@ -103,6 +103,7 @@ func RunNFSStorageClassWatcherController(
 	log logger.Logger,
 ) (controller.Controller, error) {
 	cl := mgr.GetClient()
+	apiReader := mgr.GetAPIReader()
 	recorder := conditions.FromLegacyRecorder(mgr.GetEventRecorderFor(NFSStorageClassCtrlName))
 	err := d8commonapi.AddToScheme(mgr.GetScheme())
 	if err != nil {
@@ -163,6 +164,18 @@ func RunNFSStorageClassWatcherController(
 				return reconcile.Result{
 					RequeueAfter: cfg.RequeueStorageClassInterval * time.Second,
 				}, nil
+			}
+
+			if nsc.DeletionTimestamp == nil {
+				next, err := publishClientCA(ctx, cl, apiReader, cfg.ControllerNamespace, nsc)
+				if err != nil {
+					log.Error(fmt.Sprintf("unable to publish the client CA of the NFSStorageClass, name: %s", nsc.Name), logger.Err(err))
+					return reconcile.Result{}, err
+				}
+				if next > 0 {
+					log.Info(fmt.Sprintf("ends Reconcile for the NFSStorageClass %q", request.Name))
+					return reconcile.Result{RequeueAfter: next}, nil
+				}
 			}
 
 			log.Info(fmt.Sprintf("ends Reconcile for the NFSStorageClass %q", request.Name))

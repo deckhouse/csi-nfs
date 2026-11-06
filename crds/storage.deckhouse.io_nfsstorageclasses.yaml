@@ -121,6 +121,17 @@ spec:
                     - hard
                     - soft
                     type: string
+                  nodev:
+                    description: 'Mount with `nodev` on the node: device files on
+                      the share cannot be opened there. The container runtime bind-mounts
+                      the volume into a container without the flag.'
+                    type: boolean
+                  nosuid:
+                    description: 'Mount with `nosuid` on the node: the set-user-ID
+                      and set-group-ID bits of the files on the share do not take
+                      effect there. The container runtime bind-mounts the volume into
+                      a container without the flag.'
+                    type: boolean
                   readOnly:
                     description: Share read-only flag.
                     type: boolean
@@ -291,6 +302,17 @@ spec:
           status:
             description: Displays current information about the StorageClass.
             properties:
+              clientCA:
+                description: |-
+                  > Available in SE, SE+, EE, and FE editions.
+
+                  The CA of the client certificate the nodes present when they mount the volumes of a class with `spec.connection.mtls`, in PEM format, encoded in Base64. The NFS server of the class has to trust it. Empty when the class does not use mTLS, or when `tlsParameters.mtls` of the module sets a client certificate without `clientCA`.
+                type: string
+                x-doc-d8editions:
+                - se
+                - se-plus
+                - ee
+                - fe
               conditions:
                 description: 'The latest observations of the resource state. Condition
                   types: `Ready`, `RootSquash`.'

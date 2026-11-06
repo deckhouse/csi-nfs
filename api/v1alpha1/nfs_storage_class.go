@@ -187,6 +187,14 @@ type NFSStorageClassMountOptions struct {
 	// Share read-only flag.
 	// +optional
 	ReadOnly *bool `json:"readOnly,omitempty"`
+
+	// Mount with `nosuid` on the node: the set-user-ID and set-group-ID bits of the files on the share do not take effect there. The container runtime bind-mounts the volume into a container without the flag.
+	// +optional
+	NoSuid bool `json:"nosuid,omitempty"`
+
+	// Mount with `nodev` on the node: device files on the share cannot be opened there. The container runtime bind-mounts the volume into a container without the flag.
+	// +optional
+	NoDev bool `json:"nodev,omitempty"`
 }
 
 // +k8s:deepcopy-gen=true
@@ -242,6 +250,13 @@ type NFSStorageClassStatus struct {
 
 	// Additional information about the current state of the StorageClass.
 	Reason string `json:"reason,omitempty"`
+
+	// > Available in SE, SE+, EE, and FE editions.
+	//
+	// The CA of the client certificate the nodes present when they mount the volumes of a class with `spec.connection.mtls`, in PEM format, encoded in Base64. The NFS server of the class has to trust it. Empty when the class does not use mTLS, or when `tlsParameters.mtls` of the module sets a client certificate without `clientCA`.
+	// +optional
+	// +crd-enricher:raw:x-doc-d8editions=[se, se-plus, ee, fe]
+	ClientCA string `json:"clientCA,omitempty"`
 
 	// The value of `metadata.generation` the controller has last acted on. When it trails
 	// `metadata.generation`, the controller has not yet processed the latest spec, and the

@@ -692,6 +692,14 @@ func GetSCMountOptions(nsc *v1alpha1.NFSStorageClass) []string {
 				mountOptions = append(mountOptions, "rw")
 			}
 		}
+
+		if nsc.Spec.MountOptions.NoSuid {
+			mountOptions = append(mountOptions, "nosuid")
+		}
+
+		if nsc.Spec.MountOptions.NoDev {
+			mountOptions = append(mountOptions, "nodev")
+		}
 	}
 
 	return mountOptions

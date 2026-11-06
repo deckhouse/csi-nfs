@@ -42,8 +42,8 @@ data:
 
     [authenticate.client]
     x509.truststore=/etc/tlshd-ca/ca.crt
-    x509.certificate=/etc/client.crt
-    x509.private_key=/etc/client.key
+    x509.certificate=/etc/tlshd-client/client.crt
+    x509.private_key=/etc/tlshd-client/client.key
 
     [authenticate.server]
     #x509.truststore= <pathname>
@@ -53,14 +53,14 @@ data:
   ca.crt: |
     {{- .Values.csiNfs.internal.tlsCABundle | b64dec | nindent 4 }}
 
-  {{- if .Values.csiNfs.tlsParameters.mtls.clientCert }}
+  {{- with include "csi_nfs_client_cert" . }}
   client.crt: |
-    {{- .Values.csiNfs.tlsParameters.mtls.clientCert | b64dec | nindent 4 }}
+    {{- . | nindent 4 }}
   {{- end }}
 
-  {{- if .Values.csiNfs.tlsParameters.mtls.clientKey }}
-  client.key: |
-    {{- .Values.csiNfs.tlsParameters.mtls.clientKey | b64dec | nindent 4 }}
+  {{- with include "csi_nfs_client_ca" . }}
+  client-ca.crt: |
+    {{- . | nindent 4 }}
   {{- end }}
 
 {{- end }}

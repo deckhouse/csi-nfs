@@ -24,6 +24,7 @@ import (
 	_ "github.com/deckhouse/csi-nfs/hooks/go/070-generate-certs"
 	_ "github.com/deckhouse/csi-nfs/hooks/go/080-scheduler-extender-enabler"
 	_ "github.com/deckhouse/csi-nfs/hooks/go/090-tls-ca-bundle"
+	_ "github.com/deckhouse/csi-nfs/hooks/go/100-tls-client-identity"
 )
 
 func main() {

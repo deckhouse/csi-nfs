@@ -109,14 +109,9 @@
       mountPath: /etc/tlshd-ca
       readOnly: true
 
-    {{- if .Values.csiNfs.tlsParameters.mtls }}
-    - name: cm-tlshd-conf
-      mountPath: /etc/client.crt
-      subPath: client.crt
-      readOnly: true
-    - name: cm-tlshd-conf
-      mountPath: /etc/client.key
-      subPath: client.key
+    {{- if include "csi_nfs_client_key" . }}
+    - name: tlshd-client
+      mountPath: /etc/tlshd-client
       readOnly: true
     {{- end }}
 
@@ -138,6 +133,24 @@
     items:
       - key: ca.crt
         path: ca.crt
+{{- if include "csi_nfs_client_key" . }}
+{{- /* A directory rather than subPath files: kubelet refreshes it, so a renewed identity reaches tlshd, which reads the files on every handshake. Modes are the ones tlshd expects. */}}
+- name: tlshd-client
+  projected:
+    sources:
+      - configMap:
+          name: tlshd-conf
+          items:
+            - key: client.crt
+              path: client.crt
+              mode: 420
+      - secret:
+          name: tlshd-client-key
+          items:
+            - key: client.key
+              path: client.key
+              mode: 384
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

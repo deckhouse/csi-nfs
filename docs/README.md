@@ -56,7 +56,7 @@ When creating snapshots of NFS volumes, it is important to understand their crea
 
 The following limitations apply to RPC-with-TLS mode:
 
-- For the `mtls` security policy, only one client certificate is supported.
+- For the `mtls` security policy, a node presents one client certificate on all its mounts: the one the module issues, or the one of `tlsParameters.mtls`.
 - A single NFS server cannot simultaneously operate in different security modes: `tls`, `mtls`, and standard (non-TLS) mode.
 - The `tlshd` daemon must not be running on the cluster nodes, otherwise it will conflict with the module daemon. To prevent conflicts when enabling TLS, the third-party `tlshd` is automatically stopped on the nodes and its autostart is disabled.
 

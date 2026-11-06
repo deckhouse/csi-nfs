@@ -125,7 +125,15 @@ func TestClassCA(t *testing.T) {
 
 	mtls := tlsClass(ca)
 	mtls.Spec.Connection.Mtls = true
-	if err := ValidateNFSStorageClass(noTLS, mtls); err == nil || !strings.Contains(err.Error(), "tlsParameters.mtls") {
-		t.Fatalf("mtls without the client certificate of the module is accepted: %v", err)
+	if err := ValidateNFSStorageClass(noTLS, mtls); err != nil {
+		t.Fatalf("mtls with the client certificate the module issues is refused: %v", err)
+	}
+	halfPair := moduleConfig(map[string]any{"tlsParameters": map[string]any{"mtls": map[string]any{"clientCert": ca}}})
+	if err := ValidateNFSStorageClass(halfPair, mtls); err == nil || !strings.Contains(err.Error(), "only one of clientCert and clientKey") {
+		t.Fatalf("mtls with a client certificate and no key is accepted: %v", err)
+	}
+	fullPair := moduleConfig(map[string]any{"tlsParameters": map[string]any{"mtls": map[string]any{"clientCert": ca, "clientKey": ca}}})
+	if err := ValidateNFSStorageClass(fullPair, mtls); err != nil {
+		t.Fatalf("mtls with the client certificate of the module is refused: %v", err)
 	}
 }

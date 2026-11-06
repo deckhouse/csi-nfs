@@ -67,3 +67,9 @@ properties:
             description: Client key in PEM format, encoded in Base64.
             pattern: "^[A-Za-z0-9+/]*={0,2}$"
             x-dmt-default: "Um9vdCBjZXJ0aWZpY2F0ZS8pbiBQRU0gZm9ybWF0Cg=="
+          clientCA:
+            type: string
+            description: |
+              CA of `clientCert` in PEM format, encoded in Base64. The module publishes it in `status.clientCA` of the NFSStorageClasses with `spec.connection.mtls`, so that an NFS server that requires mTLS can trust the certificate. Without `clientCert` and `clientKey` the nodes present a client certificate the module issues itself.
+            pattern: "^[A-Za-z0-9+/]*={0,2}$"
+            x-dmt-default: "Um9vdCBjZXJ0aWZpY2F0ZS8pbiBQRU0gZm9ybWF0Cg=="

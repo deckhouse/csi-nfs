@@ -34,3 +34,6 @@ properties:
             description: Клиентский сертификат в формате PEM, закодированный в Base64.
           clientKey:
             description: Клиентский ключ в формате PEM, закодированный в Base64.
+          clientCA:
+            description: |
+              CA сертификата `clientCert` в формате PEM, закодированный в Base64. Модуль публикует его в `status.clientCA` NFSStorageClass с `spec.connection.mtls`, чтобы NFS-сервер, требующий mTLS, мог доверять сертификату. Без `clientCert` и `clientKey` узлы предъявляют клиентский сертификат, который модуль выпускает сам.
