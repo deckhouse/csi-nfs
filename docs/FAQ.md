@@ -53,9 +53,7 @@ During the check, a hidden file `.csi-nfs-root-squash-probe-<hash>` exists in th
 
 Before creating snapshots, review the limitations in ["Creating volume snapshots"](./#creating-volume-snapshots).
 
-In `csi-nfs`, snapshots are created by archiving the volume directory. The archive is stored in the root of the NFS server directory specified in the `spec.connection.share` parameter.
-
-1. [Enable the `snapshot-controller` module](/modules/snapshot-controller/configuration.html#enable).
+In `csi-nfs`, snapshots are created by archiving the volume directory. The archive is stored in the root of the NFS server directory specified in the `spec.connection.share` parameter. Volume snapshots require the [storage-foundation](/modules/storage-foundation/) module.
 
 1. Create volume snapshots. To do this, run the following command, specifying the required parameters:
 
