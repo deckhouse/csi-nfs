@@ -4,9 +4,6 @@ date: "2026-xx-xx"
 summary: ""
 highlights: []
 
-improvements:
-  - "В DKP 1.78 и новее роли `d8:system-capability:csi-nfs:view` и `d8:system-capability:csi-nfs:edit` дают также доступ на чтение к ModuleConfig `csi-nfs`, а `edit` — и на запись, и несут стандартные заголовки и описания платформы, как все capability ролевой модели DKP 1.78. RBAC модуля теперь описан в `rbac.yaml`, и шаблоны RBACv2 пишутся из него; кластеры ниже DKP 1.78 сохраняют прежние роли."
-
 # Необязательные разделы — пустые не оставлять, а удалять.
 # new_features: []
 # improvements: []

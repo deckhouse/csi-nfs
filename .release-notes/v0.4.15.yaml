@@ -1,0 +1,21 @@
+date: "2026-11-14"
+
+summary: "On DKP 1.78 and later the view and edit roles of the module also cover its ModuleConfig, the module can be built inside an isolated network, and the images are rebuilt on base images v4.0.12 with Go 1.27.4."
+
+highlights:
+  - "On DKP 1.78 and later, the `d8:system-capability:csi-nfs:view` and `d8:system-capability:csi-nfs:edit` roles also give read and write access to the `csi-nfs` ModuleConfig."
+  - "The build of the module no longer contacts the Go checksum database (`sum.golang.org`) and reuses the Go module cache of the build host, so the module can be built inside an isolated network from prepared caches."
+
+improvements:
+  - "On DKP 1.78 and later, the `d8:system-capability:csi-nfs:view` and `d8:system-capability:csi-nfs:edit` roles also give read access to the `csi-nfs` ModuleConfig, and `edit` write access to it, and carry the standard titles and descriptions of the platform, as every capability of the DKP 1.78 role model does. The RBAC of the module is now declared in `rbac.yaml`, and the RBACv2 templates are written from it; clusters below DKP 1.78 keep the roles they had."
+  - "The release-notes pages of the documentation are rendered by a tool pinned together with its checksums in `.werf/tools/go.mod`, and the Go module cache of the build host (`~/go-pkg-cache`) is kept between builds. Nothing changes in the images or in the cluster."
+
+dependencies:
+  - name: base images
+    from: "v4.0.7"
+    to: "v4.0.12"
+    notes: "Every image of the module is rebuilt on the current base images."
+  - name: Go
+    from: "1.27.3"
+    to: "1.27.4"
+    notes: "The toolchain the Go components of the module are built with."
