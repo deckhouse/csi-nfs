@@ -141,7 +141,7 @@ openssl x509 -req -in nfs_client.csr -CA ca.crt -CAkey ca.key -CAcreateserial -o
 
 #### Проверка ядра
 
-Для работы RPC-with-TLS необходимо Linux ядро старше 6.4. Проверьте версию ядра:
+Для работы RPC-with-TLS необходимо ядро Linux, собранное с опциями `CONFIG_TLS` и `CONFIG_NET_HANDSHAKE` (обычно это ядра 6.5 и новее). Проверьте версию ядра:
 
 ```shell
 uname -r

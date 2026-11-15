@@ -5,6 +5,7 @@ summary: ""
 highlights: []
 
 docs:
+  - "The documentation lists the operating systems and kernels checked for RPC-with-TLS, with a command to check a node, states the kernel requirement (`CONFIG_NET_HANDSHAKE`, usually kernels 6.5 and later), describes how to delete the PVs left behind after an NFSStorageClass with RPC-with-TLS was removed, and gives the RED OS 8 NFS server installation guide in English."
   - "The documentation names the `storage-foundation` module, not `snapshot-controller`, as the module that volume snapshots require, and no longer asks to enable `snapshot-controller`."
 
 # Optional sections — delete rather than leave empty.

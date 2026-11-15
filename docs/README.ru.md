@@ -30,7 +30,7 @@ StorageClass для CSI-драйвера `nfs.csi.k8s.io` создаются т�
 - Убедитесь, что NFS-сервер корректно настроен и запущен:
   - Для модулей DKP, в настройках которых используется StorageClass, может потребоваться разрешить доступ клиентам с root-правами. В Linux это реализуется через опцию `no_root_squash`. В других операционных системах и СХД аналогичная настройка может иметь иное название;
   - Для хранилища виртуальных дисков в [Deckhouse Virtualization Platform](/products/virtualization-platform/documentation/) опция `no_root_squash` обязательна.
-- Для поддержки RPC-with-TLS включите в ядре Linux опции `CONFIG_TLS` и `CONFIG_NET_HANDSHAKE`.
+- Для поддержки RPC-with-TLS ядро Linux на узлах должно быть собрано с опциями `CONFIG_TLS` и `CONFIG_NET_HANDSHAKE`. Опция `CONFIG_NET_HANDSHAKE` обычно есть в ядрах 6.5 и новее. Проверенные операционные системы и ядра перечислены в [FAQ](./faq.html#на-каких-операционных-системах-и-ядрах-работает-rpc-with-tls).
 - Для работы со снимками томов требуется модуль [storage-foundation](/modules/storage-foundation/). Без него остальная функциональность модуля работает штатно, а VolumeSnapshotClass не создаётся.
 
 ### Рекомендации

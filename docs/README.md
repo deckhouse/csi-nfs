@@ -30,7 +30,7 @@ Before using the module, make sure the following requirements are met:
 - Ensure that the NFS server is correctly configured and running:
   - For DKP modules where StorageClass is used, it may be necessary to allow access to clients with root privileges. In Linux, this is implemented via the `no_root_squash` option. On other operating systems and storage systems, a similar setting may have a different name;
   - For virtual disk storage in the [Deckhouse Virtualization Platform](/products/virtualization-platform/documentation/), the `no_root_squash` option is mandatory.
-- To support RPC-with-TLS, enable `CONFIG_TLS` and `CONFIG_NET_HANDSHAKE` options in the Linux kernel.
+- To support RPC-with-TLS, the Linux kernel of the nodes must be built with the `CONFIG_TLS` and `CONFIG_NET_HANDSHAKE` options. `CONFIG_NET_HANDSHAKE` is usually present in kernels 6.5 and later. The operating systems and kernels checked so far are listed in the [FAQ](./faq.html#which-operating-systems-and-kernels-support-rpc-with-tls).
 - Volume snapshots require the [storage-foundation](/modules/storage-foundation/) module. Without it, the rest of the module keeps working and no VolumeSnapshotClass is created.
 
 ### Recommendations

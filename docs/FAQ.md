@@ -141,6 +141,17 @@ Advantages of this method:
 If the [NFSStorageClass](./cr.html#nfsstorageclass) resource was configured with RPC-with-TLS support, there might be a situation where the PV fails to be deleted.
 This happens due to the removal of the secret (for example, after deleting NFSStorageClass), which holds the mount options. As a result, the controller is unable to mount the NFS directory to delete the `<PV name>` directory.
 
+The PV does not store the mount options. To delete a volume, `external-provisioner` finds the StorageClass named in the PV, reads the secret `nfs-mount-options-for-<NFSStorageClass name>` in the `d8-csi-nfs` namespace (its name is set in the `csi.storage.k8s.io/provisioner-secret-name` parameter of the StorageClass) and passes it to the driver. If the StorageClass or the secret no longer exists, `external-provisioner` proceeds without the secret, the driver mounts the server without the `xprtsec` option, and the deletion ends with the `failed to mount nfs server` error. The PV stays in the `Released` state and the deletion is retried.
+
+To delete such PVs:
+
+1. Make sure the NFS server is running and reachable from the cluster nodes.
+1. Create the NFSStorageClass again, with the same name and the same `connection` and `tlsParameters` as before. The module recreates the StorageClass and the secret with the mount options.
+1. Wait for the NFSStorageClass to become `Ready`. `external-provisioner` retries the failed deletions on its own: the PVs disappear together with their `<PV name>` directories on the server.
+1. Delete the NFSStorageClass if it is no longer needed.
+
+To avoid the problem, delete the NFSStorageClass only after all PVs created from it are deleted.
+
 ## How to place multiple CAs in the tlsParameters.ca setting in ModuleConfig?
 
 Each NFSStorageClass can carry the CA of its server in `spec.tlsParameters.ca` (see [Examples](./examples.html)); the nodes trust all of them together with the CA of the module. To keep several CAs in the ModuleConfig, concatenate the certificates into a single file and encode the result in Base64. Examples:
@@ -168,6 +179,48 @@ To deploy an NFS server with RPC-with-TLS support, the distribution must meet th
 
 - The kernel must be built with the `CONFIG_TLS` and `CONFIG_NET_HANDSHAKE` options enabled;
 - The nfs-utils package (or nfs-common in Debian-based distributions) must be version >= 2.6.3.
+
+## Which operating systems and kernels support RPC-with-TLS?
+
+RPC-with-TLS on a cluster node requires a kernel built with the `CONFIG_TLS` and `CONFIG_NET_HANDSHAKE` options. `CONFIG_NET_HANDSHAKE` is usually present in kernels 6.5 and later, but what matters is the option itself, not the version number: check the kernel of the node, as described below.
+
+The table lists the [supported operating systems](/products/kubernetes-platform/documentation/v1/supported_versions.html#linux) and the kernels seen on test clusters. A kernel of the same operating system may differ on your nodes.
+
+| Operating system | Kernel | RPC-with-TLS works | Confirmed by |
+|---|---|---|---|
+| RED OS 7.3 | 6.1.52-1.el7.3 | not checked | the kernel is older than 6.5, the options were not checked |
+| RED OS 8 | 6.6.26-1.red80 and 6.12.87-2.red80 | yes | the tls and mtls e2e tests of the module run on a RED OS node; the `CONFIG_NET_HANDSHAKE=y` option is shown for kernel 6.6.76 in [Examples](./examples.html) |
+| Astra Linux (1.7 and 1.8) | 6.1.141-1-generic | no | the kernel has no `CONFIG_NET_HANDSHAKE`: the `net-handshake-checker` init container of the module fails in the CI of the module |
+| Astra Linux (1.7 and 1.8) | 6.12.95-1-generic | not checked | the options were not checked |
+| ALT | 6.12.115-6.12-alt0.c10f.2 | yes | the tls and mtls e2e tests of the module run on an ALT node |
+| Ubuntu 22.04 | 5.15.0-105-generic | no | the kernel is older than 6.5; the e2e tests of the module state that tls and mtls cannot work on the 22.04 image |
+| Ubuntu 24.04 | 6.8.0-124-generic | yes | the tls and mtls e2e tests of the module run on Ubuntu 24.04 |
+| Debian 12 | 6.1.0-37-cloud-amd64 | no | the kernel has no `CONFIG_NET_HANDSHAKE`: the `net-handshake-checker` init container of the module fails in the CI of the module |
+
+Kernels delivered through additional repositories (for example, HWE kernels of Ubuntu or backports of Debian) were not checked.
+
+To check a node, run on it:
+
+```shell
+uname -r
+grep -E '^CONFIG_(TLS|NET_HANDSHAKE)=' /boot/config-$(uname -r)
+```
+
+Both options must be in the output. `CONFIG_TLS` can be `m` (a module, the module loads it itself), `CONFIG_NET_HANDSHAKE` can only be `y`. Example of the output:
+
+```console
+6.8.0-124-generic
+CONFIG_TLS=m
+CONFIG_NET_HANDSHAKE=y
+```
+
+If the `/boot/config-*` file is missing, use the kernel configuration exposed by the kernel itself (it exists if the `configs` module is loaded or built in):
+
+```shell
+zcat /proc/config.gz | grep -E '^CONFIG_(TLS|NET_HANDSHAKE)='
+```
+
+If the options are missing, the `net-handshake-checker` init container of the `csi-nfs` pods on this node fails and the pods do not start. Install a kernel that has both options, or use an NFSStorageClass without RPC-with-TLS.
 
 ## Where do rpcbind and rpc.statd on a node come from?
 
