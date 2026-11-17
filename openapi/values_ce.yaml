@@ -75,29 +75,30 @@ properties:
         type: integer
         default: 8080
         description: |
-          The port the kube-rbac-proxy publishes the controller metrics on. Reaching
-          it requires "get" on deployments/prometheus-metrics for the controller; the
-          controller itself keeps its metrics on 127.0.0.1.
+          The port the module controller serves its metrics on, over HTTPS. What is
+          on it is the validity of the RPC-with-TLS certificates: one series per
+          certificate, populated only where that feature is on, next to the
+          manager's own metrics, which are there in every case. Reaching it
+          requires "get" on deployments/prometheus-metrics for the controller,
+          which the controller checks on every scrape.
       schedulerExtenderMetricsPort:
         type: integer
         default: 8080
         description: |
-          The port the scheduler extender serves its metrics on, bound on 127.0.0.1:
-          the only thing that reaches it is the kube-rbac-proxy of the same pod.
+          Not used: the scheduler extender serves its metrics on
+          schedulerExtenderMetricsProxyPort.
       schedulerExtenderMetricsProxyPort:
         type: integer
         default: 8080
         description: |
-          The port the kube-rbac-proxy publishes the extender metrics on. The proxy
-          listens on the pod IP and the extender on 127.0.0.1, so the two can hold the
-          same port number: they are different sockets.
+          The port the scheduler extender serves its metrics on, over HTTPS. Reaching
+          it requires "get" on deployments/prometheus-metrics for
+          csi-nfs-scheduler-extender, which the extender checks on every scrape.
       controllerMetricsPort:
         type: integer
         description: |
-          The port the module controller serves its metrics on. What is on it is
-          the validity of the RPC-with-TLS certificates: one series per
-          certificate, populated only where that feature is on, next to the
-          manager's own metrics, which are there in every case.
+          Not used: the module controller serves its metrics on
+          controllerMetricsProxyPort.
         default: 4223
       shedulerExtenderEnabled:
         type: boolean

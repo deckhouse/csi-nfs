@@ -104,7 +104,7 @@ func RunNFSStorageClassWatcherController(
 ) (controller.Controller, error) {
 	cl := mgr.GetClient()
 	apiReader := mgr.GetAPIReader()
-	recorder := conditions.FromLegacyRecorder(mgr.GetEventRecorderFor(NFSStorageClassCtrlName))
+	recorder := mgr.GetEventRecorder(NFSStorageClassCtrlName)
 	err := d8commonapi.AddToScheme(mgr.GetScheme())
 	if err != nil {
 		log.Error("unable to run watcher controller: unable to add scheme", logger.Err(err))

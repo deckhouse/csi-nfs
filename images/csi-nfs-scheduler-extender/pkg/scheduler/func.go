@@ -159,8 +159,9 @@ func GetKubernetesNodeNamesBySelector(ctx context.Context, cl client.Client, nod
 	return nodeNames, nil
 }
 
-func GetKubernetesNodesBySelector(ctx context.Context, cl client.Client, nodeSelector map[string]string) (*corev1.NodeList, error) {
-	selectedK8sNodes := &corev1.NodeList{}
+func GetKubernetesNodesBySelector(ctx context.Context, cl client.Client, nodeSelector map[string]string) (*metav1.PartialObjectMetadataList, error) {
+	selectedK8sNodes := &metav1.PartialObjectMetadataList{}
+	selectedK8sNodes.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("NodeList"))
 	err := cl.List(ctx, selectedK8sNodes, client.MatchingLabels(nodeSelector))
 	return selectedK8sNodes, err
 }

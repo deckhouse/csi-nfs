@@ -55,13 +55,15 @@ func MCValidate(ctx context.Context, arReview *model.AdmissionReview, obj metav1
 		sv1.AddToScheme,
 	)
 	if err != nil {
-		handlerLog.Fatal("unable to create the kube client", logger.Err(err)) // pod restarting
+		handlerLog.Error("unable to create the kube client", logger.Err(err))
+		return nil, fmt.Errorf("creating the kube client: %w", err)
 	}
 
 	nscList := &cn.NFSStorageClassList{}
 	err = cl.List(ctx, nscList)
 	if err != nil {
-		handlerLog.Fatal("unable to list the NFSStorageClasses", logger.Err(err))
+		handlerLog.Error("unable to list the NFSStorageClasses", logger.Err(err))
+		return nil, fmt.Errorf("listing the NFSStorageClasses: %w", err)
 	}
 
 	if err := validateModuleConfig(nfsModuleConfig, nscList); err != nil {

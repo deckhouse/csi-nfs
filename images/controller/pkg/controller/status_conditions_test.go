@@ -25,7 +25,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -293,7 +293,7 @@ func TestUpdateNFSStorageClassPhase_ObservedGenerationIsTheReconciledOne(t *test
 }
 
 // drainEvents returns what the fake recorder has received so far.
-func drainEvents(rec *record.FakeRecorder) []string {
+func drainEvents(rec *events.FakeRecorder) []string {
 	var got []string
 	for {
 		select {
@@ -326,10 +326,10 @@ func TestUpdateNFSStorageClassPhase_RecordsReadyTransitions(t *testing.T) {
 
 	nsc := &v1alpha1.NFSStorageClass{ObjectMeta: metav1.ObjectMeta{Name: testNSCName}}
 	cl := newStatusTestClient(t, nsc)
-	rec := record.NewFakeRecorder(10)
+	rec := events.NewFakeRecorder(10)
 
 	for _, s := range steps {
-		if err := updateNFSStorageClassPhase(context.Background(), cl, conditions.FromLegacyRecorder(rec), nsc, s.phase, s.reason); err != nil {
+		if err := updateNFSStorageClassPhase(context.Background(), cl, rec, nsc, s.phase, s.reason); err != nil {
 			t.Fatalf("%s: updating status: %v", s.name, err)
 		}
 		if got := drainEvents(rec); !slices.Equal(got, s.want) {

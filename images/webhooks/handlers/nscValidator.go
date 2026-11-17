@@ -63,7 +63,8 @@ func NSCValidate(ctx context.Context, arReview *model.AdmissionReview, obj metav
 		sv1.AddToScheme,
 	)
 	if err != nil {
-		handlerLog.Fatal("unable to create the kube client", logger.Err(err)) // pod restarting
+		handlerLog.Error("unable to create the kube client", logger.Err(err))
+		return nil, fmt.Errorf("creating the kube client: %w", err)
 	}
 
 	// The controller names the StorageClass after the NFSStorageClass, so a
@@ -86,7 +87,8 @@ func NSCValidate(ctx context.Context, arReview *model.AdmissionReview, obj metav
 	nfsModuleConfig := &d8commonapi.ModuleConfig{}
 	err = cl.Get(ctx, types.NamespacedName{Name: csiNfsModuleName, Namespace: ""}, nfsModuleConfig)
 	if err != nil {
-		handlerLog.Fatal("unable to get the csi-nfs ModuleConfig", logger.Err(err))
+		handlerLog.Error("unable to get the csi-nfs ModuleConfig", logger.Err(err))
+		return nil, fmt.Errorf("getting the csi-nfs ModuleConfig: %w", err)
 	}
 
 	if err := commonvalidating.ValidateNFSStorageClass(nfsModuleConfig, nsc); err != nil {

@@ -34,6 +34,7 @@ import (
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
@@ -92,6 +93,7 @@ func main() {
 	mgr, err := ctrl.NewManager(restCfg, manager.Options{
 		Scheme:                        scheme,
 		Logger:                        log.GetLogger(),
+		Cache:                         cache.Options{DefaultTransform: cache.TransformStripManagedFields()},
 		Metrics:                       metricsserver.Options{BindAddress: "0"},
 		HealthProbeBindAddress:        "0",
 		LeaderElection:                true,
@@ -119,7 +121,7 @@ func main() {
 	reconciler := &controller.Reconciler{
 		Client:    mgr.GetClient(),
 		APIReader: mgr.GetAPIReader(),
-		Recorder:  mgr.GetEventRecorderFor(leaderElectionID),
+		Recorder:  mgr.GetEventRecorder(leaderElectionID),
 		Prober:    prober,
 		Interval:  *interval,
 		Log:       log.Named(controller.Name),

@@ -26,7 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -61,7 +61,7 @@ func (p *fakeProber) Probe(_ context.Context, t probe.Target) probe.Result {
 type harness struct {
 	cl       client.Client
 	prober   *fakeProber
-	recorder *record.FakeRecorder
+	recorder *events.FakeRecorder
 	now      time.Time
 	r        *Reconciler
 }
@@ -81,7 +81,7 @@ func newHarness(t *testing.T, objs ...client.Object) *harness {
 	h := &harness{
 		cl:       cl,
 		prober:   &fakeProber{result: notSquashed},
-		recorder: record.NewFakeRecorder(10),
+		recorder: events.NewFakeRecorder(10),
 		now:      time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
 	}
 	h.r = &Reconciler{

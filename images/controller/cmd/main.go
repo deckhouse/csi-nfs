@@ -26,9 +26,11 @@ import (
 	v1 "k8s.io/api/core/v1"
 	sv1 "k8s.io/api/storage/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -37,8 +39,12 @@ import (
 	"github.com/deckhouse/csi-nfs/images/controller/pkg/config"
 	"github.com/deckhouse/csi-nfs/images/controller/pkg/controller"
 	"github.com/deckhouse/csi-nfs/images/controller/pkg/kubutils"
+	"github.com/deckhouse/csi-nfs/images/webhooks/handlers"
 	commonfeature "github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature"
+	d8commonapi "github.com/deckhouse/sds-common-lib/api/v1alpha1"
 	"github.com/deckhouse/sds-common-lib/logger"
+	"github.com/deckhouse/sds-common-lib/monitoring/metricsauth"
+	"github.com/deckhouse/sds-common-lib/webhookserver"
 )
 
 var (
@@ -49,6 +55,7 @@ var (
 		v1.AddToScheme,
 		sv1.AddToScheme,
 		snapshotv1.AddToScheme,
+		d8commonapi.AddToScheme,
 	}
 )
 
@@ -95,6 +102,12 @@ func main() {
 		DefaultNamespaces: map[string]cache.Config{
 			cfgParams.ControllerNamespace: {},
 		},
+		ByObject: map[client.Object]cache.ByObject{
+			&d8commonapi.ModuleConfig{}: {
+				Field: fields.OneTermEqualSelector("metadata.name", cfgParams.CsiNfsModuleName),
+			},
+		},
+		DefaultTransform: cache.TransformStripManagedFields(),
 	}
 
 	managerOpts := manager.Options{
@@ -102,7 +115,7 @@ func main() {
 		Cache:  cacheOpt,
 		// The certificate validity gauges live in tls_metrics.go; without a listener
 		// they would be updated and never read.
-		Metrics:                 metricsserver.Options{BindAddress: cfgParams.MetricsBindAddress},
+		Metrics:                 metricsauth.ApplyFromEnv(metricsserver.Options{BindAddress: cfgParams.MetricsBindAddress}),
 		HealthProbeBindAddress:  cfgParams.HealthProbeBindAddress,
 		LeaderElection:          true,
 		LeaderElectionNamespace: cfgParams.ControllerNamespace,
@@ -127,7 +140,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	controller.RunNodeSelectorReconciler(ctx, mgr, *cfgParams, baseLog.Named(controller.NodeSelectorReconcilerName))
+	if err = controller.RunNodeSelectorReconciler(mgr, *cfgParams, baseLog.Named(controller.NodeSelectorReconcilerName)); err != nil {
+		log.Error(fmt.Sprintf("unable to add %s", controller.NodeSelectorReconcilerName), logger.Err(err))
+		os.Exit(1)
+	}
 
 	// The validity of the RPC-with-TLS certificates, which nothing in this module
 	// rotates: they come from the ModuleConfig and expire on a date the cluster has no
@@ -145,6 +161,24 @@ func main() {
 			log.Error(fmt.Sprintf("unable to add %s", controller.TLSCertificateMetricsName), logger.Err(err))
 			os.Exit(1)
 		}
+	}
+
+	webhookOpts, webhooksEnabled, err := webhookserver.OptionsFromEnv()
+	if err != nil {
+		log.Error("unable to read the webhook server configuration", logger.Err(err))
+		os.Exit(1)
+	}
+	if webhooksEnabled {
+		hs, err := handlers.Handlers(baseLog.Named("webhooks"))
+		if err != nil {
+			log.Error("unable to create the webhook handlers", logger.Err(err))
+			os.Exit(1)
+		}
+		if err = webhookserver.Add(mgr, webhookOpts, hs); err != nil {
+			log.Error("unable to add the webhook server", logger.Err(err))
+			os.Exit(1)
+		}
+		log.Info("serving the admission webhooks", "port", webhookOpts.Port, "certDir", webhookOpts.CertDir)
 	}
 
 	if err = mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {

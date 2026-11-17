@@ -11,13 +11,11 @@ actually reads.
 argument list of a dict call is a parse error - "unexpected { in operand" - and the whole
 release then fails to render.) */ -}}
 {{- /*
-  controllerMetricsProxyPort is not used as a port here. It is how
-  helm_lib_module_controller_rbac learns that the pod carries a kube-rbac-proxy in
-  front of the metrics, and therefore needs the ClusterRoleBinding to d8:rbac-proxy
-  that lets the sidecar create the TokenReview and SubjectAccessReview every scrape
-  is authorised with. Keep it in step with the value given to
-  helm_lib_module_controller_manifests: without it the proxy fails closed on every
-  scrape and the only symptom is up == 0 and a permanent TargetDown.
+  controllerMetricsProxyPort is not used as a port here. It makes
+  helm_lib_module_controller_rbac bind the controller to d8:rbac-proxy, which lets
+  the controller create the TokenReview and SubjectAccessReview every scrape is
+  authorised with. Without it every scrape fails and the only symptom is up == 0
+  and a permanent TargetDown.
 */ -}}
 {{- $rbacConfig := dict
   "controllerMetricsProxyPort" (int .Values.csiNfs.internal.controllerMetricsProxyPort)
@@ -25,6 +23,7 @@ release then fails to render.) */ -}}
     (dict "apiGroups" (list "") "resources" (list "secrets") "verbs" (list "get" "list" "watch" "create" "update" "delete"))
     (dict "apiGroups" (list "") "resources" (list "pods") "verbs" (list "get" "list" "watch" "update" "delete"))
     (dict "apiGroups" (list "") "resources" (list "events") "verbs" (list "create" "patch"))
+    (dict "apiGroups" (list "events.k8s.io") "resources" (list "events") "verbs" (list "create" "patch"))
     (dict "apiGroups" (list "coordination.k8s.io") "resources" (list "leases") "verbs" (list "get" "watch" "list" "delete" "update" "create"))
     (dict "apiGroups" (list "") "resources" (list "configmaps") "resourceNames" (list "tlshd-conf") "verbs" (list "get"))
   )
@@ -40,10 +39,10 @@ release then fails to render.) */ -}}
 }}
 {{ include "helm_lib_module_controller_rbac" (list . $rbacConfig) }}
 {{- /*
-  The controller records Events on NFSStorageClass through the core/v1 recorder.
+  The controller records Events on NFSStorageClass through events.k8s.io/v1.
   NFSStorageClass is cluster-scoped, and the Event of a cluster-scoped object is
   created in the default namespace: client-go creates it there and patches it on
-  a repeat. The "events" rule above covers only the module namespace, where
+  a repeat. The "events" rules above cover only the module namespace, where
   leader election records.
 */}}
 ---
@@ -55,6 +54,9 @@ metadata:
   {{- include "helm_lib_module_labels" (list . (dict "app" "controller")) | nindent 2 }}
 rules:
   - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+  - apiGroups: ["events.k8s.io"]
     resources: ["events"]
     verbs: ["create", "patch"]
 ---

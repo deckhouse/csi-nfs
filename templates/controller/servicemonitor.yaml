@@ -10,11 +10,10 @@ What is on that port is the validity of the RPC-with-TLS certificates - the one 
 this module nothing rotates - and the manager's own metrics. The alerts built on it live in
 monitoring/prometheus-rules/tls.yaml.
 
-The port is the kube-rbac-proxy's, not the controller's: the controller binds its metrics
-on 127.0.0.1 and the proxy in the same pod is the only thing that reaches them. That makes
+The controller serves that port over HTTPS and authorizes every scrape itself. That makes
 both of the fields below load-bearing rather than decorative - without bearerTokenSecret
-the proxy answers 401, and without tlsConfig Prometheus rejects the proxy's own
-certificate. A scrape that fails for either reason is indistinguishable from "the feature
+the controller answers 401, and without tlsConfig Prometheus rejects the controller's
+self-signed certificate. A scrape that fails for either reason is indistinguishable from "the feature
 is off": the rules in monitoring/prometheus-rules/tls.yaml carry no absent() arm, by
 design, so nothing would fire to say the certificates stopped being watched. */ -}}
 {{- if (include "helm_lib_api_version_exists" (list . "monitoring.coreos.com/v1/ServiceMonitor")) }}

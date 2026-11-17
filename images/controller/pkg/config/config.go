@@ -32,8 +32,7 @@ const (
 	DefaultHealthProbeBindAddressEnvName = "HEALTH_PROBE_BIND_ADDRESS"
 	DefaultHealthProbeBindAddress        = ":8081"
 	MetricsBindAddressEnvName            = "METRICS_BIND_ADDRESS"
-	// Loopback, not ":4223": the kube-rbac-proxy of the same pod is what publishes
-	// this endpoint, and a wildcard bind would answer unauthenticated on the pod IP.
+	// Loopback, not ":4223": a wildcard bind would answer unauthenticated on the pod IP.
 	DefaultMetricsBindAddress          = "127.0.0.1:4223"
 	DefaultRequeueStorageClassInterval = 10
 	DefaultRequeueModuleConfigInterval = 10

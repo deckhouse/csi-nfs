@@ -58,37 +58,53 @@ var (
 	}
 )
 
-func RunNodeSelectorReconciler(ctx context.Context, mgr manager.Manager, cfg config.Options, log logger.Logger) {
-	cl := mgr.GetClient()
+func RunNodeSelectorReconciler(mgr manager.Manager, cfg config.Options, log logger.Logger) error {
+	return mgr.Add(&nodeSelectorReconciler{
+		cl:                mgr.GetClient(),
+		clusterWideClient: mgr.GetAPIReader(),
+		cfg:               cfg,
+		log:               log,
+	})
+}
 
-	clusterWideClient := mgr.GetAPIReader()
-	go func() {
-		for {
-			log.Info("Start reconcile of NFS node selectors.")
-			err := ReconcileNodeSelector(ctx, cl, clusterWideClient, log, cfg.ControllerNamespace)
-			if err != nil {
-				log.Error("Failed reconcile of NFS node selectors.", logger.Err(err))
-			}
-			log.Info("END reconcile of NFS node selectors.")
+type nodeSelectorReconciler struct {
+	cl                client.Client
+	clusterWideClient client.Reader
+	cfg               config.Options
+	log               logger.Logger
+}
 
-			log.Info("Start reconcile of module pods.")
-			err = ReconcileModulePods(ctx, cl, clusterWideClient, log, cfg.ControllerNamespace, NFSNodeSelector, ModulePodSelectorList)
-			if err != nil {
-				log.Error("Failed reconcile of module pods.", logger.Err(err))
-			}
-			log.Info("END reconcile of module pods.")
+func (r *nodeSelectorReconciler) NeedLeaderElection() bool {
+	return true
+}
 
-			timer := time.NewTimer(cfg.RequeueNodeSelectorInterval * time.Second)
-
-			select {
-			case <-ctx.Done():
-				log.Info("Context cancelled. Stopping NodeSelectorReconciler.")
-				timer.Stop()
-				return
-			case <-timer.C:
-			}
+func (r *nodeSelectorReconciler) Start(ctx context.Context) error {
+	log := r.log
+	for {
+		log.Info("Start reconcile of NFS node selectors.")
+		err := ReconcileNodeSelector(ctx, r.cl, r.clusterWideClient, log, r.cfg.ControllerNamespace)
+		if err != nil {
+			log.Error("Failed reconcile of NFS node selectors.", logger.Err(err))
 		}
-	}()
+		log.Info("END reconcile of NFS node selectors.")
+
+		log.Info("Start reconcile of module pods.")
+		err = ReconcileModulePods(ctx, r.cl, r.clusterWideClient, log, r.cfg.ControllerNamespace, NFSNodeSelector, ModulePodSelectorList)
+		if err != nil {
+			log.Error("Failed reconcile of module pods.", logger.Err(err))
+		}
+		log.Info("END reconcile of module pods.")
+
+		timer := time.NewTimer(r.cfg.RequeueNodeSelectorInterval * time.Second)
+
+		select {
+		case <-ctx.Done():
+			log.Info("Context cancelled. Stopping NodeSelectorReconciler.")
+			timer.Stop()
+			return nil
+		case <-timer.C:
+		}
+	}
 }
 
 func ReconcileNodeSelector(ctx context.Context, cl client.Client, clusterWideClient client.Reader, log logger.Logger, namespace string) error {
@@ -122,7 +138,7 @@ func ReconcileNodeSelector(ctx context.Context, cl client.Client, clusterWideCli
 
 		for _, node := range selectedNodes.Items {
 			log.Info(fmt.Sprintf("process labels for node: %s", node.Name))
-			err := AddLabelsToNode(ctx, cl, log, node, nfsNodeLabels)
+			err := AddLabelsToNode(ctx, cl, clusterWideClient, log, node, nfsNodeLabels)
 			if err != nil {
 				err = fmt.Errorf("[reconcileNodeSelector] Failed add labels %+v to node: %s: %w", nfsNodeLabels, node.Name, err)
 				return err
@@ -158,7 +174,7 @@ func ReconcileNodeSelector(ctx context.Context, cl client.Client, clusterWideCli
 	}
 
 	namespaceList := &corev1.NamespaceList{}
-	err = cl.List(ctx, namespaceList)
+	err = clusterWideClient.List(ctx, namespaceList)
 	if err != nil {
 		err = fmt.Errorf("[reconcileNodeSelector] Failed get namespaces: %w", err)
 		return err
@@ -203,7 +219,7 @@ func ReconcileNodeSelector(ctx context.Context, cl client.Client, clusterWideCli
 			continue
 		}
 
-		err := RemoveLabelsFromNode(ctx, cl, log, node, nfsNodeLabels)
+		err := RemoveLabelsFromNode(ctx, cl, clusterWideClient, log, node, nfsNodeLabels)
 		if err != nil {
 			err = fmt.Errorf("[reconcileNodeSelector] Failed remove labels %+v from node: %s: %w", nfsNodeLabels, node.Name, err)
 			return err
@@ -238,11 +254,11 @@ func GetNodeSelectorFromNFSStorageClasses(log logger.Logger, nfsStorageClasses *
 	return nodeSelectorList
 }
 
-func GetNodesBySelectorList(ctx context.Context, cl client.Client, log logger.Logger, nodeSelectorList []*metav1.LabelSelector) (*corev1.NodeList, error) {
+func GetNodesBySelectorList(ctx context.Context, cl client.Client, log logger.Logger, nodeSelectorList []*metav1.LabelSelector) (*metav1.PartialObjectMetadataList, error) {
 	log = log.Named("GetNodesBySelectorList")
 
-	allSelectedNodes := &corev1.NodeList{}
-	allSelectedNodesMap := map[string]corev1.Node{}
+	allSelectedNodes := &metav1.PartialObjectMetadataList{}
+	allSelectedNodesMap := map[string]metav1.PartialObjectMetadata{}
 
 	for _, nodeSelector := range nodeSelectorList {
 		log.Trace(fmt.Sprintf("process node selector: %+v", nodeSelector))
@@ -253,7 +269,7 @@ func GetNodesBySelectorList(ctx context.Context, cl client.Client, log logger.Lo
 		}
 		log.Trace(fmt.Sprintf("successfully convert selector %+v to labels.Selector: %+v", nodeSelector, selector))
 
-		selectedNodes := &corev1.NodeList{}
+		selectedNodes := newNodeMetadataList()
 		err = cl.List(ctx, selectedNodes, &client.ListOptions{LabelSelector: selector})
 		if err != nil {
 			err = fmt.Errorf("[GetNodesBySelectorList] Failed get nodes from Kubernetes by labels.Selector: %+v: %w", nodeSelector, err)
@@ -276,13 +292,19 @@ func GetNodesBySelectorList(ctx context.Context, cl client.Client, log logger.Lo
 	return allSelectedNodes, nil
 }
 
-func GetNodesBySelector(ctx context.Context, cl client.Client, nodeSelector map[string]string) (*corev1.NodeList, error) {
-	selectedK8sNodes := &corev1.NodeList{}
+func newNodeMetadataList() *metav1.PartialObjectMetadataList {
+	nodes := &metav1.PartialObjectMetadataList{}
+	nodes.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("NodeList"))
+	return nodes
+}
+
+func GetNodesBySelector(ctx context.Context, cl client.Client, nodeSelector map[string]string) (*metav1.PartialObjectMetadataList, error) {
+	selectedK8sNodes := newNodeMetadataList()
 	err := cl.List(ctx, selectedK8sNodes, client.MatchingLabels(nodeSelector))
 	return selectedK8sNodes, err
 }
 
-func AddLabelsToNode(ctx context.Context, cl client.Client, log logger.Logger, node corev1.Node, labels map[string]string) error {
+func AddLabelsToNode(ctx context.Context, cl client.Client, reader client.Reader, log logger.Logger, node metav1.PartialObjectMetadata, labels map[string]string) error {
 	log = log.Named("AddLabelsToNode")
 
 	log.Debug(fmt.Sprintf("node labels: %+v", node.Labels))
@@ -294,7 +316,7 @@ func AddLabelsToNode(ctx context.Context, cl client.Client, log logger.Logger, n
 	log.Info(fmt.Sprintf("node %s has not labels %v. Add labels to node.", node.Name, labels))
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		latestNode := &corev1.Node{}
-		if err := cl.Get(ctx, types.NamespacedName{Name: node.Name}, latestNode); err != nil {
+		if err := reader.Get(ctx, types.NamespacedName{Name: node.Name}, latestNode); err != nil {
 			return err
 		}
 
@@ -330,8 +352,8 @@ func AddLabelsIfNeeded(log logger.Logger, originalLabels, labelsToAdd map[string
 	return originalLabels, added
 }
 
-func DiffNodeLists(leftList, rightList *corev1.NodeList) corev1.NodeList {
-	var diff corev1.NodeList
+func DiffNodeLists(leftList, rightList *metav1.PartialObjectMetadataList) metav1.PartialObjectMetadataList {
+	var diff metav1.PartialObjectMetadataList
 
 	for _, leftNode := range leftList.Items {
 		if !ContainsNode(rightList, leftNode.Name) {
@@ -341,7 +363,7 @@ func DiffNodeLists(leftList, rightList *corev1.NodeList) corev1.NodeList {
 	return diff
 }
 
-func ContainsNode(nodeList *corev1.NodeList, nodeName string) bool {
+func ContainsNode(nodeList *metav1.PartialObjectMetadataList, nodeName string) bool {
 	for _, item := range nodeList.Items {
 		if item.Name == nodeName {
 			return true
@@ -440,7 +462,7 @@ func GetPodsMapWithNFSVolume(ctx context.Context, clusterWideClient client.Reade
 	return podsMapWithNFSVolume, nil
 }
 
-func RemoveLabelsFromNode(ctx context.Context, cl client.Client, log logger.Logger, node corev1.Node, labels map[string]string) error {
+func RemoveLabelsFromNode(ctx context.Context, cl client.Client, reader client.Reader, log logger.Logger, node metav1.PartialObjectMetadata, labels map[string]string) error {
 	log = log.Named("RemoveLabelFromNode")
 
 	log.Debug(fmt.Sprintf("node labels: %+v", node.Labels))
@@ -451,7 +473,7 @@ func RemoveLabelsFromNode(ctx context.Context, cl client.Client, log logger.Logg
 	log.Info(fmt.Sprintf("remove labels %v from node: %s", labels, node.Name))
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		latestNode := &corev1.Node{}
-		if err := cl.Get(ctx, types.NamespacedName{Name: node.Name}, latestNode); err != nil {
+		if err := reader.Get(ctx, types.NamespacedName{Name: node.Name}, latestNode); err != nil {
 			return err
 		}
 
@@ -716,7 +738,7 @@ func ReconcileModulePods(
 	log.Info(fmt.Sprintf("csi-controller pods: %v", csiControllerPodNames))
 
 	namespaceList := &corev1.NamespaceList{}
-	err = cl.List(ctx, namespaceList)
+	err = clusterWideClient.List(ctx, namespaceList)
 	if err != nil {
 		err = fmt.Errorf("[ReconcileModulePods] Failed get namespaces: %w", err)
 		return err

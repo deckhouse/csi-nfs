@@ -276,6 +276,7 @@ storage.deckhouse.io/csi-nfs-node: ""
 {{- $_ := set $csiControllerConfig "extraCreateMetadataEnabled" true }}
 {{- $_ := set $csiControllerConfig "livenessProbePort" 4229 }}
 {{- $_ := set $csiControllerConfig "csiControllerHaMode" true }}
+{{- $_ := set $csiControllerConfig "attacherEnabled" false }}
 {{- $_ := set $csiControllerConfig "forceCsiControllerPrivilegedContainer" true }}
 {{- $_ := set $csiControllerConfig "securityPolicyExceptionEnabled" true }}
 {{- $_ := set $csiControllerConfig "additionalControllerArgs" (include "csi_controller_args" . | fromYamlArray) }}

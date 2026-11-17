@@ -32,6 +32,8 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -42,6 +44,7 @@ import (
 	"github.com/deckhouse/csi-nfs/images/csi-nfs-scheduler-extender/pkg/scheduler"
 	"github.com/deckhouse/sds-common-lib/logger"
 	"github.com/deckhouse/sds-common-lib/monitoring"
+	"github.com/deckhouse/sds-common-lib/monitoring/metricsauth"
 )
 
 const (
@@ -112,9 +115,8 @@ func main() {
 }
 
 // defaultMetricsBindAddress keeps the endpoint on loopback when the chart says
-// nothing: the kube-rbac-proxy of the same pod is what publishes it. The fleet-wide
-// fallback is the wildcard ":8080", which would both answer unauthenticated on the
-// pod IP and collide with the proxy, since the two carry the same port number.
+// nothing: the fleet-wide fallback is the wildcard ":8080", which would answer
+// unauthenticated on the pod IP.
 const defaultMetricsBindAddress = "127.0.0.1:8080"
 
 func subMain(ctx context.Context) error {
@@ -158,11 +160,17 @@ func subMain(ctx context.Context) error {
 
 	managerOpts := manager.Options{
 		Scheme: scheme,
+		Cache:  cache.Options{DefaultTransform: cache.TransformStripManagedFields()},
+		Client: client.Options{
+			Cache: &client.CacheOptions{
+				DisableFor: []client.Object{&corev1.PersistentVolume{}},
+			},
+		},
 		Logger: log.GetLogger(),
 		// controller-runtime binds :8080 whenever this is empty, so this manager has
 		// always served its reconcile and workqueue metrics with nothing declaring the
-		// port. The chart points it at loopback and puts a kube-rbac-proxy in front.
-		Metrics:                metricsserver.Options{BindAddress: monitoring.BindAddressFromEnvOr(defaultMetricsBindAddress)},
+		// port. The chart publishes it over HTTPS and has every scrape authorized here.
+		Metrics:                metricsauth.ApplyFromEnv(metricsserver.Options{BindAddress: monitoring.BindAddressFromEnvOr(defaultMetricsBindAddress)}),
 		HealthProbeBindAddress: config.HealthProbeBindAddress,
 		BaseContext:            func() context.Context { return ctx },
 	}

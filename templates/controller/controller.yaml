@@ -13,11 +13,13 @@
 {{- $config := dict
   "valuesKey" "csiNfs"
   "webhookEnabled" true
+  "webhooksInController" true
   "webhookCertPath" "internal.customWebhookCert"
   "onMasterNode" true
   "podSecurityContext" "deckhouse"
   "controllerMetricsPort" (int .Values.csiNfs.internal.controllerMetricsPort)
   "controllerMetricsProxyPort" (int .Values.csiNfs.internal.controllerMetricsProxyPort)
+  "controllerMetricsInProcessAuthorization" true
   "additionalControllerEnvs" (list
     (dict "name" "STORAGE_CLASS_LABEL_IGNORED_PREFIXES" "value" (join "," $ignoredPrefixes)))
 }}

@@ -22,14 +22,9 @@ import (
 	"net/http"
 	"os"
 
-	storagev1 "k8s.io/api/storage/v1"
-
-	cn "github.com/deckhouse/csi-nfs/api/v1alpha1"
 	"github.com/deckhouse/csi-nfs/images/webhooks/handlers"
 	commonfeature "github.com/deckhouse/csi-nfs/lib/go/common/pkg/feature"
-	d8commonapi "github.com/deckhouse/sds-common-lib/api/v1alpha1"
 	"github.com/deckhouse/sds-common-lib/logger"
-	"github.com/deckhouse/sds-common-lib/logger/kwhlogger"
 )
 
 type config struct {
@@ -52,12 +47,7 @@ func initFlags() config {
 	return cfg
 }
 
-const (
-	port           = ":8443"
-	NSCValidatorID = "NSCValidator"
-	SCValidatorID  = "SCValidator"
-	MCValidatorID  = "MCValidator"
-)
+const port = ":8443"
 
 func main() {
 	// LOG_LEVEL arrives as a number 0..4 from lib-helm, which is what the
@@ -69,35 +59,19 @@ func main() {
 		fmt.Fprintf(os.Stderr, "unable to create the logger: %s\n", err)
 		os.Exit(1)
 	}
-	kwhLog := kwhlogger.New(log)
-	// One logger per process: the handlers are plain functions with nowhere to pass
-	// one through, so they read it from their own package.
-	handlers.SetLogger(log)
 
 	cfg := initFlags()
 
-	scValidatingWebhookHandler, err := handlers.GetValidatingWebhookHandler(handlers.SCValidate, SCValidatorID, &storagev1.StorageClass{}, kwhLog)
+	hs, err := handlers.Handlers(log)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error creating scValidatingWebhookHandler: %s", err)
-		os.Exit(1)
-	}
-
-	nscValidatingWebhookHandler, err := handlers.GetValidatingWebhookHandler(handlers.NSCValidate, NSCValidatorID, &cn.NFSStorageClass{}, kwhLog)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error creating nscValidatingWebhookHandler: %s", err)
-		os.Exit(1)
-	}
-
-	mcValidatingWebhookHandler, err := handlers.GetValidatingWebhookHandler(handlers.MCValidate, MCValidatorID, &d8commonapi.ModuleConfig{}, kwhLog)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error creating mcValidatingWebhookHandler: %s", err)
+		fmt.Fprintf(os.Stderr, "error creating the webhook handlers: %s", err)
 		os.Exit(1)
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle("/sc-validate", scValidatingWebhookHandler)
-	mux.Handle("/nsc-validate", nscValidatingWebhookHandler)
-	mux.Handle("/mc-validate", mcValidatingWebhookHandler)
+	for path, h := range hs {
+		mux.Handle(path, h)
+	}
 	mux.HandleFunc("/healthz", httpHandlerHealthz)
 
 	log.Info("feature flags", "tlsEnabled", commonfeature.TLSEnabled())

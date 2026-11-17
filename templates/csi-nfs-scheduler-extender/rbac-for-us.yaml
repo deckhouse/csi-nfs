@@ -55,9 +55,9 @@ subjects:
     namespace: d8-{{ .Chart.Name }}
 
 {{- /*
-  The kube-rbac-proxy sidecar in deployment.yaml authorises every scrape with a
-  TokenReview and a SubjectAccessReview. Without this binding it fails closed:
-  Prometheus gets 401 and the only symptom is up == 0 and a permanent TargetDown.
+  The extender authorises every scrape of its metrics with a TokenReview and a
+  SubjectAccessReview. Without this binding it fails closed: every scrape fails and
+  the only symptom is up == 0 and a permanent TargetDown.
 */}}
 ---
 apiVersion: rbac.authorization.k8s.io/v1

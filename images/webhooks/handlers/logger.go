@@ -26,7 +26,7 @@ import "github.com/deckhouse/sds-common-lib/logger"
 //
 // The name is not `log`: this package imports kubewebhook's log package under
 // that name. It starts as a no-op so a test that does not set it stays quiet, and
-// main replaces it with the process logger before the first request is served.
+// Handlers replaces it with the process logger before the first request is served.
 // The validators used to write to klog, which ignored the module's log level and
 // wrote text where everything else in the pod writes JSON.
 var handlerLog = logger.NewNop()
