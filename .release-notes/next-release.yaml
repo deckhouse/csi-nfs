@@ -4,12 +4,14 @@ date: "2026-xx-xx"
 summary: ""
 highlights: []
 
+new_features:
+  - "NFSStorageClass gets the `spec.connection.subDir` parameter: a template of the volume directory on the NFS server with the placeholders `${pvc.metadata.namespace}`, `${pvc.metadata.name}` and `${pv.metadata.name}`, for example to synchronize the volumes between sites. Every PVC gets a directory of its own, a template without `${pv.metadata.name}` requires `reclaimPolicy: Retain`, and the parameter cannot be changed after the class is created. Without it, the directory stays `<share>/<PV name>`."
+
 docs:
   - "The documentation lists the operating systems and kernels checked for RPC-with-TLS, with a command to check a node, states the kernel requirement (`CONFIG_NET_HANDSHAKE`, usually kernels 6.5 and later), describes how to delete the PVs left behind after an NFSStorageClass with RPC-with-TLS was removed, and gives the RED OS 8 NFS server installation guide in English."
   - "The documentation names the `storage-foundation` module, not `snapshot-controller`, as the module that volume snapshots require, and no longer asks to enable `snapshot-controller`."
 
 # Optional sections — delete rather than leave empty.
-# new_features: []
 # improvements: []
 # fixes: []
 # security: []

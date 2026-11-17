@@ -717,6 +717,10 @@ func GetSCParams(nsc *v1alpha1.NFSStorageClass, controllerNamespace string) map[
 		params[MountPermissionsParamKey] = nsc.Spec.ChmodPermissions
 	}
 
+	if nsc.Spec.Connection.SubDir != "" {
+		params[SubDirParamKey] = nsc.Spec.Connection.SubDir
+	}
+
 	return params
 }
 

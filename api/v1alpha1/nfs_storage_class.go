@@ -57,6 +57,7 @@ type NFSStorageClassList struct {
 // +kubebuilder:validation:XValidation:rule="!has(self.tlsParameters) || self.connection.tls == true",message="tlsParameters require connection.tls to be true."
 // +kubebuilder:validation:XValidation:rule="self.reclaimPolicy != 'Retain' || !has(self.volumeCleanup)",message="If reclaimPolicy is 'Retain', volumeCleanup must be omitted."
 // +kubebuilder:validation:XValidation:rule="self.connection.nfsVersion == '4.2' || !has(self.volumeCleanup)|| self.volumeCleanup != 'Discard'",message="Discard mode is only available when connection.nfsVersion is '4.2'."
+// +kubebuilder:validation:XValidation:rule="!has(self.connection.subDir) || self.connection.subDir.contains('${pv.metadata.name}') || self.reclaimPolicy == 'Retain'",message="If connection.subDir does not contain ${pv.metadata.name}, reclaimPolicy must be 'Retain'."
 type NFSStorageClassSpec struct {
 	// NFS server connection settings.
 	// +kubebuilder:validation:Required
@@ -145,6 +146,28 @@ type NFSStorageClassConnection struct {
 	// +kubebuilder:validation:Enum="3";"4.1";"4.2"
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable."
 	NFSVersion string `json:"nfsVersion"`
+
+	// Template of the directory of a PersistentVolume (PV) inside `share`. If the parameter is omitted, the directory of a PV is `<share>/<PV name>`.
+	//
+	// The template may use the following placeholders, which the NFS CSI driver replaces when it creates the volume:
+	//
+	// - `${pvc.metadata.namespace}` — the namespace of the PersistentVolumeClaim (PVC);
+	// - `${pvc.metadata.name}` — the name of the PVC;
+	// - `${pv.metadata.name}` — the name of the PV.
+	//
+	// Apart from the placeholders, the template may contain Latin letters, digits, `.`, `_` and `-`, and `/` between non-empty path segments; the segments `.` and `..` are not allowed. The directory is created if it does not exist. Its path is stored in the PV when the volume is created.
+	//
+	// Every PVC has to get a directory of its own: the template must contain `${pv.metadata.name}`, or both `${pvc.metadata.namespace}` and `${pvc.metadata.name}` separated by a character that cannot occur in a namespace name, for example `/` or `_`. A template without `${pv.metadata.name}` is allowed only with `reclaimPolicy: Retain`: a PVC re-created with the same name in the same namespace gets the same directory, so deleting the directory of the old volume would delete the data of the new one.
+	//
+	// > **Caution.** A new volume whose directory already exists does not start empty: it gets the files left there, for example by a deleted PVC with the same name and namespace. A volume restored from a snapshot or cloned into an existing directory keeps the files that are there and does not receive the content of its source.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=255
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable."
+	// +kubebuilder:validation:XValidation:rule="self.matches('^([A-Za-z0-9._-]|[$][{](pvc[.]metadata[.]namespace|pvc[.]metadata[.]name|pv[.]metadata[.]name)[}])+(/([A-Za-z0-9._-]|[$][{](pvc[.]metadata[.]namespace|pvc[.]metadata[.]name|pv[.]metadata[.]name)[}])+)*$')",message="subDir may contain only Latin letters, digits, '.', '_', '-', the placeholders ${pvc.metadata.namespace}, ${pvc.metadata.name} and ${pv.metadata.name}, and '/' between non-empty path segments."
+	// +kubebuilder:validation:XValidation:rule="!self.matches('(^|/)[.][.]?(/|$)')",message="subDir must not contain the path segments '.' and '..'."
+	// +kubebuilder:validation:XValidation:rule="self.contains('${pv.metadata.name}') || self.matches('[$][{]pvc[.]metadata[.]namespace[}].*[^a-z0-9-].*[$][{]pvc[.]metadata[.]name[}]') || self.matches('[$][{]pvc[.]metadata[.]name[}].*[^a-z0-9-].*[$][{]pvc[.]metadata[.]namespace[}]')",message="subDir must give every PVC a directory of its own: it must contain ${pv.metadata.name}, or both ${pvc.metadata.namespace} and ${pvc.metadata.name} separated by a character that cannot occur in a namespace name, for example '/' or '_'."
+	SubDir string `json:"subDir,omitempty"`
 
 	// > Available in SE, SE+, EE, and FE editions.
 	//

@@ -104,4 +104,4 @@ EOF
 
 CSI driver control pods are placed on cluster nodes according to the summarization of the [`workloadNodes`](./cr.html#nfsstorageclass-v1alpha1-spec-workloadnodes) parameters from all NFSStorageClass resources. If the `workloadNodes` parameter is missing in an NFSStorageClass, the workload will be placed on all nodes.
 
-A directory `<directory from share>/<PV name>` will be created for each PV.
+A directory `<directory from share>/<PV name>` will be created for each PV. To name the directories after the PVCs, use the `spec.connection.subDir` parameter, see [the FAQ](./faq.html#how-to-set-the-name-of-the-volume-directory-on-the-nfs-server).

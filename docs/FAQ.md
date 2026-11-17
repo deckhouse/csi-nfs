@@ -15,6 +15,59 @@ d8 k -n d8-csi-nfs get pod -owide -w
 
 No, the connection data to the NFS server is stored directly in the PV manifest and cannot be changed. Changing the StorageClass also does not affect the connection settings in already existing PVs.
 
+## How to set the name of the volume directory on the NFS server?
+
+By default, the directory of a PV is `<share>/<PV name>`, and the PV name (`pvc-<UID>`) is generated anew for every volume. If the directory has to be known in advance, for example to synchronize the volumes between sites, set the template of the directory in the [`spec.connection.subDir`](./cr.html#nfsstorageclass-v1alpha1-spec-connection-subdir) parameter. The NFS CSI driver replaces the following placeholders when it creates the volume:
+
+- `${pvc.metadata.namespace}` — the namespace of the PVC;
+- `${pvc.metadata.name}` — the name of the PVC;
+- `${pv.metadata.name}` — the name of the PV.
+
+The parameter is set when the NFSStorageClass is created and cannot be changed or removed afterwards. The directory is fixed in the PV when the volume is created.
+
+Every PVC has to get a directory of its own, so the template must contain `${pv.metadata.name}`, or both `${pvc.metadata.namespace}` and `${pvc.metadata.name}` separated by a character that cannot occur in a namespace name (for example, `/` or `_`; with `-` the volumes `a-b`/`c` and `a`/`b-c` would get the same directory `a-b-c`).
+
+Directories named after the namespace and the name of the PVC, as needed for synchronization between sites:
+
+```shell
+d8 k apply -f - <<'EOF'
+apiVersion: storage.deckhouse.io/v1alpha1
+kind: NFSStorageClass
+metadata:
+  name: nfs-by-pvc-name
+spec:
+  connection:
+    host: 10.223.187.3
+    share: /
+    nfsVersion: "4.1"
+    subDir: "${pvc.metadata.namespace}_${pvc.metadata.name}"
+  reclaimPolicy: Retain
+  volumeBindingMode: WaitForFirstConsumer
+EOF
+```
+
+A PVC `data` in the namespace `app` gets the directory `/app_data` on the NFS server.
+
+A template without `${pv.metadata.name}` is allowed only with `reclaimPolicy: Retain`. A PVC re-created with the same name in the same namespace gets the same directory, and with `Delete` the removal of the directory of the old PV, which may still be running when the new volume is already in use, would delete the data of the new one. With `Retain` the module never deletes such directories: remove them on the NFS server by hand when the data is no longer needed.
+
+Directories grouped by namespace that are deleted together with their PVs:
+
+```yaml
+spec:
+  connection:
+    subDir: "${pvc.metadata.namespace}/${pv.metadata.name}"
+  reclaimPolicy: Delete
+```
+
+When such a PV is deleted, the driver removes its directory and then the parent directories that became empty, for example `/app` after the last volume of the namespace `app`.
+
+{{< alert level="warning" >}}
+A volume whose directory already exists on the server does not start empty:
+
+- A new PVC with the name and the namespace of a deleted one gets the files the old volume left in the directory. The same happens when several clusters use the same share with the same template.
+- A volume restored from a snapshot or cloned into an existing directory keeps the files that are there and does not receive the content of its source. Before restoring or cloning into a PVC with the name of a deleted one, remove or rename its directory on the NFS server.
+{{< /alert >}}
+
 ## How to tell whether the NFS server squashes root?
 
 The CSI controller works on the export as root: it creates the `<PV name>` directory and sets its permissions, removes it when the PV is deleted, and wipes its files when `volumeCleanup` is set. The kubelet changes the ownership of the volume files for the `fsGroup` of a pod. If the NFS server maps root to another user (the `root_squash` or `all_squash` export options in Linux; other operating systems and storage systems may name them differently), these operations fail. Typical symptoms:

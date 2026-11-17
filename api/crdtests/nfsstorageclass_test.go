@@ -18,6 +18,7 @@ package crdtests
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,6 +37,12 @@ const (
 	placeholderCA          = "placeholderCA"
 	rotatedPlaceholderCA   = "rotatedPlaceholderCA"
 	notBase64PlaceholderCA = "placeholder-ca"
+	subDirCharacters       = "subDir may contain only Latin letters, digits"
+	subDirDotSegments      = "subDir must not contain the path segments '.' and '..'."
+	subDirPerPVC           = "subDir must give every PVC a directory of its own"
+	subDirNeedsRetain      = "If connection.subDir does not contain ${pv.metadata.name}, reclaimPolicy must be 'Retain'."
+	subDirByPV             = "${pvc.metadata.namespace}/${pv.metadata.name}"
+	subDirByPVC            = "${pvc.metadata.namespace}_${pvc.metadata.name}"
 )
 
 // fieldImmutable is the message of the self == oldSelf rule on a scalar field,
@@ -79,6 +86,14 @@ func retainClass(name string) *v1alpha1.NFSStorageClass {
 	nsc := nfsClass(name)
 	nsc.Spec.ReclaimPolicy = "Retain"
 	return nsc
+}
+
+func subDirClass(subDir string, nsc func(string) *v1alpha1.NFSStorageClass) func(string) *v1alpha1.NFSStorageClass {
+	return func(name string) *v1alpha1.NFSStorageClass {
+		c := nsc(name)
+		c.Spec.Connection.SubDir = subDir
+		return c
+	}
 }
 
 func TestNFSStorageClassCreate(t *testing.T) {
@@ -285,6 +300,86 @@ func TestNFSStorageClassCreate(t *testing.T) {
 			},
 			wantErr: []string{"spec.workloadNodes.nodeSelector"},
 		},
+		{name: "subDir with the PV name and Delete", nsc: subDirClass(subDirByPV, nfsClass)},
+		{name: "subDir with the PV name alone", nsc: subDirClass("${pv.metadata.name}", nfsClass)},
+		{name: "subDir by namespace and PVC name with Retain", nsc: subDirClass(subDirByPVC, retainClass)},
+		{name: "subDir with a prefix and the name before the namespace", nsc: subDirClass("site-a/${pvc.metadata.name}.${pvc.metadata.namespace}", retainClass)},
+		{name: "subDir with dots inside a segment", nsc: subDirClass("a..b/.x/${pv.metadata.name}", nfsClass)},
+		{
+			name:    "subDir without the PV name and Delete",
+			nsc:     subDirClass(subDirByPVC, nfsClass),
+			wantErr: []string{subDirNeedsRetain},
+		},
+		{
+			name:    "subDir by the PVC name alone",
+			nsc:     subDirClass("${pvc.metadata.name}", retainClass),
+			wantErr: []string{subDirPerPVC},
+		},
+		{
+			name:    "subDir by the namespace alone",
+			nsc:     subDirClass("${pvc.metadata.namespace}", retainClass),
+			wantErr: []string{subDirPerPVC},
+		},
+		{
+			name:    "constant subDir",
+			nsc:     subDirClass("shared", retainClass),
+			wantErr: []string{subDirPerPVC},
+		},
+		{
+			name:    "subDir joining namespace and PVC name with a dash",
+			nsc:     subDirClass("${pvc.metadata.namespace}-${pvc.metadata.name}", retainClass),
+			wantErr: []string{subDirPerPVC},
+		},
+		{
+			name:    "subDir joining namespace and PVC name with nothing",
+			nsc:     subDirClass("${pvc.metadata.namespace}${pvc.metadata.name}", retainClass),
+			wantErr: []string{subDirPerPVC},
+		},
+		{
+			name:    "subDir with an unknown placeholder",
+			nsc:     subDirClass("${pvc.metadata.labels.app}/${pv.metadata.name}", nfsClass),
+			wantErr: []string{subDirCharacters},
+		},
+		{
+			name:    "subDir with the volume ID separator",
+			nsc:     subDirClass("a#b/${pv.metadata.name}", nfsClass),
+			wantErr: []string{subDirCharacters},
+		},
+		{
+			name:    "subDir with a leading slash",
+			nsc:     subDirClass("/${pv.metadata.name}", nfsClass),
+			wantErr: []string{subDirCharacters},
+		},
+		{
+			name:    "subDir with a trailing slash",
+			nsc:     subDirClass("${pv.metadata.name}/", nfsClass),
+			wantErr: []string{subDirCharacters},
+		},
+		{
+			name:    "subDir with an empty segment",
+			nsc:     subDirClass("a//${pv.metadata.name}", nfsClass),
+			wantErr: []string{subDirCharacters},
+		},
+		{
+			name:    "subDir leaving the share",
+			nsc:     subDirClass("../${pv.metadata.name}", nfsClass),
+			wantErr: []string{subDirDotSegments},
+		},
+		{
+			name:    "subDir with a dot segment",
+			nsc:     subDirClass("a/./${pv.metadata.name}", nfsClass),
+			wantErr: []string{subDirDotSegments},
+		},
+		{
+			name:    "subDir ending in a parent segment",
+			nsc:     subDirClass("${pv.metadata.name}/..", nfsClass),
+			wantErr: []string{subDirDotSegments},
+		},
+		{
+			name:    "subDir longer than 255 characters",
+			nsc:     subDirClass(strings.Repeat("a", 240)+"/${pv.metadata.name}", nfsClass),
+			wantErr: []string{"spec.connection.subDir", "Too long"},
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			nsc := tt.nsc(objectName("create", tt.name))
@@ -339,6 +434,24 @@ func TestNFSStorageClassUpdate(t *testing.T) {
 			nsc:     tlsClass,
 			change:  func(c *v1alpha1.NFSStorageClass) { c.Spec.Connection.Mtls = true },
 			wantErr: []string{flagImmutable("spec.connection.mtls"), connectionImmutable},
+		},
+		{
+			name:    "subDir",
+			nsc:     subDirClass(subDirByPV, nfsClass),
+			change:  func(c *v1alpha1.NFSStorageClass) { c.Spec.Connection.SubDir = "other/${pv.metadata.name}" },
+			wantErr: []string{fieldImmutable("spec.connection.subDir"), connectionImmutable},
+		},
+		{
+			name:    "subDir added",
+			nsc:     nfsClass,
+			change:  func(c *v1alpha1.NFSStorageClass) { c.Spec.Connection.SubDir = subDirByPV },
+			wantErr: []string{connectionImmutable},
+		},
+		{
+			name:    "subDir removed",
+			nsc:     subDirClass(subDirByPV, nfsClass),
+			change:  func(c *v1alpha1.NFSStorageClass) { c.Spec.Connection.SubDir = "" },
+			wantErr: []string{connectionImmutable},
 		},
 		{
 			name:    "reclaimPolicy",
