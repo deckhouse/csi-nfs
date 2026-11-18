@@ -97,7 +97,7 @@ func isMountPoint(r io.Reader, target string) (bool, error) {
 	sc := bufio.NewScanner(r)
 	sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 	for sc.Scan() {
-		fields := strings.Fields(sc.Text())
+		fields := strings.Split(sc.Text(), " ")
 		if len(fields) < 5 {
 			continue
 		}
