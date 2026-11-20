@@ -121,6 +121,18 @@ shell:
       local      tpi_cots_ord  -     loopback  -       -       -
       unix       tpi_cots_ord  -     loopback  -       -       -
       EOF
+    - |
+      set -e
+      cat > /package/nfs-tools/etc/nsswitch.conf <<'EOF'
+      passwd:     files
+      group:      files
+      shadow:     files
+      hosts:      files dns
+      networks:   files dns
+      services:   files
+      protocols:  files
+      rpc:        files
+      EOF
     - chmod +x /package/install /package/uninstall
 
 ---

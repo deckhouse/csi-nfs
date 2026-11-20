@@ -208,7 +208,7 @@ fi
 # extra_unit lands verbatim in the [Unit] section, which is how statd gets its
 # ordering against the portmapper.
 unit() {
-  local unit_name=$1 description=$2 exec_start=$3 extra_unit=${4:-}
+  local unit_name=$1 description=$2 exec_start=$3 extra_unit=${4:-} extra_service=${5:-}
   cat > "/etc/systemd/system/${unit_name}" <<UNITFILE
 [Unit]
 Description=${description}
@@ -222,6 +222,7 @@ Type=simple
 ExecStart=${exec_start}
 Restart=always
 RestartSec=5
+${extra_service}
 
 [Install]
 WantedBy=multi-user.target
@@ -250,7 +251,8 @@ Requires=${RPCBIND_UNIT}"
     portmapper="After=rpcbind.socket rpcbind.service
 Wants=rpcbind.socket rpcbind.service"
   fi
-  unit "${STATD_UNIT}" "NSM status monitor shipped by the csi-nfs module" "${PREFIX}/bin/rpc.statd -F" "${portmapper}"
+  unit "${STATD_UNIT}" "NSM status monitor shipped by the csi-nfs module" "${PREFIX}/bin/rpc.statd -F" "${portmapper}" \
+    "BindReadOnlyPaths=${PREFIX}/etc/nsswitch.conf:/etc/nsswitch.conf"
   units+=("${STATD_UNIT}")
 fi
 

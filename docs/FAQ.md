@@ -299,6 +299,8 @@ The socket path is not assumed. Where `rpcbind` opens its local socket is compil
 
 And `rpc.statd` execs `sm-notify` by the absolute path compiled into it, which is not the copy under our prefix. The install script links that path onto the payload's copy, and records the link so that the uninstall takes back exactly it. Without the link a node that has just rebooted cannot announce the reboot to the peers holding locks on it.
 
+The module's `rpc.statd` and `sm-notify` are statically linked, so they cannot load the host's NSS modules: a lookup that reaches `sss`, `systemd` or another module from `/etc/nsswitch.conf` loads the host's glibc into the process, and `rpc.statd` dies with `SIGFPE` at start. Rocky Linux, RHEL and AlmaLinux list `sss` first for `passwd` and `group`. The `d8-csi-nfs-rpc-statd.service` unit therefore mounts the package's own `nsswitch.conf` over `/etc/nsswitch.conf` for this daemon only, with the `files` and `dns` sources that glibc has built in.
+
 The two daemons talk to each other over the portmapper protocol, which does not depend on the version, so a node may well run the host's `rpcbind` next to the module's `rpc.statd`.
 
 To tell which daemon a node took from where, look at what is running on it:
