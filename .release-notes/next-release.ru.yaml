@@ -4,17 +4,8 @@ date: "2026-xx-xx"
 summary: ""
 highlights: []
 
-new_features:
-  - "В NFSStorageClass появился параметр `spec.connection.subDir` — шаблон каталога тома на NFS-сервере с подстановками `${pvc.metadata.namespace}`, `${pvc.metadata.name}` и `${pv.metadata.name}`, например для синхронизации томов между площадками. У каждой PVC свой каталог, шаблон без `${pv.metadata.name}` требует `reclaimPolicy: Retain`, после создания класса параметр не меняется. Без параметра каталог остаётся `<share>/<имя PV>`."
-
-docs:
-  - "В документации перечислены операционные системы и ядра, проверенные для RPC-with-TLS, и команда проверки узла, описано требование к ядру (`CONFIG_NET_HANDSHAKE`, обычно ядра 6.5 и новее), порядок удаления PV, оставшихся после удаления NFSStorageClass с RPC-with-TLS, а руководство по установке NFS-сервера на РЕД ОС 8 добавлено в английскую локаль."
-  - "Документация называет модуль `storage-foundation`, а не `snapshot-controller`, модулем, который требуется для снимков томов, и больше не предлагает включать `snapshot-controller`."
-
-fixes:
-  - "На узлах без собственных `rpcbind` и `nfs-utils`, где модуль поднимает свой userspace NFSv3, `rpc.statd` больше не падает при старте в Rocky Linux, RHEL, AlmaLinux и других системах, где в `/etc/nsswitch.conf` раньше `files` указан `sss` или другой загружаемый NSS-модуль. Раньше `d8-csi-nfs-rpc-statd.service` перезапускался каждые несколько секунд, и любое монтирование NFSv3 на таком узле завершалось ошибкой `rpc.statd is not running but is required for remote locking`."
-
 # Необязательные разделы — пустые не оставлять, а удалять.
+# new_features: []
 # improvements: []
 # fixes: []
 # security: []

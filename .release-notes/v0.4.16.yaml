@@ -1,0 +1,24 @@
+date: "2026-11-20"
+
+summary: "NFSStorageClass gets the `spec.connection.subDir` template of the volume directory on the NFS server, and the module needs less memory on master nodes."
+
+highlights:
+  - "The new `spec.connection.subDir` parameter of NFSStorageClass sets the directory of each volume on the NFS server from the namespace and the name of its PVC and the name of its PV."
+  - "The module controller, the CSI controller and `csi-nfs-scheduler-extender` need less memory on master nodes: fewer containers per Pod and narrower caches."
+
+new_features:
+  - "NFSStorageClass gets the `spec.connection.subDir` parameter: a template of the volume directory on the NFS server with the placeholders `${pvc.metadata.namespace}`, `${pvc.metadata.name}` and `${pv.metadata.name}`, for example to synchronize the volumes between sites. Every PVC gets a directory of its own, a template without `${pv.metadata.name}` requires `reclaimPolicy: Retain`, and the parameter cannot be changed after the class is created. Without it, the directory stays `<share>/<PV name>`."
+
+improvements:
+  - "The module needs less memory on master nodes. The controller serves the admission webhooks itself instead of a separate `webhooks` container; the controller and `csi-nfs-scheduler-extender` serve their metrics over HTTPS and check each scrape themselves, with the same TokenReview and SubjectAccessReview, instead of a kube-rbac-proxy container; the CSI controller runs without the external-attacher, which never had work, as the `nfs.csi.k8s.io` CSIDriver has `attachRequired: false`; the controller and the scheduler extender keep only the metadata of Nodes, the controller caches only the `csi-nfs` ModuleConfig, the scheduler extender no longer caches PersistentVolumes, and the controller, the scheduler extender and the root-squash probe no longer keep `managedFields` of the objects they cache. The webhook Service, the metrics ports, the ServiceMonitor, the PodMonitor and the access rules stay the same; the Pods of the controller, of the CSI controller and, where it is enabled, of the scheduler extender are recreated once during the update."
+  - "In HA mode the CSI controller and the module controller run two replicas instead of one per master node, and one replica on a cluster with a single master node."
+
+fixes:
+  - "The controller loop that sets and removes the `storage.deckhouse.io/csi-nfs-node` label on nodes and deletes the module Pods left on nodes without it now runs only on the replica that holds the leader lease. Before, every replica ran it every 10 seconds, which duplicated its API requests and let the replicas race each other on the same Nodes and Pods."
+  - "`csi-nfs-scheduler-extender` gets liveness and readiness probes: a hung extender is restarted, and a starting replica gets requests from kube-scheduler only once it is ready."
+  - "The NFSStorageClass and ModuleConfig validators now answer an admission request with an error when they cannot read the `csi-nfs` ModuleConfig or list the NFSStorageClasses, instead of exiting the process. Before, such a transient API error restarted the `webhooks` container; now the API server applies the `failurePolicy` of the webhook to that request, and the request can be repeated."
+  - "On nodes without `rpcbind` and `nfs-utils` of their own, where the module brings up its own NFSv3 userspace, `rpc.statd` no longer crashes at start on Rocky Linux, RHEL and AlmaLinux and other systems whose `/etc/nsswitch.conf` lists `sss` or another loadable NSS module before `files`. Before, `d8-csi-nfs-rpc-statd.service` restarted every few seconds and every NFSv3 mount on such a node failed with `rpc.statd is not running but is required for remote locking`."
+
+docs:
+  - "The documentation lists the operating systems and kernels checked for RPC-with-TLS, with a command to check a node, states the kernel requirement (`CONFIG_NET_HANDSHAKE`, usually kernels 6.5 and later), describes how to delete the PVs left behind after an NFSStorageClass with RPC-with-TLS was removed, and gives the RED OS 8 NFS server installation guide in English."
+  - "The documentation names the `storage-foundation` module, not `snapshot-controller`, as the module that volume snapshots require, and no longer asks to enable `snapshot-controller`."
