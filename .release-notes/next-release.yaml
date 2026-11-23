@@ -6,6 +6,7 @@ highlights: []
 
 fixes:
   - "A Pod with a csi-nfs volume no longer stays terminating for good after its node restarts. When the Pod was deleted while the first mount of its volume after the restart was still running, for example by the taint eviction of a node that had been down, and the mount took longer than the 110-second timeout of the node plugin, the plugin reported a failure that kubelet takes as final. kubelet then removed the `vol_data.json` file of the volume, could no longer unmount it and logged `unmounter failed to load volume data file` every 100 ms, and the Pod and its StatefulSet replica were stuck until a forced delete. The plugin now reports such a timeout as an operation still in progress: kubelet keeps the volume data, retries the mount for a Pod that still needs the volume, and unmounts the volume of a deleted Pod."
+  - "Labels with the `fleet.cattle.io/` prefix are no longer copied from the StorageClass resources of the module to the StorageClasses. The default of `storageClassLabelIgnoredPrefixes` listed a misspelled prefix, `fleet.cattle.op/`, so the Rancher Fleet labels were copied."
 
 # Optional sections — delete rather than leave empty.
 # new_features: []

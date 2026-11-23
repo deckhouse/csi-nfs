@@ -25,7 +25,7 @@ properties:
       - argocd.argoproj.io/
       - kustomize.toolkit.fluxcd.io/
       - helm.toolkit.fluxcd.io/
-      - fleet.cattle.op/
+      - fleet.cattle.io/
     items:
       type: string
     description: |
