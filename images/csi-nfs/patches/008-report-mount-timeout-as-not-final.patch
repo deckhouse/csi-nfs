@@ -1,0 +1,111 @@
+diff --git a/pkg/nfs/mount_timeout_test.go b/pkg/nfs/mount_timeout_test.go
+new file mode 100644
+index 00000000..16d7bea8
+--- /dev/null
++++ b/pkg/nfs/mount_timeout_test.go
+@@ -0,0 +1,71 @@
++/*
++Copyright 2026 Flant JSC
++
++Licensed under the Apache License, Version 2.0 (the "License");
++you may not use this file except in compliance with the License.
++You may obtain a copy of the License at
++
++    http://www.apache.org/licenses/LICENSE-2.0
++
++Unless required by applicable law or agreed to in writing, software
++distributed under the License is distributed on an "AS IS" BASIS,
++WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++See the License for the specific language governing permissions and
++limitations under the License.
++*/
++
++package nfs
++
++import (
++	"context"
++	"os"
++	"testing"
++	"time"
++
++	"github.com/kubernetes-csi/csi-driver-nfs/test/utils/testutil"
++	"github.com/stretchr/testify/assert"
++	"google.golang.org/grpc/codes"
++	"google.golang.org/grpc/status"
++	mount "k8s.io/mount-utils"
++)
++
++func TestNodePublishVolumeTimeoutIsNotFinal(t *testing.T) {
++	saved := mountTimeout
++	mountTimeout = 50 * time.Millisecond
++	t.Cleanup(func() { mountTimeout = saved })
++
++	fake := mount.NewFakeMounter(nil)
++	mounter := &hangingMounter{Interface: fake, release: make(chan struct{})}
++	ns := NewNodeServer(NewEmptyDriver(""), mounter)
++
++	target := testutil.GetWorkDirPath("timed_out_mount_target", t)
++	t.Cleanup(func() { _ = mount.CleanupMountPoint(target, fake, true) })
++
++	_, err := ns.NodePublishVolume(context.Background(), publishRequest(target))
++	assert.Equal(t, codes.DeadlineExceeded, status.Code(err), "a mount still running past its timeout may yet succeed, so kubelet must not treat it as failed")
++	assert.ErrorContains(t, err, "timeout after")
++	_, statErr := os.Stat(target)
++	assert.NoError(t, statErr, "the target path is left for the mount that is still running")
++
++	close(mounter.release)
++	assert.Eventually(t, func() bool {
++		_, running := ns.mounts.running("vol_1-" + target)
++		return !running
++	}, 5*time.Second, 10*time.Millisecond)
++
++	_, err = ns.NodePublishVolume(context.Background(), publishRequest(target))
++	assert.NoError(t, err, "a retry finds the mount that finished past its timeout")
++	assert.Equal(t, int32(1), mounter.calls.Load(), "the late mount is used, not repeated")
++}
++
++func TestNodePublishVolumeFailedMountIsFinal(t *testing.T) {
++	fake, err := NewFakeMounter()
++	assert.NoError(t, err)
++	ns := NewNodeServer(NewEmptyDriver(""), &failingMounter{Interface: fake})
++
++	target := testutil.GetWorkDirPath("failed_in_time_mount_target", t)
++	t.Cleanup(func() { _ = mount.CleanupMountPoint(target, fake, true) })
++
++	_, err = ns.NodePublishVolume(context.Background(), publishRequest(target))
++	assert.Equal(t, codes.Internal, status.Code(err))
++}
+diff --git a/pkg/nfs/nodeserver.go b/pkg/nfs/nodeserver.go
+index 7e30473d..a9888bb6 100644
+--- a/pkg/nfs/nodeserver.go
++++ b/pkg/nfs/nodeserver.go
+@@ -165,6 +165,10 @@ func (ns *NodeServer) NodePublishVolume(_ context.Context, req *csi.NodePublishV
+ 
+ 	klog.V(2).Infof("NodePublishVolume: volumeID(%v) source(%s) targetPath(%s) mountflags(%v)", volumeID, source, targetPath, mountOptions)
+ 	if err := ns.mountWithTimeout(lockKey, source, targetPath, mountOptions); err != nil {
++		var timedOut *mountTimeoutError
++		if errors.As(err, &timedOut) {
++			return nil, status.Error(codes.DeadlineExceeded, err.Error())
++		}
+ 		if os.IsPermission(err) {
+ 			return nil, status.Error(codes.PermissionDenied, err.Error())
+ 		}
+@@ -213,7 +217,17 @@ func (ns *NodeServer) mountWithTimeout(key, source, target string, options []str
+ 		}
+ 		klog.Warningf("NodePublishVolume: the mount of %s on %s succeeded %s after it started, past its timeout", source, target, took)
+ 	}()
+-	return fmt.Errorf("mount volume %s to %s timeout after %ds", source, target, int(mountTimeout/time.Second))
++	return &mountTimeoutError{source: source, target: target, timeout: mountTimeout}
++}
++
++type mountTimeoutError struct {
++	source  string
++	target  string
++	timeout time.Duration
++}
++
++func (e *mountTimeoutError) Error() string {
++	return fmt.Sprintf("mount volume %s to %s timeout after %ds", e.source, e.target, int(e.timeout/time.Second))
+ }
+ 
+ // NodeUnpublishVolume unmount the volume
