@@ -1,3 +1,4 @@
 dirs:
   - /csi
   - /var/lib/kubelet/pods
+  - /etc/webhook/certs
