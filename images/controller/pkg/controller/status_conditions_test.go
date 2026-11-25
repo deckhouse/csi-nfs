@@ -145,6 +145,9 @@ func TestUpdateNFSStorageClassPhase_Created(t *testing.T) {
 	if got.Status.Phase != CreatedStatusPhase {
 		t.Errorf("phase = %q, want %q", got.Status.Phase, CreatedStatusPhase)
 	}
+	if got.Status.Reason != ready.Message {
+		t.Errorf("status.reason = %q, want the Ready message %q", got.Status.Reason, ready.Message)
+	}
 	if got.Status.ObservedGeneration != 3 {
 		t.Errorf("observedGeneration = %d, want 3", got.Status.ObservedGeneration)
 	}
@@ -174,6 +177,29 @@ func TestUpdateNFSStorageClassPhase_Failed(t *testing.T) {
 	}
 	if got.Status.Phase != FailedStatusPhase {
 		t.Errorf("phase = %q, want %q", got.Status.Phase, FailedStatusPhase)
+	}
+	if got.Status.Reason != reason {
+		t.Errorf("status.reason = %q, want %q", got.Status.Reason, reason)
+	}
+}
+
+func TestPhaseFromReady(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		conds []metav1.Condition
+		want  string
+	}{
+		{"absent", nil, ""},
+		{"true", []metav1.Condition{{Type: v1alpha1.ConditionTypeReady, Status: metav1.ConditionTrue}}, CreatedStatusPhase},
+		{"false", []metav1.Condition{{Type: v1alpha1.ConditionTypeReady, Status: metav1.ConditionFalse}}, FailedStatusPhase},
+		{"unknown", []metav1.Condition{{Type: v1alpha1.ConditionTypeReady, Status: metav1.ConditionUnknown}}, ""},
+		{"other condition only", []metav1.Condition{{Type: "RootSquash", Status: metav1.ConditionFalse}}, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := phaseFromReady(tc.conds); got != tc.want {
+				t.Errorf("phaseFromReady = %q, want %q", got, tc.want)
+			}
+		})
 	}
 }
 

@@ -262,16 +262,11 @@ type NFSStorageClassWorkloadNodes struct {
 // Displays current information about the StorageClass.
 // +k8s:deepcopy-gen=true
 type NFSStorageClassStatus struct {
-	// The StorageClass current state.
-	//
-	// Possible values:
-	//
-	// - `Failed` — the controller received incorrect resource configuration or some errors occurred during the operation;
-	// - `Created` — the StorageClass was created successfully.
+	// Deprecated. Derived from the `Ready` condition. `Created` while `Ready` is `True`, `Failed` while it is `False`, absent while it is `Unknown`. Read `status.conditions` instead.
 	// +kubebuilder:validation:Enum=Failed;Created
 	Phase string `json:"phase,omitempty"`
 
-	// Additional information about the current state of the StorageClass.
+	// Deprecated. Repeats the message of the `Ready` condition.
 	Reason string `json:"reason,omitempty"`
 
 	// > Available in SE, SE+, EE, and FE editions.

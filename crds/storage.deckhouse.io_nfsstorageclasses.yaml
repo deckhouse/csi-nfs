@@ -418,20 +418,15 @@ spec:
                 format: int64
                 type: integer
               phase:
-                description: |-
-                  The StorageClass current state.
-
-                  Possible values:
-
-                  - `Failed` — the controller received incorrect resource configuration or some errors occurred during the operation;
-                  - `Created` — the StorageClass was created successfully.
+                description: Deprecated. Derived from the `Ready` condition. `Created`
+                  while `Ready` is `True`, `Failed` while it is `False`, absent while
+                  it is `Unknown`. Read `status.conditions` instead.
                 enum:
                 - Failed
                 - Created
                 type: string
               reason:
-                description: Additional information about the current state of the
-                  StorageClass.
+                description: Deprecated. Repeats the message of the `Ready` condition.
                 type: string
             type: object
         required:

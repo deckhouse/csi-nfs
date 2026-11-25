@@ -551,15 +551,14 @@ func isIgnoredLabelKey(key string, ignoredPrefixes []string) bool {
 	return false
 }
 
-// updateNFSStorageClassPhase records the outcome of a reconcile pass as both the
-// coarse phase and the Ready condition.
+// updateNFSStorageClassPhase records the outcome of a reconcile pass as the
+// Ready condition, and derives status.phase and status.reason from it.
 //
-// The phase is the input rather than something derived from the condition,
-// unlike in the other storage modules. This controller reports its verdict from
-// eighteen different call sites, and the phase vocabulary is exactly two values,
-// so the two representations are in one-to-one correspondence: rewriting every
-// call site to pass an error instead would be a large change with no observable
-// difference in the result.
+// The verdict comes in as a phase rather than as an error. This controller
+// reports it from eighteen different call sites, and the phase vocabulary is
+// exactly two values, so the two representations are in one-to-one
+// correspondence: rewriting every call site to pass an error instead would be a
+// large change with no observable difference in the result.
 //
 // Writing goes through conditions.UpdateStatus, which reads fresh state, skips
 // the write when nothing changed, and retries on conflict — the three things the
@@ -605,9 +604,26 @@ func updateNFSStorageClassPhase(ctx context.Context, cl client.Client, recorder 
 		}
 		sc.Status.ObservedGeneration = generation
 		conditions.Set(&sc.Status.Conditions, cond)
-		sc.Status.Phase = phase
-		sc.Status.Reason = reason
+		sc.Status.Phase = phaseFromReady(sc.Status.Conditions)
+		sc.Status.Reason = cond.Message
 	}, conditions.WithEvents(recorder, nfsStorageClassConditions))
+}
+
+// phaseFromReady maps the Ready condition onto the deprecated status.phase:
+// Created for True, Failed for False, and nothing while Ready is Unknown or
+// absent.
+func phaseFromReady(conds []metav1.Condition) string {
+	ready := conditions.Get(conds, v1alpha1.ConditionTypeReady)
+	switch {
+	case ready == nil:
+		return ""
+	case ready.Status == metav1.ConditionTrue:
+		return CreatedStatusPhase
+	case ready.Status == metav1.ConditionFalse:
+		return FailedStatusPhase
+	default:
+		return ""
+	}
 }
 
 // nfsStorageClassConditions is how conditions.WithEvents reads the conditions

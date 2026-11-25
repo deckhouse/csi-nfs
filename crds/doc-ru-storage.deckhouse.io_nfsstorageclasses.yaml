@@ -153,15 +153,10 @@ spec:
               properties:
                 phase:
                   description: |
-                    Общее текущее состояние StorageClass.
-                    
-                    Возможные значения: 
-
-                    - `Failed` — контроллер получил некорректную конфигурацию ресурса или возникли ошибки в процессе выполнения операции;
-                    - `Created` — StorageClass создан успешно.
+                    Устарело. Вычисляется из условия `Ready`. `Created`, пока `Ready` равно `True`, `Failed`, пока `False`, и отсутствует, пока `Unknown`. Используйте `status.conditions`.
                 reason:
                   description: |
-                    Дополнительная информация о текущем состоянии StorageClass.
+                    Устарело. Повторяет сообщение условия `Ready`.
                 clientCA:
                   description: |
                     > Доступно в редакциях SE, SE+, EE и FE.
