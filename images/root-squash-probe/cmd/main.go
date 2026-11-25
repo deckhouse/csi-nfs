@@ -67,6 +67,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "unable to create a logger: %v\n", err)
 		os.Exit(1)
 	}
+	ctrl.SetLogger(log.GetLogger())
 
 	namespace, err := podNamespace()
 	if err != nil {

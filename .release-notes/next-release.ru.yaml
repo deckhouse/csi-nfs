@@ -19,3 +19,6 @@ highlights: []
 #     to: "1.1"
 #     changelog_url: "https://..."
 #     notes: "..."
+
+fixes:
+  - "В логах контейнера `controller` и контейнера `root-squash-probe` пода CSI-контроллера больше не появляется сообщение `[controller-runtime] log.SetLogger(...) was never called; logs will not be displayed` со стеком вызовов. Сообщения кеша controller-runtime и клиента Kubernetes внутри них, например `Failed to watch`, когда не удаётся получить список ресурсов, раньше отбрасывались; теперь они пишутся в лог контейнера в том же формате, что и остальные его сообщения."
