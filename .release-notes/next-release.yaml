@@ -4,13 +4,18 @@ date: "2026-xx-xx"
 summary: ""
 highlights: []
 
+new_features:
+  - "The `D8CsiNfsStorageClassNotReady` alert fires when the `Ready` condition of a `NFSStorageClass` has not been `True` for 15 minutes. It reads the new `csi_nfs_resource_ready` metric of the controller and links to the new FAQ section on the status conditions and reasons."
+improvements:
+  - "`kubectl get` shows the reason of the `Ready` condition for `NFSStorageClass`. The kind is in the `d8-storage` and `d8-storage-classes` categories, so `kubectl get d8-storage-classes` lists the classes of every storage module."
+upgrade_notes:
+  - "The `Phase` column of `NFSStorageClass` is shown only with `kubectl get -o wide`, and the `Reason` column now holds the reason of the `Ready` condition rather than `status.reason`. Scripts that parse the columns should read `.status.conditions` instead."
+  - "The `CsiNfsTLSCertificateExpiringSoon`, `CsiNfsTLSCertificateExpired`, `CsiNfsTLSCertificateNotYetValid` and `StorageClassDoesNotMatchTheSettingsInModuleConfigCsiNfs` alerts are deprecated and will be removed in the next minor release. `D8CsiNfsTLSCertificateExpiringSoon`, `D8CsiNfsTLSCertificateExpired`, `D8CsiNfsTLSCertificateNotYetValid` and `D8CsiNfsStorageClassDoesNotMatchTheSettingsInModuleConfig` replace them and fire on the same conditions; until the old names are removed, both fire. Update silences and routes that match the old names."
+
 # Optional sections — delete rather than leave empty.
-# new_features: []
-# improvements: []
 # fixes: []
 # security: []
 # breaking: []
-# upgrade_notes: []
 # known_issues: []
 # docs: []
 # dependencies:

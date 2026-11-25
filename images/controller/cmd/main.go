@@ -183,6 +183,11 @@ func main() {
 		log.Info("serving the admission webhooks", "port", webhookOpts.Port, "certDir", webhookOpts.CertDir)
 	}
 
+	if err = controller.RegisterReadinessMetric(mgr, baseLog.Named("readiness")); err != nil {
+		log.Error("unable to register the readiness metric", logger.Err(err))
+		os.Exit(1)
+	}
+
 	if err = mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		log.Error("unable to mgr.AddHealthzCheck", logger.Err(err))
 		os.Exit(1)

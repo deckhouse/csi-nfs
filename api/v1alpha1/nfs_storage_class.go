@@ -26,12 +26,12 @@ import (
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
-// +kubebuilder:resource:scope=Cluster,shortName=nsc
+// +kubebuilder:resource:scope=Cluster,shortName=nsc,categories=d8-storage;d8-storage-classes
 // +kubebuilder:subresource:status
 // +kubebuilder:metadata:labels={"heritage=deckhouse","module=csi-nfs","backup.deckhouse.io/cluster-config=true"}
-// +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase"
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].status"
-// +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.reason",priority=1
+// +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].reason"
+// +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase",priority=1
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="The age of this resource."
 // +crd-enricher:crd:minimal=true
 // +crd-enricher:crd:preserveUnknownFields=false

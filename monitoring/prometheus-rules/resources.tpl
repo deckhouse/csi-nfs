@@ -1,0 +1,1 @@
+{{- include "helm_lib_prometheus_rules_resource_not_ready" (list . (dict "faqAnchor" "what-do-the-status-conditions-and-reasons-mean" "kinds" (list (dict "kind" "NFSStorageClass" "role" "class")))) }}

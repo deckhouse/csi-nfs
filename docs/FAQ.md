@@ -11,6 +11,23 @@ To do this, you need to check the pod statuses in the `d8-csi-nfs` namespace. Al
 d8 k -n d8-csi-nfs get pod -owide -w
 ```
 
+## What do the status conditions and reasons mean?
+
+`NFSStorageClass` publishes the `Ready` condition. Its status and reason are in the `READY` and `REASON` columns, and its message says what is wrong:
+
+```shell
+d8 k get d8-storage-classes
+d8 k get nfsstorageclass <name> -o jsonpath='{.status.conditions[?(@.type=="Ready")]}'
+```
+
+The controller exports the same as the `csi_nfs_resource_ready` metric. When `Ready` of a resource has not been `True` for 15 minutes, the `D8CsiNfsStorageClassNotReady` alert fires and refers to this section. The `RootSquash` condition only warns and does not affect `Ready`; see [How to tell whether the NFS server squashes root?](#how-to-tell-whether-the-nfs-server-squashes-root)
+
+| Resource | Reason | Meaning | What to do |
+|---|---|---|---|
+| Class | `Reconciled` | `Ready=True`. The StorageClass, the mount-options Secret and the VolumeSnapshotClass of the class are in place. | Nothing. |
+| Class | `Pending` | The controller has not reached a verdict yet. | A new resource passes it within minutes. If it stays, check that the controller pod in the `d8-csi-nfs` namespace is running. |
+| Class | `ReconcileFailed` | The StorageClass, the mount-options Secret or the VolumeSnapshotClass could not be created or updated: a StorageClass of the same name belongs to another provisioner, a Secret of that name is not managed by the module, or the API request failed. | Read the message. Remove the StorageClass or the Secret that is in the way. |
+
 ## Is it possible to change the parameters of an NFS server for already created PVs?
 
 No, the connection data to the NFS server is stored directly in the PV manifest and cannot be changed. Changing the StorageClass also does not affect the connection settings in already existing PVs.

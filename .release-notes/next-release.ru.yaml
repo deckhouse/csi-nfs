@@ -4,13 +4,18 @@ date: "2026-xx-xx"
 summary: ""
 highlights: []
 
+new_features:
+  - "Алерт `D8CsiNfsStorageClassNotReady` срабатывает, если условие `Ready` у `NFSStorageClass` не равно `True` 15 минут. Он строится на новой метрике контроллера `csi_nfs_resource_ready` и ссылается на новый раздел FAQ об условиях и причинах в статусе."
+improvements:
+  - "`kubectl get` показывает причину условия `Ready` у `NFSStorageClass`. Ресурс входит в категории `d8-storage` и `d8-storage-classes`, поэтому `kubectl get d8-storage-classes` выводит классы всех модулей хранения."
+upgrade_notes:
+  - "Колонка `Phase` у `NFSStorageClass` выводится только в `kubectl get -o wide`, а в колонке `Reason` теперь причина условия `Ready`, а не `status.reason`. Скриптам, которые разбирают колонки, нужно читать `.status.conditions`."
+  - "Алерты `CsiNfsTLSCertificateExpiringSoon`, `CsiNfsTLSCertificateExpired`, `CsiNfsTLSCertificateNotYetValid` и `StorageClassDoesNotMatchTheSettingsInModuleConfigCsiNfs` устарели и будут удалены в следующем минорном релизе. Их заменяют `D8CsiNfsTLSCertificateExpiringSoon`, `D8CsiNfsTLSCertificateExpired`, `D8CsiNfsTLSCertificateNotYetValid` и `D8CsiNfsStorageClassDoesNotMatchTheSettingsInModuleConfig`, которые срабатывают при тех же условиях; пока старые имена не удалены, срабатывают оба. Обновите заглушки (silences) и маршруты, которые выбирают старые имена."
+
 # Необязательные разделы — пустые не оставлять, а удалять.
-# new_features: []
-# improvements: []
 # fixes: []
 # security: []
 # breaking: []
-# upgrade_notes: []
 # known_issues: []
 # docs: []
 # dependencies:
